@@ -40,6 +40,8 @@ class ModelProvider(Protocol):
     @property
     def name(self) -> str:
         """Stable provider identifier."""
+        ...
 
     def chat(self, request: ChatRequest) -> ChatResponse:
         """Produce a chat response."""
+        ...
