@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Ally local runtime data — never commit personal data
+.ally/
+data/
+models/
+runtime/
+secrets/
+*.db
+*.sqlite
+*.sqlite3
+.env
+.env.*
+
+# Logs / generated artifacts
+logs/
+*.log
+coverage.xml
+htmlcov/
+.coverage
