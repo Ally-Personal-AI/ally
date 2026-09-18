@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from platformdirs import user_config_dir, user_data_dir
 from pydantic import BaseModel, ConfigDict, Field
-
+from platformdirs import user_config_dir, user_data_dir
 
 APP_NAME = "Ally"
 APP_AUTHOR = "AllyPersonalAI"
