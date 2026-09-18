@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+from types import TracebackType
 from urllib.parse import urlparse
 
 import httpx
@@ -67,9 +68,9 @@ class OpenAICompatibleProvider:
         if api_key is not None:
             headers["Authorization"] = f"Bearer {api_key}"
 
+        self._base_url = normalized_url
         self._model = model
         self._client = httpx.Client(
-            base_url=normalized_url,
             timeout=timeout_seconds,
             headers=headers,
             transport=transport,
@@ -85,7 +86,12 @@ class OpenAICompatibleProvider:
     def __enter__(self) -> OpenAICompatibleProvider:
         return self
 
-    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         self.close()
 
     def chat(self, request: ChatRequest) -> ChatResponse:
@@ -99,11 +105,14 @@ class OpenAICompatibleProvider:
         }
 
         try:
-            response = self._client.post("/chat/completions", json=payload)
+            response = self._client.post(
+                f"{self._base_url}/chat/completions",
+                json=payload,
+            )
             response.raise_for_status()
         except httpx.RequestError as exc:
             raise ProviderConnectionError(
-                f"Could not reach inference provider at {self._client.base_url}"
+                f"Could not reach inference provider at {self._base_url}"
             ) from exc
         except httpx.HTTPStatusError as exc:
             status = exc.response.status_code
