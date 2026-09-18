@@ -6,15 +6,17 @@ other inference implementation directly.
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
+
+ChatRole = Literal["system", "user", "assistant", "tool"]
 
 
 class ChatMessage(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    role: str
+    role: ChatRole
     content: str
 
 
