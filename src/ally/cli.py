@@ -10,6 +10,15 @@ from ally import __version__
 from ally.commands.chat import run_chat
 from ally.commands.conversations import run_list_conversations, run_show_conversation
 from ally.commands.doctor import run_doctor
+from ally.commands.memory import (
+    run_list_memories,
+    run_remember,
+    run_retract_memory,
+    run_search_memories,
+    run_show_memory,
+    run_supersede_memory,
+)
+from ally.memory import MEMORY_KINDS, MEMORY_PRIVACY_LEVELS, MemoryKind, MemoryPrivacy
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -51,6 +60,42 @@ def build_parser() -> argparse.ArgumentParser:
 
     show_command = conversation_commands.add_parser("show", help="Show one conversation.")
     show_command.add_argument("conversation_id")
+
+    memory = subcommands.add_parser("memory", help="Inspect and correct Ally memory.")
+    memory_commands = memory.add_subparsers(dest="memory_command")
+
+    remember = memory_commands.add_parser("remember", help="Store an explicit memory.")
+    remember.add_argument("content")
+    remember.add_argument("--kind", choices=MEMORY_KINDS, default="semantic")
+    remember.add_argument("--confidence", type=float, default=1.0)
+    remember.add_argument("--importance", type=float, default=0.5)
+    remember.add_argument(
+        "--privacy",
+        choices=MEMORY_PRIVACY_LEVELS,
+        default="private",
+    )
+
+    memory_list = memory_commands.add_parser("list", help="List memories.")
+    memory_list.add_argument("--kind", choices=MEMORY_KINDS)
+    memory_list.add_argument("--all", action="store_true", dest="include_inactive")
+    memory_list.add_argument("--limit", type=int, default=50)
+
+    memory_search = memory_commands.add_parser("search", help="Search memory text.")
+    memory_search.add_argument("query")
+    memory_search.add_argument("--limit", type=int, default=20)
+
+    memory_show = memory_commands.add_parser("show", help="Show one memory.")
+    memory_show.add_argument("memory_id")
+
+    memory_supersede = memory_commands.add_parser(
+        "supersede",
+        help="Replace a memory while preserving its history.",
+    )
+    memory_supersede.add_argument("memory_id")
+    memory_supersede.add_argument("content")
+
+    memory_retract = memory_commands.add_parser("retract", help="Retract a memory.")
+    memory_retract.add_argument("memory_id")
     return parser
 
 
@@ -77,6 +122,36 @@ def main(argv: Sequence[str] | None = None) -> int:
             return run_show_conversation(
                 conversation_id=cast(str, args.conversation_id)
             )
+
+    if args.command == "memory":
+        if args.memory_command == "remember":
+            return run_remember(
+                content=cast(str, args.content),
+                kind=cast(MemoryKind, args.kind),
+                confidence=cast(float, args.confidence),
+                importance=cast(float, args.importance),
+                privacy=cast(MemoryPrivacy, args.privacy),
+            )
+        if args.memory_command == "list":
+            return run_list_memories(
+                kind=cast(MemoryKind | None, args.kind),
+                include_inactive=cast(bool, args.include_inactive),
+                limit=cast(int, args.limit),
+            )
+        if args.memory_command == "search":
+            return run_search_memories(
+                query=cast(str, args.query),
+                limit=cast(int, args.limit),
+            )
+        if args.memory_command == "show":
+            return run_show_memory(memory_id=cast(str, args.memory_id))
+        if args.memory_command == "supersede":
+            return run_supersede_memory(
+                memory_id=cast(str, args.memory_id),
+                content=cast(str, args.content),
+            )
+        if args.memory_command == "retract":
+            return run_retract_memory(memory_id=cast(str, args.memory_id))
 
     parser.print_help()
     return 0
