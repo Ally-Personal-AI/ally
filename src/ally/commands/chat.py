@@ -2,10 +2,30 @@
 
 from __future__ import annotations
 
-from ally.models import ChatMessage
+from uuid import UUID
+
+from ally.commands._storage import build_conversation_store
 from ally.models.errors import ModelProviderError
 from ally.models.providers import OpenAICompatibleProvider
-from ally.runtime import ConversationRuntime
+from ally.runtime import PersistentConversationRuntime
+
+
+def _parse_conversation_id(value: str | None) -> UUID | None:
+    if value is None:
+        return None
+    try:
+        return UUID(value)
+    except ValueError as exc:
+        raise ValueError(f"Invalid conversation ID: {value}") from exc
+
+
+def _title_for_prompt(prompt: str | None) -> str | None:
+    if prompt is None:
+        return None
+    compact = " ".join(prompt.split())
+    if not compact:
+        return None
+    return compact[:80]
 
 
 def run_chat(
@@ -14,22 +34,36 @@ def run_chat(
     model: str,
     prompt: str | None,
     allow_remote: bool,
+    conversation_id: str | None,
 ) -> int:
-    history: list[ChatMessage] = []
-
     try:
+        store = build_conversation_store()
+        identifier = _parse_conversation_id(conversation_id)
+
+        if identifier is None:
+            conversation = store.create(title=_title_for_prompt(prompt))
+        else:
+            conversation = store.get(identifier)
+            if conversation is None:
+                raise ValueError(f"Conversation not found: {identifier}")
+
         with OpenAICompatibleProvider(
             base_url=endpoint,
             model=model,
             allow_remote=allow_remote,
         ) as provider:
-            runtime = ConversationRuntime(provider)
+            runtime = PersistentConversationRuntime(
+                provider,
+                store,
+                conversation.id,
+            )
 
             if prompt is not None:
                 response = runtime.respond(prompt)
                 print(response.content)
                 return 0
 
+            print(f"Conversation: {conversation.id}")
             print("Ally local chat. Type /exit to quit.")
             while True:
                 try:
@@ -43,14 +77,8 @@ def run_chat(
                 if not user_input:
                     continue
 
-                response = runtime.respond(user_input, history=history)
+                response = runtime.respond(user_input)
                 print(f"Ally: {response.content}")
-                history.extend(
-                    (
-                        ChatMessage(role="user", content=user_input),
-                        ChatMessage(role="assistant", content=response.content),
-                    )
-                )
-    except (ModelProviderError, ValueError) as exc:
+    except (KeyError, ModelProviderError, ValueError) as exc:
         print(f"Ally error: {exc}")
         return 2

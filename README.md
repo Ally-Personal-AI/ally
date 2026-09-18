@@ -76,6 +76,31 @@ uv run ally chat \
 
 Remote endpoints are intentionally rejected unless `--allow-remote` is supplied.
 
+## Persistent conversations
+
+Chat sessions are stored locally in Ally's SQLite database under the operating system's application-data directory.
+
+Start a new conversation:
+
+```bash
+uv run ally chat --model <model-id>
+```
+
+Resume one:
+
+```bash
+uv run ally chat --model <model-id> --conversation <conversation-uuid>
+```
+
+Inspect local history without starting a model server:
+
+```bash
+uv run ally conversations list
+uv run ally conversations show <conversation-uuid>
+```
+
+SQLite is behind an Ally-owned storage interface and versioned migrations; higher-level code does not depend directly on SQLite.
+
 ## Personal data boundary
 
 Personal runtime data, memory databases, secrets, downloaded model weights, generated indexes, and private logs are deliberately kept outside the repository.
