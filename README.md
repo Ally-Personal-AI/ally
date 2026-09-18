@@ -18,7 +18,7 @@ The foundational rule is simple:
 
 **The LLM is a component inside Ally. Ally is not an application wrapped around one LLM.**
 
-Inference engines such as MLX, llama.cpp, Ollama, CUDA-backed runtimes, and future systems will sit behind Ally-owned provider interfaces. Replacing a model must not replace Ally's memory, identity, or higher-level behavior.
+Inference engines such as MLX, llama.cpp, Ollama, CUDA-backed runtimes, and future systems sit behind Ally-owned provider interfaces. Replacing a model must not replace Ally's memory, identity, or higher-level behavior.
 
 See:
 
@@ -49,6 +49,32 @@ uv run ruff check .
 uv run pyright
 uv run pytest --cov=ally
 ```
+
+## Local inference
+
+Ally's first inference adapter talks to an OpenAI-compatible HTTP endpoint. The endpoint is restricted to loopback addresses by default so local prompts do not silently leave the machine.
+
+Once a compatible local server is running:
+
+```bash
+uv run ally chat --model <model-id>
+```
+
+The default endpoint is:
+
+```text
+http://127.0.0.1:8080/v1
+```
+
+A different local endpoint can be selected explicitly:
+
+```bash
+uv run ally chat \
+  --endpoint http://127.0.0.1:11434/v1 \
+  --model <model-id>
+```
+
+Remote endpoints are intentionally rejected unless `--allow-remote` is supplied.
 
 ## Personal data boundary
 
