@@ -1,4 +1,5 @@
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 
@@ -54,8 +55,6 @@ def test_store_rejects_non_positive_list_limit(tmp_path: Path) -> None:
 
 
 def test_store_rejects_append_to_unknown_conversation(tmp_path: Path) -> None:
-    from uuid import uuid4
-
     store = build_store(tmp_path / "ally.sqlite3")
 
     with pytest.raises(KeyError, match="Unknown conversation"):
