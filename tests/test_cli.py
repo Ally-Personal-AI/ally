@@ -32,3 +32,31 @@ def test_conversations_show_parser_accepts_identifier() -> None:
 
     assert args.conversations_command == "show"
     assert args.conversation_id == "abc"
+
+
+def test_memory_remember_parser_has_safe_defaults() -> None:
+    args = build_parser().parse_args(["memory", "remember", "Synthetic fact"])
+
+    assert args.command == "memory"
+    assert args.memory_command == "remember"
+    assert args.kind == "semantic"
+    assert args.confidence == 1.0
+    assert args.importance == 0.5
+    assert args.privacy == "private"
+
+
+def test_memory_list_parser_defaults_to_active_memories() -> None:
+    args = build_parser().parse_args(["memory", "list"])
+
+    assert args.memory_command == "list"
+    assert args.include_inactive is False
+    assert args.limit == 50
+
+
+def test_memory_supersede_parser_accepts_replacement_content() -> None:
+    args = build_parser().parse_args(
+        ["memory", "supersede", "synthetic-id", "Replacement fact"]
+    )
+
+    assert args.memory_id == "synthetic-id"
+    assert args.content == "Replacement fact"
