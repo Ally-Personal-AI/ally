@@ -18,6 +18,15 @@ MemoryKind = Literal[
 MemoryPrivacy = Literal["private", "shared", "public"]
 MemorySourceType = Literal["user", "conversation", "document", "tool", "system"]
 
+MEMORY_KINDS: tuple[MemoryKind, ...] = (
+    "episodic",
+    "semantic",
+    "procedural",
+    "preference",
+    "relational",
+)
+MEMORY_PRIVACY_LEVELS: tuple[MemoryPrivacy, ...] = ("private", "shared", "public")
+
 
 class MemorySource(BaseModel):
     model_config = ConfigDict(frozen=True)
