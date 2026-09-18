@@ -101,6 +101,33 @@ uv run ally conversations show <conversation-uuid>
 
 SQLite is behind an Ally-owned storage interface and versioned migrations; higher-level code does not depend directly on SQLite.
 
+## Long-term memory
+
+Memory V1 is structured, temporal, provenance-aware, and directly inspectable. Automatic LLM memory extraction is intentionally not enabled yet.
+
+Store an explicit memory:
+
+```bash
+uv run ally memory remember "Synthetic fact" --kind semantic
+```
+
+Inspect and search:
+
+```bash
+uv run ally memory list
+uv run ally memory search "synthetic"
+uv run ally memory show <memory-uuid>
+```
+
+Correct or retract:
+
+```bash
+uv run ally memory supersede <memory-uuid> "Corrected fact"
+uv run ally memory retract <memory-uuid>
+```
+
+Superseded and retracted records remain available for audit/history but are excluded from active-memory queries.
+
 ## Personal data boundary
 
 Personal runtime data, memory databases, secrets, downloaded model weights, generated indexes, and private logs are deliberately kept outside the repository.
