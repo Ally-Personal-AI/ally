@@ -172,4 +172,8 @@ def run_service_health(*, json_output: bool) -> int:
                 f"{report.latest_cycle.status}"
             )
 
-    return 0 if report.status in ("healthy", "uninitialized") else 2
+    if report.status == "healthy":
+        return 0
+    if report.status == "uninitialized":
+        return 1
+    return 2
