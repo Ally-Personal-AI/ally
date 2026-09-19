@@ -10,10 +10,11 @@ from ally.commands._storage import (
     build_event_source_checkpoint_store,
     build_event_store,
 )
-from ally.events import EventRuntime
+from ally.events import EventImportance, EventRuntime
 from ally.sources import (
     EventSourceConflictError,
     EventSourceRuntime,
+    FilesystemEventSource,
     JsonlEventSource,
 )
 from ally.sources.runtime import validate_source_id
@@ -69,6 +70,54 @@ def run_poll_jsonl_source(
         print(f"From cursor: {report.from_cursor or '(start)'}")
         print(f"To cursor: {report.to_cursor or '(none)'}")
         print(f"Published: {report.published}")
+
+    return 0
+
+
+def run_poll_filesystem_source(
+    *,
+    source_id: str,
+    root: str,
+    limit: int,
+    max_entries: int,
+    include_hidden: bool,
+    importance: EventImportance,
+    at: str | None,
+    json_output: bool,
+) -> int:
+    try:
+        polled_at = None if at is None else _parse_timestamp(at)
+        runtime = EventSourceRuntime(
+            EventRuntime(build_event_store()),
+            build_event_source_checkpoint_store(),
+        )
+        report = runtime.poll(
+            FilesystemEventSource(
+                source_id=source_id,
+                root=Path(root),
+                max_entries=max_entries,
+                include_hidden=include_hidden,
+                importance=importance,
+            ),
+            limit=limit,
+            polled_at=polled_at,
+        )
+    except (EventSourceConflictError, ValueError) as exc:
+        print(f"Source error: {exc}")
+        return 2
+
+    if json_output:
+        print(
+            json.dumps(
+                report.model_dump(mode="json"),
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    else:
+        print(f"Source: {report.source_id}")
+        print(f"Published: {report.published}")
+        print(f"Snapshot cursor bytes: {len(report.to_cursor or '')}")
 
     return 0
 
