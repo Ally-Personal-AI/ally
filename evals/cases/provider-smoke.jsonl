@@ -1,0 +1,2 @@
+{"id":"provider-exact-token","category":"provider_response","input":{"prompt":"Reply with exactly ALLY_OK and nothing else.","temperature":0.0},"expected":{"exact":"ALLY_OK"},"tags":["provider","smoke"]}
+{"id":"provider-system-instruction","category":"provider_response","input":{"system_prompt":"You must include the token SYSTEM_OK in your reply.","prompt":"Acknowledge the instruction briefly.","temperature":0.0},"expected":{"contains":["SYSTEM_OK"]},"tags":["provider","smoke","system-prompt"]}

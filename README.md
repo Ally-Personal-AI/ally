@@ -48,7 +48,10 @@ Quality checks:
 uv run ruff check .
 uv run pyright
 uv run pytest --cov=ally
+uv run ally eval run evals/cases/core.jsonl
 ```
+
+Behavioral evaluation cases and contributor guidance live in [evals/README.md](evals/README.md).
 
 ## Local inference
 

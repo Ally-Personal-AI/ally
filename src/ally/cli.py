@@ -10,6 +10,7 @@ from ally import __version__
 from ally.commands.chat import run_chat
 from ally.commands.conversations import run_list_conversations, run_show_conversation
 from ally.commands.doctor import run_doctor
+from ally.commands.evals import run_core_evals, run_provider_evals
 from ally.commands.knowledge import (
     run_ingest_knowledge_file,
     run_list_knowledge_sources,
@@ -136,6 +137,32 @@ def build_parser() -> argparse.ArgumentParser:
     knowledge_search.add_argument("query")
     knowledge_search.add_argument("--limit", type=int, default=8)
 
+    eval_command = subcommands.add_parser(
+        "eval",
+        help="Run Ally behavioral evaluations.",
+    )
+    eval_commands = eval_command.add_subparsers(dest="eval_command")
+
+    eval_run = eval_commands.add_parser(
+        "run",
+        help="Run deterministic evaluations that require no model.",
+    )
+    eval_run.add_argument("case_file")
+    eval_run.add_argument("--json", action="store_true", dest="json_output")
+
+    eval_provider = eval_commands.add_parser(
+        "provider",
+        help="Run model-provider smoke evaluations.",
+    )
+    eval_provider.add_argument("case_file")
+    eval_provider.add_argument(
+        "--endpoint",
+        default="http://127.0.0.1:8080/v1",
+    )
+    eval_provider.add_argument("--model", required=True)
+    eval_provider.add_argument("--allow-remote", action="store_true")
+    eval_provider.add_argument("--json", action="store_true", dest="json_output")
+
     return parser
 
 
@@ -208,6 +235,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             return run_search_knowledge(
                 query=cast(str, args.query),
                 limit=cast(int, args.limit),
+            )
+
+    if args.command == "eval":
+        if args.eval_command == "run":
+            return run_core_evals(
+                case_file=cast(str, args.case_file),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.eval_command == "provider":
+            return run_provider_evals(
+                case_file=cast(str, args.case_file),
+                endpoint=cast(str, args.endpoint),
+                model=cast(str, args.model),
+                allow_remote=cast(bool, args.allow_remote),
+                json_output=cast(bool, args.json_output),
             )
 
     parser.print_help()

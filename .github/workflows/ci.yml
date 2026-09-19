@@ -28,3 +28,5 @@ jobs:
         run: uv run pyright
       - name: Test
         run: uv run pytest --cov=ally --cov-report=term-missing
+      - name: Core behavioral evaluations
+        run: uv run ally eval run evals/cases/core.jsonl
