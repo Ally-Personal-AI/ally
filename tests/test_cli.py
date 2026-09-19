@@ -552,3 +552,20 @@ def test_sources_checkpoint_parsers() -> None:
     assert listing.limit == 50
     assert show.sources_command == "checkpoint"
     assert show.source_id == "synthetic.source"
+
+
+def test_service_history_parser_has_safe_defaults() -> None:
+    args = build_parser().parse_args(["service", "history"])
+
+    assert args.command == "service"
+    assert args.service_command == "history"
+    assert args.limit == 50
+    assert args.json_output is False
+
+
+def test_service_health_parser_supports_json() -> None:
+    args = build_parser().parse_args(["service", "health", "--json"])
+
+    assert args.command == "service"
+    assert args.service_command == "health"
+    assert args.json_output is True
