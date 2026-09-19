@@ -1,10 +1,15 @@
-from ally.events import DefaultAttentionPolicy, NewEvent
+from ally.events import (
+    AttentionClass,
+    DefaultAttentionPolicy,
+    EventImportance,
+    NewEvent,
+)
 
 
 def test_default_attention_policy_maps_importance_conservatively() -> None:
     policy = DefaultAttentionPolicy()
 
-    expected = {
+    expected: dict[EventImportance, AttentionClass] = {
         "noise": "ignore",
         "routine": "remember",
         "important": "mention_later",
@@ -16,6 +21,6 @@ def test_default_attention_policy_maps_importance_conservatively() -> None:
         event = NewEvent(
             type="test.event",
             source="synthetic",
-            importance=importance,  # type: ignore[arg-type]
+            importance=importance,
         )
         assert policy.classify(event) == attention
