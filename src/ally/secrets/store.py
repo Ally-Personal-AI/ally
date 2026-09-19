@@ -9,6 +9,17 @@ from pydantic import SecretStr
 from ally.secrets.models import SecretRef
 
 
+class SecretStoreError(RuntimeError):
+    """Base error for secret-store operations.
+
+    Error messages must never contain secret values or raw backend diagnostics.
+    """
+
+
+class SecretStoreUnavailableError(SecretStoreError):
+    """Raised when the platform secret store cannot be used safely."""
+
+
 class SecretStore(Protocol):
     """Backend contract for credentials and other secret values."""
 
@@ -36,10 +47,12 @@ class InMemorySecretStore:
         self._values[validated.name] = value
 
     def get(self, name: str) -> SecretStr | None:
-        return self._values.get(name)
+        validated = SecretRef(name=name)
+        return self._values.get(validated.name)
 
     def delete(self, name: str) -> bool:
-        return self._values.pop(name, None) is not None
+        validated = SecretRef(name=name)
+        return self._values.pop(validated.name, None) is not None
 
     def list_names(self) -> tuple[str, ...]:
         return tuple(sorted(self._values))

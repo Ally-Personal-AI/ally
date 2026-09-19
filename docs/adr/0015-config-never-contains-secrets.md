@@ -21,8 +21,8 @@ not the secret value.
 
 Secret values are accessed through the `SecretStore` protocol. The first
 implementation is an ephemeral in-memory backend for tests and development.
-Operating-system secure storage (for example macOS Keychain) will implement the
-same interface after validation on the target platform.
+Operating-system secure storage implements the same interface. The initial
+macOS decision is recorded in [ADR 0027](0027-macos-keychain-secret-store.md).
 
 Secret-store APIs expose secret names separately from values. A secret value is
 represented as Pydantic `SecretStr`, whose ordinary string/repr rendering is

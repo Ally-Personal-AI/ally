@@ -31,7 +31,7 @@ The most important rule is dependency direction:
 | `src/ally/attention/` | Interface-neutral user-attention delivery contracts/runtime. |
 | `src/ally/skills/` | Skill manifests, local lifecycle, isolated execution, and execution-audit contracts. |
 | `src/ally/configuration/` | Strict non-secret configuration schema and file storage. |
-| `src/ally/secrets/` | Secret references and secret-store abstraction. |
+| `src/ally/secrets/` | Secret references, secret-store contract, and macOS Keychain adapter. |
 | `src/ally/portability/` | Versioned backup/validation/restore of user-owned SQLite state. |
 | `src/ally/storage/` | Storage paths and concrete persistence adapters. |
 | `src/ally/storage/sqlite/` | SQLite implementations of Ally-owned persistence contracts and migrations. |

@@ -17,12 +17,19 @@ consequential actions. Security therefore begins before agency.
 The versioned Ally config document is a strict non-secret schema. Unknown
 fields are rejected rather than silently retained.
 
-Future integrations refer to credentials by opaque `SecretRef` names and
+Integrations refer to credentials by opaque `SecretRef` names and
 resolve the values through the `SecretStore` interface only when needed.
 
-The current in-memory secret backend exists for tests/development only. No
-production secret-entry CLI is exposed before a secure platform backend is
-validated.
+The macOS adapter stores values in the current user's default Keychain. Its CLI
+accepts values only through a non-echoing prompt and exposes set, reference
+list, availability check, and delete operations—never value retrieval. Secret
+payloads do not enter subprocess arguments, ordinary configuration, SQLite,
+logs, backend-derived exception output, or model context. Non-macOS systems and
+unavailable, locked, denied, or malformed Keychain state fail closed.
+
+Deterministic tests use a simulated Keychain command boundary. Actual login
+Keychain persistence and prompt behavior remain a dedicated-machine acceptance
+gate; hosted macOS CI is not treated as that evidence.
 
 Backup V1 excludes both ordinary config and secret material.
 
