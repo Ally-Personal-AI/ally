@@ -337,3 +337,34 @@ def test_config_validate_parser() -> None:
     args = build_parser().parse_args(["config", "validate"])
 
     assert args.config_command == "validate"
+
+
+def test_skills_install_parser_accepts_local_path() -> None:
+    args = build_parser().parse_args(["skills", "install", "./skill"])
+
+    assert args.skills_command == "install"
+    assert args.path == "./skill"
+
+
+def test_skills_installed_parser() -> None:
+    args = build_parser().parse_args(["skills", "installed"])
+
+    assert args.skills_command == "installed"
+
+
+def test_skills_enable_disable_uninstall_parsers() -> None:
+    enable = build_parser().parse_args(
+        ["skills", "enable", "sample.skill", "1.0.0"]
+    )
+    disable = build_parser().parse_args(
+        ["skills", "disable", "sample.skill", "1.0.0"]
+    )
+    uninstall = build_parser().parse_args(
+        ["skills", "uninstall", "sample.skill", "1.0.0"]
+    )
+
+    assert enable.skills_command == "enable"
+    assert disable.skills_command == "disable"
+    assert uninstall.skills_command == "uninstall"
+    assert enable.skill_id == "sample.skill"
+    assert enable.version == "1.0.0"
