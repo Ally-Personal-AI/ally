@@ -464,6 +464,35 @@ MIGRATIONS: tuple[Migration, ...] = (
                         AND delivery_failures <= delivery_attempts
                     ),
                 error_class TEXT
+                    CHECK (
+                        error_class IS NULL
+                        OR length(error_class) <= 256
+                    ),
+                CHECK (
+                    (
+                        status = 'running'
+                        AND finished_at IS NULL
+                        AND error_class IS NULL
+                    )
+                    OR (
+                        status IN ('succeeded', 'degraded')
+                        AND finished_at IS NOT NULL
+                        AND error_class IS NULL
+                    )
+                    OR (
+                        status IN ('failed', 'interrupted')
+                        AND finished_at IS NOT NULL
+                        AND error_class IS NOT NULL
+                    )
+                ),
+                CHECK (
+                    status != 'succeeded'
+                    OR delivery_failures = 0
+                ),
+                CHECK (
+                    status != 'degraded'
+                    OR delivery_failures >= 1
+                )
             )
             """,
             """
