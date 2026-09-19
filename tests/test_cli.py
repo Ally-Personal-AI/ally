@@ -546,6 +546,28 @@ def test_sources_poll_jsonl_parser_accepts_explicit_time_and_json() -> None:
     assert args.json_output is True
 
 
+def test_sources_poll_filesystem_parser_has_privacy_safe_defaults() -> None:
+    args = build_parser().parse_args(
+        [
+            "sources",
+            "poll-filesystem",
+            "--source-id",
+            "files.documents",
+            "Documents",
+        ]
+    )
+
+    assert args.sources_command == "poll-filesystem"
+    assert args.source_id == "files.documents"
+    assert args.root == "Documents"
+    assert args.limit == 100
+    assert args.max_entries == 1000
+    assert args.include_hidden is False
+    assert args.importance == "routine"
+    assert args.at is None
+    assert args.json_output is False
+
+
 def test_sources_checkpoint_parsers() -> None:
     listing = build_parser().parse_args(["sources", "checkpoints"])
     show = build_parser().parse_args(

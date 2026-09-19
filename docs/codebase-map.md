@@ -27,7 +27,7 @@ The most important rule is dependency direction:
 | `src/ally/tasks/` | Persisted task state machine, execution, verification, and storage contract. |
 | `src/ally/events/` | Persisted event domain and deterministic attention classification. |
 | `src/ally/scheduler/` | One-shot/fixed-interval schedule domain and runtime. |
-| `src/ally/sources/` | Restart-safe external event-source contracts and reference adapters. |
+| `src/ally/sources/` | Restart-safe external event-source contracts, the reference JSONL adapter, and bounded metadata-only filesystem observation. |
 | `src/ally/attention/` | Interface-neutral user-attention delivery contracts/runtime. |
 | `src/ally/skills/` | Skill manifests, local lifecycle, isolated execution, and execution-audit contracts. |
 | `src/ally/configuration/` | Strict non-secret configuration schema and file storage. |

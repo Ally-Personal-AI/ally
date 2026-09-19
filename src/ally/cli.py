@@ -75,6 +75,7 @@ from ally.commands.skills import (
 )
 from ally.commands.sources import (
     run_list_source_checkpoints,
+    run_poll_filesystem_source,
     run_poll_jsonl_source,
     run_show_source_checkpoint,
 )
@@ -634,6 +635,30 @@ def build_parser() -> argparse.ArgumentParser:
         dest="json_output",
     )
 
+    source_poll_filesystem = source_commands.add_parser(
+        "poll-filesystem",
+        help="Poll metadata below an explicit local directory without reading contents.",
+    )
+    source_poll_filesystem.add_argument("--source-id", required=True)
+    source_poll_filesystem.add_argument("root")
+    source_poll_filesystem.add_argument("--limit", type=int, default=100)
+    source_poll_filesystem.add_argument("--max-entries", type=int, default=1000)
+    source_poll_filesystem.add_argument("--include-hidden", action="store_true")
+    source_poll_filesystem.add_argument(
+        "--importance",
+        choices=EVENT_IMPORTANCE_LEVELS,
+        default="routine",
+    )
+    source_poll_filesystem.add_argument(
+        "--at",
+        help="Optional timezone-aware ISO-8601 poll timestamp.",
+    )
+    source_poll_filesystem.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
     source_checkpoints = source_commands.add_parser(
         "checkpoints",
         help="List successful event-source checkpoints.",
@@ -1034,6 +1059,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 source_id=cast(str, args.source_id),
                 path=cast(str, args.path),
                 limit=cast(int, args.limit),
+                at=cast(str | None, args.at),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.sources_command == "poll-filesystem":
+            return run_poll_filesystem_source(
+                source_id=cast(str, args.source_id),
+                root=cast(str, args.root),
+                limit=cast(int, args.limit),
+                max_entries=cast(int, args.max_entries),
+                include_hidden=cast(bool, args.include_hidden),
+                importance=cast(EventImportance, args.importance),
                 at=cast(str | None, args.at),
                 json_output=cast(bool, args.json_output),
             )

@@ -32,6 +32,7 @@ supersede previous ADRs rather than silently rewriting project history.
 23. [Service health is structured read-only readiness](0023-service-health-is-read-only-readiness.md)
 24. [Executable skills run outside Ally Core](0024-executable-skills-run-outside-core.md)
 25. [Package dependency direction is tested](0025-package-dependency-direction-is-tested.md)
+26. [Filesystem observation is metadata-only and explicitly rooted](0026-filesystem-observation-is-metadata-only.md)
 
 ## Adding an ADR
 
