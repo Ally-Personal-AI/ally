@@ -22,4 +22,8 @@ It intentionally excludes secrets, downloaded model weights, caches, logs, and
 ordinary configuration. Those assets have separate portability and security
 lifecycles.
 
+Ordinary configuration is intentionally non-secret. Secret material is stored
+through a separate `SecretStore` backend and is never part of the database
+backup format.
+
 The project should prefer user portability over artificial lock-in.
