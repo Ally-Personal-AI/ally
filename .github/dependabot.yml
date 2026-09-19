@@ -7,6 +7,8 @@ updates:
       day: monday
       time: "08:00"
       timezone: Etc/UTC
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     groups:
       python-dependencies:
@@ -20,6 +22,8 @@ updates:
       day: monday
       time: "08:00"
       timezone: Etc/UTC
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     groups:
       github-actions:
