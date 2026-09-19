@@ -25,6 +25,7 @@ See:
 - [Vision](docs/vision.md)
 - [Principles](docs/principles.md)
 - [Architecture](docs/architecture.md)
+- [Codebase map](docs/codebase-map.md)
 - [Security model](docs/security-model.md)
 - [Memory model](docs/memory-model.md)
 - [Roadmap](docs/roadmap.md)
