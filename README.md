@@ -538,9 +538,23 @@ the source ID and external ID, then advances the source's opaque cursor only
 after returned observations have been published. If Ally stops between those
 steps, replay reuses the already-persisted events rather than duplicating them.
 
-The JSONL source is a development/reference adapter only. Future calendar,
-email, filesystem, weather, deployment, and device integrations should implement
-the same source boundary.
+The JSONL source remains a development/reference adapter. A real local
+filesystem adapter can poll metadata below one explicitly selected root:
+
+```bash
+uv run ally sources poll-filesystem \
+  --source-id files.documents \
+  ./Documents
+```
+
+Its first poll establishes a quiet baseline. Later bounded polls emit created,
+modified, moved, and deleted events without reading file contents or following
+symlinks. Hidden entries are excluded by default. See
+[Local filesystem event source](docs/filesystem-source.md) for its privacy,
+pagination, rename, and failure semantics.
+
+Future calendar, email, weather, deployment, and device integrations should
+implement the same source boundary.
 
 ## Data portability
 
