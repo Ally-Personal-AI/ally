@@ -66,7 +66,6 @@ def run_chat(
 ) -> int:
     try:
         conversation_store = build_conversation_store()
-        is_remote = not is_loopback_http_url(endpoint)
 
         context_provider: ContextProvider | None = None
         if _private_context_allowed(
