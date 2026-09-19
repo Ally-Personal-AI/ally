@@ -92,3 +92,23 @@ def test_knowledge_search_parser_has_bounded_default() -> None:
     assert args.knowledge_command == "search"
     assert args.query == "greenhouse"
     assert args.limit == 8
+
+
+def test_eval_run_parser_accepts_case_file() -> None:
+    args = build_parser().parse_args(["eval", "run", "cases.jsonl"])
+
+    assert args.command == "eval"
+    assert args.eval_command == "run"
+    assert args.case_file == "cases.jsonl"
+    assert args.json_output is False
+
+
+def test_eval_provider_parser_defaults_to_loopback() -> None:
+    args = build_parser().parse_args(
+        ["eval", "provider", "provider.jsonl", "--model", "example"]
+    )
+
+    assert args.eval_command == "provider"
+    assert args.endpoint == "http://127.0.0.1:8080/v1"
+    assert args.model == "example"
+    assert args.allow_remote is False
