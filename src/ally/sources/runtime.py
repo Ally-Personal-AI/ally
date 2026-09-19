@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 from pydantic import JsonValue
 
-from ally.events import EventRuntime, NewEvent
+from ally.events import EventRecord, EventRuntime, NewEvent
 from ally.sources.models import EventSourcePollReport
 from ally.sources.store import EventSourceCheckpointStore
 from ally.sources.types import EventSource
@@ -66,7 +66,7 @@ class EventSourceRuntime:
                 "event source must advance its cursor when observations are returned"
             )
 
-        events = []
+        events: list[EventRecord] = []
         for observation in result.observations:
             source_metadata: dict[str, JsonValue] = {
                 "id": source_id,
