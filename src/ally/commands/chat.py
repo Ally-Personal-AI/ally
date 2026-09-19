@@ -16,7 +16,7 @@ from ally.memory.retrieval import LexicalMemoryRetriever, MemoryContextProvider
 from ally.models.errors import ModelProviderError
 from ally.models.providers import OpenAICompatibleProvider
 from ally.runtime import PersistentConversationRuntime
-from ally.security.network import is_loopback_http_url
+from ally.security.network import private_grounding_allowed
 
 
 def _parse_conversation_id(value: str | None) -> UUID | None:
@@ -47,14 +47,6 @@ def _build_private_context_provider() -> ContextProvider:
     )
 
 
-def _private_context_allowed(
-    endpoint: str,
-    *,
-    allow_private_context_remote: bool,
-) -> bool:
-    return is_loopback_http_url(endpoint) or allow_private_context_remote
-
-
 def run_chat(
     *,
     endpoint: str,
@@ -68,9 +60,9 @@ def run_chat(
         conversation_store = build_conversation_store()
 
         context_provider: ContextProvider | None = None
-        if _private_context_allowed(
+        if private_grounding_allowed(
             endpoint,
-            allow_private_context_remote=allow_private_context_remote,
+            allow_remote_private_context=allow_private_context_remote,
         ):
             context_provider = _build_private_context_provider()
         elif allow_remote:
