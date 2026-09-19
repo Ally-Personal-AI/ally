@@ -6,6 +6,7 @@ from ally.storage.sqlite import (
     SQLiteDatabase,
     SQLiteKnowledgeStore,
     SQLiteMemoryStore,
+    SQLiteToolAuditStore,
 )
 
 
@@ -31,3 +32,9 @@ def build_knowledge_store() -> SQLiteKnowledgeStore:
     """Create the default local knowledge store."""
 
     return SQLiteKnowledgeStore(build_database())
+
+
+def build_tool_audit_store() -> SQLiteToolAuditStore:
+    """Create the default local tool audit store."""
+
+    return SQLiteToolAuditStore(build_database())
