@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import signal
 import subprocess
@@ -123,7 +124,17 @@ class SkillProcessExecutor:
 
         _validate_runtime_tree(package_root)
         request = SkillWorkerRequest(input=input_data)
-        request_bytes = request.model_dump_json().encode("utf-8")
+        try:
+            request_bytes = json.dumps(
+                request.model_dump(mode="json"),
+                allow_nan=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        except (TypeError, ValueError) as exc:
+            raise SkillExecutionError(
+                "skill input must contain only standard JSON values"
+            ) from exc
         if len(request_bytes) > MAX_SKILL_INPUT_BYTES:
             raise SkillExecutionError(
                 f"skill input exceeds {MAX_SKILL_INPUT_BYTES} bytes"
