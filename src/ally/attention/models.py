@@ -3,12 +3,26 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 AttentionDeliveryStatus = Literal["succeeded", "failed"]
+AttentionSinkId = Annotated[
+    str,
+    Field(
+        min_length=1,
+        pattern=r"^[a-z0-9][a-z0-9_.-]*$",
+    ),
+]
+_SINK_ID_ADAPTER = TypeAdapter(AttentionSinkId)
+
+
+def validate_sink_id(value: str) -> str:
+    """Validate a stable sink ID before it is used as persistent identity."""
+
+    return _SINK_ID_ADAPTER.validate_python(value)
 
 
 class AttentionDeliveryRecord(BaseModel):
@@ -18,10 +32,7 @@ class AttentionDeliveryRecord(BaseModel):
 
     id: UUID
     event_id: UUID
-    sink_id: str = Field(
-        min_length=1,
-        pattern=r"^[a-z0-9][a-z0-9_.-]*$",
-    )
+    sink_id: AttentionSinkId
     status: AttentionDeliveryStatus
     attempts: int = Field(ge=1)
     last_error: str | None = Field(default=None, max_length=1000)
