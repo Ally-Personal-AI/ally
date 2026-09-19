@@ -34,3 +34,27 @@ should not simply accumulate as timeless facts.
 
 Users must be able to inspect, correct, remove, export, and explain important
 memories.
+
+
+## Model-assisted formation
+
+Model-assisted memory formation is a review workflow, not an automatic write
+path.
+
+`ModelMemoryProposer` receives explicit source text plus caller-controlled
+provenance and privacy. The model may propose only:
+
+- memory kind
+- content
+- confidence
+- importance
+
+The resulting proposal bundle records the provider/model identity and a SHA-256
+digest of the reviewed source text. It does not store the raw source text.
+
+Proposal generation never writes to `MemoryStore`. A user must explicitly
+accept one or more proposal indices before those candidates become
+`NewMemory` records.
+
+This separation lets Ally evaluate and improve memory extraction quality without
+allowing model mistakes or prompt injection to silently become durable state.
