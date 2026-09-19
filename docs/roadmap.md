@@ -12,7 +12,7 @@ implementation of an earlier one.
 | Long-term memory | Implemented V1 | temporal/provenance-aware explicit memory and grounding |
 | Personal knowledge | Implemented V1 | versioned plain-text ingestion, retrieval, grounding |
 | Tools | Implemented V1 | typed capabilities, risk policy, local audit |
-| Skills | Implemented V1 | declarative manifests and dependency validation |
+| Skills | Implemented V1 | declarative manifests, dependency validation, safe local install lifecycle |
 | Reliable agency | Implemented core | persisted tasks, approval pauses, verification, retries |
 | Model plan proposals | Implemented boundary | strict TaskPlan proposals; no persistence or execution authority |
 | Model memory proposals | Implemented boundary | reviewable extraction bundles; explicit selected acceptance only |
@@ -20,7 +20,7 @@ implementation of an earlier one.
 | Proactivity | Implemented substrate | persisted events, deterministic attention policy, explicit dispatch boundary |
 | Voice | Not started | local ASR/TTS and conversational voice |
 | Multi-user households | Not started | identities, shared/private state, permissions |
-| Extension ecosystem | Not started | installation, signing, registry/marketplace |
+| Extension ecosystem | Implemented local foundation | local install/enable/disable/uninstall; signing and registry deferred |
 | Computer control | Not started | GUI perception/action behind tool policy |
 | Physical-world integration | Not started | devices, sensors, automation |
 | Distributed Ally | Not started | coordinated compute/storage nodes |
@@ -68,7 +68,7 @@ After hardware/runtime validation:
 5. add event sources, scheduling, and attention delivery on the persisted event substrate;
 6. add voice;
 7. add multi-user household boundaries;
-8. add extension installation/signing/registry;
+8. add skill signing and remote registry on top of the local installation boundary;
 9. add computer control;
 10. add physical-world integration;
 11. add distributed Ally.
