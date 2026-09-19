@@ -51,7 +51,11 @@ class SkillManifest(BaseModel):
     description: str = Field(min_length=1)
     entrypoint: str | None = Field(
         default=None,
-        pattern=r"^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$",
+        pattern=(
+            r"^[A-Za-z_][A-Za-z0-9_]*"
+            r"(?:\.[A-Za-z_][A-Za-z0-9_]*)*"
+            r":[A-Za-z_][A-Za-z0-9_]*$"
+        ),
     )
     execution: SkillExecutionMode | None = None
     required_tools: tuple[str, ...] = ()
