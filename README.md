@@ -449,6 +449,41 @@ This is still a one-shot operation. It does not sleep, loop, daemonize, or
 install operating-system services. Future `launchd`, `systemd`, or Windows
 service wrappers should invoke this same boundary.
 
+## Service lifecycle and health
+
+The ephemeral lease answers **who may run now**. Separately, each lease-protected
+proactive cycle writes payload-free lifecycle history to the user-owned
+`ally.sqlite3` database.
+
+Inspect portable history:
+
+```bash
+uv run ally service history
+uv run ally service history --json
+```
+
+Inspect health without mutating or migrating either database:
+
+```bash
+uv run ally service health
+uv run ally service health --json
+```
+
+Lifecycle records contain only run IDs, statuses, timestamps, schedule/delivery
+counts, and safe exception classes. They never copy event payloads, prompts,
+documents, notification bodies, credentials, arbitrary exception messages, or
+model output.
+
+If a process exits after writing a portable `running` record, the next process
+first acquires the ephemeral lease and only then repairs that abandoned history
+as `interrupted`. The portable single-running constraint is a consistency
+guard, not an overlap lock.
+
+Health combines read-only checks of the user-owned database with the separate
+runtime lease signal. A `running` lifecycle record is healthy only while the
+`proactive-cycle` lease is active. Health returns exit code `0` for healthy,
+`1` for uninitialized, and `2` for degraded.
+
 ## External event sources
 
 External integrations observe changes and return bounded, validated observations
@@ -510,7 +545,9 @@ uv run ally data restore backups/ally-2026-09-19.ally-backup \
 
 Archives record the Ally version, database schema history, byte size, and SHA-256 digest. Validation also runs SQLite integrity checks. Backup and restore refuse to overwrite existing files.
 
-Backup V1 includes core SQLite state only. It deliberately excludes model weights, caches, configuration, logs, and secrets.
+Backup V1 includes user-owned SQLite state, including portable service lifecycle
+history. It deliberately excludes the disposable runtime lease database, model
+weights, caches, configuration, logs, and secrets.
 
 ## Configuration and secrets
 
