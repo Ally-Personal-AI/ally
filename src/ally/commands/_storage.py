@@ -10,6 +10,7 @@ from ally.storage.sqlite import (
     SQLiteKnowledgeStore,
     SQLiteMemoryStore,
     SQLiteScheduleStore,
+    SQLiteServiceCycleRunStore,
     SQLiteTaskStore,
     SQLiteToolAuditStore,
 )
@@ -73,3 +74,9 @@ def build_schedule_store() -> SQLiteScheduleStore:
     """Create the default local schedule store."""
 
     return SQLiteScheduleStore(build_database())
+
+
+def build_service_cycle_run_store() -> SQLiteServiceCycleRunStore:
+    """Create the default proactive service lifecycle store."""
+
+    return SQLiteServiceCycleRunStore(build_database())
