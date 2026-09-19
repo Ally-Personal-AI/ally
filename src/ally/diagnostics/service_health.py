@@ -134,7 +134,6 @@ def _inspect_core_database(
     ServiceCycleRunRecord | None,
 ]:
     expected = tuple((item.version, item.name) for item in MIGRATIONS)
-    expected_versions = tuple(item[0] for item in expected)
 
     if not path.exists():
         return (
