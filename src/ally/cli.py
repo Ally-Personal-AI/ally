@@ -56,7 +56,7 @@ from ally.commands.schedules import (
     run_show_schedule,
     run_tick_schedules,
 )
-from ally.commands.service import run_proactive_cycle
+from ally.commands.service import run_list_service_leases, run_proactive_cycle
 from ally.commands.skills import (
     run_disable_skill,
     run_enable_skill,
@@ -496,9 +496,19 @@ def build_parser() -> argparse.ArgumentParser:
         default="console",
     )
     service_cycle.add_argument(
+        "--lease-seconds",
+        type=int,
+        default=300,
+        help="Ephemeral overlap-protection lease duration.",
+    )
+    service_cycle.add_argument(
         "--json",
         action="store_true",
         dest="json_output",
+    )
+    service_commands.add_parser(
+        "leases",
+        help="Inspect ephemeral runtime service leases.",
     )
 
     schedules = subcommands.add_parser(
@@ -914,14 +924,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.events_command == "handle":
             return run_handle_event(event_id=cast(str, args.event_id))
 
-    if args.command == "service" and args.service_command == "cycle":
-        return run_proactive_cycle(
-            at=cast(str | None, args.at),
-            schedule_limit=cast(int, args.schedule_limit),
-            delivery_limit=cast(int, args.delivery_limit),
-            sink_name=cast(str, args.sink),
-            json_output=cast(bool, args.json_output),
-        )
+    if args.command == "service":
+        if args.service_command == "cycle":
+            return run_proactive_cycle(
+                at=cast(str | None, args.at),
+                schedule_limit=cast(int, args.schedule_limit),
+                delivery_limit=cast(int, args.delivery_limit),
+                sink_name=cast(str, args.sink),
+                lease_seconds=cast(int, args.lease_seconds),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.service_command == "leases":
+            return run_list_service_leases()
 
     if args.command == "schedules":
         if args.schedules_command == "create":

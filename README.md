@@ -424,7 +424,8 @@ Use an explicit time for deterministic testing:
 uv run ally service cycle \
   --at 2026-10-01T09:00:00+00:00 \
   --schedule-limit 100 \
-  --delivery-limit 50
+  --delivery-limit 50 \
+  --lease-seconds 300
 ```
 
 A cycle evaluates due schedules first and then delivers pending attention, so an
@@ -432,9 +433,21 @@ event produced by a due schedule can be surfaced in the same cycle. The command
 returns nonzero when a sink delivery attempt fails and can emit a structured
 report with `--json`.
 
-This is intentionally a one-shot operation. It does not sleep, loop,
-daemonize, or install operating-system services. Future `launchd`,
-`systemd`, or Windows service wrappers should invoke this same boundary.
+Before doing any work, the cycle acquires a short-lived `proactive-cycle`
+lease in Ally's disposable runtime database. A second overlapping invocation
+fails before schedules or delivery side effects begin. Inspect runtime leases:
+
+```bash
+uv run ally service leases
+```
+
+Lease coordination lives under `<data-dir>/runtime/service.sqlite3`, separate
+from personal state in `ally.sqlite3`, and is intentionally excluded from
+backup V1.
+
+This is still a one-shot operation. It does not sleep, loop, daemonize, or
+install operating-system services. Future `launchd`, `systemd`, or Windows
+service wrappers should invoke this same boundary.
 
 ## External event sources
 
