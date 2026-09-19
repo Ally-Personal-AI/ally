@@ -7,6 +7,7 @@ from ally.storage.sqlite.events import SQLiteEventStore
 from ally.storage.sqlite.knowledge import SQLiteKnowledgeStore
 from ally.storage.sqlite.memory import SQLiteMemoryStore
 from ally.storage.sqlite.schedules import SQLiteScheduleStore
+from ally.storage.sqlite.service_runs import SQLiteServiceCycleRunStore
 from ally.storage.sqlite.sources import SQLiteEventSourceCheckpointStore
 from ally.storage.sqlite.tasks import SQLiteTaskStore
 from ally.storage.sqlite.tool_audit import SQLiteToolAuditStore
@@ -20,6 +21,7 @@ __all__ = [
     "SQLiteKnowledgeStore",
     "SQLiteMemoryStore",
     "SQLiteScheduleStore",
+    "SQLiteServiceCycleRunStore",
     "SQLiteTaskStore",
     "SQLiteToolAuditStore",
 ]
