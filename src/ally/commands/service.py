@@ -22,8 +22,8 @@ from ally.service import (
     ProactiveServiceCycle,
     ProactiveServiceRunner,
     ServiceRunConflictError,
-    build_service_health,
 )
+from ally.storage.sqlite import build_sqlite_service_health
 
 
 def _parse_timestamp(value: str) -> datetime:
@@ -144,7 +144,7 @@ def run_service_history(
 
 def run_service_health(*, json_output: bool) -> int:
     try:
-        report = build_service_health(
+        report = build_sqlite_service_health(
             database_path=build_database().path,
         )
     except ValueError as exc:
