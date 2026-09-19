@@ -162,7 +162,7 @@ class SQLiteServiceCycleRunStore:
                 """,
                 (
                     candidate.status,
-                    candidate.finished_at.isoformat(),
+                    finished.isoformat(),
                     candidate.scheduled_events,
                     candidate.delivery_attempts,
                     candidate.delivery_failures,
