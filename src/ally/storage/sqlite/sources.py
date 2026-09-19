@@ -5,8 +5,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import cast
 
-from ally.sources import EventSourceCheckpoint, EventSourceConflictError
+from ally.sources.models import EventSourceCheckpoint
 from ally.sources.runtime import validate_source_id
+from ally.sources.store import EventSourceConflictError
 from ally.storage.sqlite.database import SQLiteDatabase
 
 CheckpointRow = tuple[
