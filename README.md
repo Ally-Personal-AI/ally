@@ -179,6 +179,25 @@ uv run ally tools audit
 
 The initial policy allows read-only tools, requires explicit approval for reversible and externally consequential tools, and denies high-consequence tools. Models and future agents do not bypass this boundary.
 
+## Skills
+
+Skills are declarative packages that compose capabilities without modifying Ally Core. Ally reads and validates `skill.toml` before any executable skill entrypoint is imported.
+
+Inspect a package:
+
+```bash
+uv run ally skills inspect ./path/to/skill
+```
+
+Validate its required capabilities against an explicit runtime tool set:
+
+```bash
+uv run ally skills validate ./path/to/skill \
+  --available-tool system.info
+```
+
+A skill may declare required tools, optional tools, and typed configuration fields, but the manifest cannot grant permission to execute anything.
+
 ## Personal data boundary
 
 Personal runtime data, memory databases, secrets, downloaded model weights, generated indexes, and private logs are deliberately kept outside the repository.
