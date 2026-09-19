@@ -1,6 +1,9 @@
-"""Permissioned tool runtime primitives."""
+"""Permissioned tool domain primitives.
 
-from ally.tools.executor import ToolExecutor
+Execution infrastructure is imported from its concrete module to keep this
+package boundary acyclic.
+"""
+
 from ally.tools.models import (
     ToolExecution,
     ToolInvocation,
@@ -14,7 +17,6 @@ from ally.tools.tool import Tool
 __all__ = [
     "Tool",
     "ToolExecution",
-    "ToolExecutor",
     "ToolInvocation",
     "ToolRegistry",
     "ToolRisk",
