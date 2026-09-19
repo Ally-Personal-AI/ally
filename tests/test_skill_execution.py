@@ -1,3 +1,4 @@
+import math
 import os
 import sys
 from pathlib import Path
@@ -434,3 +435,22 @@ def run(data):
     assert result.error_class == "SkillError"
     record = audit.list()[0]
     assert record.error_class == "SkillError"
+
+
+def test_nonfinite_skill_input_is_rejected_before_process_and_audit(
+    tmp_path: Path,
+) -> None:
+    source = write_executable_skill(
+        tmp_path / "source",
+        code="def run(data):\n    return data\n",
+    )
+    _, audit, runtime = build_runtime(tmp_path, source)
+
+    with pytest.raises(SkillExecutionError, match="standard JSON"):
+        runtime.execute(
+            "sample.skill",
+            "1.0.0",
+            input_data={"value": math.nan},
+        )
+
+    assert audit.list() == ()
