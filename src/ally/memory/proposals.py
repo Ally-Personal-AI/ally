@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC, datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -22,7 +23,11 @@ class MemoryProposalError(ValueError):
 
 
 class MemoryCandidate(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(
+        frozen=True,
+        extra="forbid",
+        str_strip_whitespace=True,
+    )
 
     kind: MemoryKind
     content: str = Field(min_length=1)
@@ -33,9 +38,9 @@ class MemoryCandidate(BaseModel):
 class MemoryProposalBundle(BaseModel):
     """Serializable proposal artifact for human review."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
-    schema_version: int = 1
+    schema_version: Literal[1] = 1
     generated_at: datetime
     provider: str
     model: str
@@ -52,6 +57,8 @@ class MemoryProposalBundle(BaseModel):
         return self
 
     def accepted_memory(self, index: int) -> NewMemory:
+        if index < 0:
+            raise ValueError(f"proposal index out of range: {index}")
         try:
             candidate = self.memories[index]
         except IndexError as exc:
