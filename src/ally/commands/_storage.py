@@ -12,6 +12,7 @@ from ally.storage.sqlite import (
     SQLiteMemoryStore,
     SQLiteScheduleStore,
     SQLiteServiceCycleRunStore,
+    SQLiteSkillExecutionAuditStore,
     SQLiteTaskStore,
     SQLiteToolAuditStore,
 )
@@ -87,3 +88,9 @@ def build_service_cycle_run_store() -> SQLiteServiceCycleRunStore:
     """Create the portable proactive service lifecycle store."""
 
     return SQLiteServiceCycleRunStore(build_database())
+
+
+def build_skill_execution_audit_store() -> SQLiteSkillExecutionAuditStore:
+    """Create the payload-free skill execution audit store."""
+
+    return SQLiteSkillExecutionAuditStore(build_database())
