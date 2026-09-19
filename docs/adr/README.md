@@ -29,6 +29,7 @@ supersede previous ADRs rather than silently rewriting project history.
 20. [Event sources use cursors and dedupe](0020-event-sources-use-cursors-and-dedupe.md)
 21. [Service coordination leases are ephemeral runtime state](0021-service-leases-are-ephemeral.md)
 22. [Service lifecycle history is portable and payload-free](0022-service-lifecycle-is-portable-and-payload-free.md)
+23. [Service health is structured read-only readiness](0023-service-health-is-read-only-readiness.md)
 
 ## Adding an ADR
 
