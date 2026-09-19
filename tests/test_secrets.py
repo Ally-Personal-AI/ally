@@ -39,3 +39,10 @@ def test_secret_delete_returns_whether_value_existed() -> None:
     assert store.delete("service.token") is True
     assert store.delete("service.token") is False
     assert store.get("service.token") is None
+
+
+def test_in_memory_secret_store_rejects_invalid_name() -> None:
+    store = InMemorySecretStore()
+
+    with pytest.raises(ValueError):
+        store.set("Contains Spaces", SecretStr("value"))
