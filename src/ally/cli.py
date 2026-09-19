@@ -25,6 +25,10 @@ from ally.commands.memory import (
     run_show_memory,
     run_supersede_memory,
 )
+from ally.commands.memory_proposals import (
+    run_accept_memory_proposals,
+    run_propose_memories,
+)
 from ally.commands.planning import run_propose_plan
 from ally.commands.skills import run_inspect_skill, run_validate_skill
 from ally.commands.tasks import (
@@ -39,7 +43,14 @@ from ally.commands.validate import (
     run_hardware_report,
     run_local_model_validation_command,
 )
-from ally.memory import MEMORY_KINDS, MEMORY_PRIVACY_LEVELS, MemoryKind, MemoryPrivacy
+from ally.memory import (
+    MEMORY_KINDS,
+    MEMORY_PRIVACY_LEVELS,
+    MEMORY_SOURCE_TYPES,
+    MemoryKind,
+    MemoryPrivacy,
+    MemorySourceType,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -122,6 +133,48 @@ def build_parser() -> argparse.ArgumentParser:
 
     memory_retract = memory_commands.add_parser("retract", help="Retract a memory.")
     memory_retract.add_argument("memory_id")
+
+    memory_propose = memory_commands.add_parser(
+        "propose",
+        help="Ask a model for reviewable memory candidates without storing them.",
+    )
+    memory_propose.add_argument("text")
+    memory_propose.add_argument("--model", required=True)
+    memory_propose.add_argument(
+        "--endpoint",
+        default="http://127.0.0.1:8080/v1",
+    )
+    memory_propose.add_argument("--allow-remote", action="store_true")
+    memory_propose.add_argument(
+        "--source-type",
+        choices=MEMORY_SOURCE_TYPES,
+        default="user",
+    )
+    memory_propose.add_argument("--source-id")
+    memory_propose.add_argument("--source-uri")
+    memory_propose.add_argument(
+        "--privacy",
+        choices=MEMORY_PRIVACY_LEVELS,
+        default="private",
+    )
+    memory_propose.add_argument(
+        "--output",
+        help="Optional JSON file for later review/acceptance.",
+    )
+
+    memory_accept = memory_commands.add_parser(
+        "accept",
+        help="Store explicitly selected candidates from a proposal JSON file.",
+    )
+    memory_accept.add_argument("proposal_path")
+    memory_accept.add_argument(
+        "--index",
+        type=int,
+        action="append",
+        default=[],
+        dest="indices",
+        help="Proposal index to accept; may be repeated.",
+    )
 
     knowledge = subcommands.add_parser(
         "knowledge",
@@ -383,6 +436,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         if args.memory_command == "retract":
             return run_retract_memory(memory_id=cast(str, args.memory_id))
+        if args.memory_command == "propose":
+            return run_propose_memories(
+                endpoint=cast(str, args.endpoint),
+                model=cast(str, args.model),
+                text=cast(str, args.text),
+                source_type=cast(MemorySourceType, args.source_type),
+                source_id=cast(str | None, args.source_id),
+                source_uri=cast(str | None, args.source_uri),
+                privacy=cast(MemoryPrivacy, args.privacy),
+                allow_remote=cast(bool, args.allow_remote),
+                output=cast(str | None, args.output),
+            )
+        if args.memory_command == "accept":
+            return run_accept_memory_proposals(
+                proposal_path=cast(str, args.proposal_path),
+                indices=tuple(cast(list[int], args.indices)),
+            )
 
     if args.command == "knowledge":
         if args.knowledge_command == "ingest":
