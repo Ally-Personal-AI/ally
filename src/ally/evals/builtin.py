@@ -10,8 +10,8 @@ from pydantic import BaseModel, Field
 from ally.context import ContextBlock
 from ally.context.render import render_context
 from ally.evals.models import EvalCase, EvaluationOutcome
-from ally.events import AttentionClass, DefaultAttentionPolicy, EventImportance, NewEvent
 from ally.evals.registry import EvaluatorRegistry
+from ally.events import AttentionClass, DefaultAttentionPolicy, EventImportance, NewEvent
 from ally.knowledge.chunking import chunk_text
 from ally.memory import MemoryKind, MemoryRecord, MemorySource, NewMemory
 from ally.memory.retrieval import LexicalMemoryRetriever
