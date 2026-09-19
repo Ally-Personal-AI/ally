@@ -43,6 +43,13 @@ from ally.commands.memory_proposals import (
     run_propose_memories,
 )
 from ally.commands.planning import run_propose_plan
+from ally.commands.schedules import (
+    run_create_schedule,
+    run_list_schedules,
+    run_set_schedule_enabled,
+    run_show_schedule,
+    run_tick_schedules,
+)
 from ally.commands.skills import (
     run_disable_skill,
     run_enable_skill,
@@ -415,6 +422,78 @@ def build_parser() -> argparse.ArgumentParser:
     )
     event_handle.add_argument("event_id")
 
+    schedules = subcommands.add_parser(
+        "schedules",
+        help="Create and advance persisted time-based event schedules.",
+    )
+    schedule_commands = schedules.add_subparsers(dest="schedules_command")
+
+    schedule_create = schedule_commands.add_parser(
+        "create",
+        help="Create a one-shot or fixed-interval schedule.",
+    )
+    schedule_create.add_argument("--name", required=True)
+    schedule_create.add_argument("--event-type", required=True)
+    schedule_create.add_argument(
+        "--at",
+        required=True,
+        help="Timezone-aware ISO-8601 first-run timestamp.",
+    )
+    schedule_create.add_argument(
+        "--every-seconds",
+        type=int,
+        help="Optional fixed recurrence interval in seconds.",
+    )
+    schedule_create.add_argument(
+        "--importance",
+        choices=EVENT_IMPORTANCE_LEVELS,
+        default="routine",
+    )
+    schedule_create.add_argument(
+        "--payload",
+        default="{}",
+        help="Event data as a JSON object.",
+    )
+    schedule_create.add_argument(
+        "--disabled",
+        action="store_true",
+        help="Create the schedule disabled.",
+    )
+
+    schedule_list = schedule_commands.add_parser(
+        "list",
+        help="List persisted schedules.",
+    )
+    schedule_list.add_argument("--limit", type=int, default=50)
+
+    schedule_show = schedule_commands.add_parser(
+        "show",
+        help="Show one persisted schedule.",
+    )
+    schedule_show.add_argument("schedule_id")
+
+    schedule_enable = schedule_commands.add_parser(
+        "enable",
+        help="Enable an incomplete schedule.",
+    )
+    schedule_enable.add_argument("schedule_id")
+
+    schedule_disable = schedule_commands.add_parser(
+        "disable",
+        help="Disable a schedule.",
+    )
+    schedule_disable.add_argument("schedule_id")
+
+    schedule_tick = schedule_commands.add_parser(
+        "tick",
+        help="Emit events for schedules due at an explicit/current time.",
+    )
+    schedule_tick.add_argument(
+        "--at",
+        help="Optional timezone-aware ISO-8601 evaluation time.",
+    )
+    schedule_tick.add_argument("--limit", type=int, default=100)
+
     skills = subcommands.add_parser(
         "skills",
         help="Inspect and validate Ally skill packages.",
@@ -706,6 +785,37 @@ def main(argv: Sequence[str] | None = None) -> int:
             return run_show_event(event_id=cast(str, args.event_id))
         if args.events_command == "handle":
             return run_handle_event(event_id=cast(str, args.event_id))
+
+    if args.command == "schedules":
+        if args.schedules_command == "create":
+            return run_create_schedule(
+                name=cast(str, args.name),
+                event_type=cast(str, args.event_type),
+                at=cast(str, args.at),
+                every_seconds=cast(int | None, args.every_seconds),
+                importance=cast(EventImportance, args.importance),
+                payload_json=cast(str, args.payload),
+                disabled=cast(bool, args.disabled),
+            )
+        if args.schedules_command == "list":
+            return run_list_schedules(limit=cast(int, args.limit))
+        if args.schedules_command == "show":
+            return run_show_schedule(schedule_id=cast(str, args.schedule_id))
+        if args.schedules_command == "enable":
+            return run_set_schedule_enabled(
+                schedule_id=cast(str, args.schedule_id),
+                enabled=True,
+            )
+        if args.schedules_command == "disable":
+            return run_set_schedule_enabled(
+                schedule_id=cast(str, args.schedule_id),
+                enabled=False,
+            )
+        if args.schedules_command == "tick":
+            return run_tick_schedules(
+                at=cast(str | None, args.at),
+                limit=cast(int, args.limit),
+            )
 
     if args.command == "skills":
         if args.skills_command == "inspect":
