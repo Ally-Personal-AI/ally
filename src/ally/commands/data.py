@@ -25,7 +25,7 @@ def run_data_backup(*, output: str) -> int:
     destination = Path(output).expanduser().resolve()
     try:
         manifest = create_backup(build_database(), destination)
-    except (OSError, BackupValidationError) as exc:
+    except (BackupValidationError, FileExistsError, OSError, ValueError) as exc:
         print(f"Backup error: {exc}")
         return 2
 
