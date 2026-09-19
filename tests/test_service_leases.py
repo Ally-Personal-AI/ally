@@ -267,3 +267,45 @@ def test_list_is_stable_by_name(tmp_path: Path) -> None:
         )
 
     assert [record.name for record in store.list()] == ["alpha", "zeta"]
+
+
+def test_proactive_command_stops_before_side_effects_when_lease_is_held(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from ally.commands import service as service_commands
+
+    store = build_store(tmp_path / "runtime.sqlite3")
+    acquired = store.acquire(
+        name="proactive-cycle",
+        owner_id=OWNER_A,
+        now=datetime.now(UTC),
+        ttl_seconds=300,
+    )
+    assert acquired is not None
+
+    monkeypatch.setattr(
+        service_commands,
+        "build_service_lease_store",
+        lambda: store,
+    )
+
+    def fail_if_called():
+        raise AssertionError("event storage must not be constructed")
+
+    monkeypatch.setattr(
+        service_commands,
+        "build_event_store",
+        fail_if_called,
+    )
+
+    result = service_commands.run_proactive_cycle(
+        at=None,
+        schedule_limit=100,
+        delivery_limit=50,
+        sink_name="console",
+        lease_seconds=300,
+        json_output=False,
+    )
+
+    assert result == 2
