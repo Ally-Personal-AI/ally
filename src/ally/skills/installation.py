@@ -258,6 +258,16 @@ class LocalSkillManager:
 
         package_root = self._package_root(skill_id, version)
         try:
-            return load_skill_package(package_root)
+            package = load_skill_package(package_root)
         except SkillManifestError as exc:
             raise SkillInstallationError(str(exc)) from exc
+
+        if (
+            package.manifest.id != skill_id
+            or package.manifest.version != version
+        ):
+            raise SkillInstallationError(
+                "installed skill manifest identity does not match its path: "
+                f"{skill_id}@{version}"
+            )
+        return package
