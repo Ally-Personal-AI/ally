@@ -5,6 +5,7 @@ from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
     SQLiteConversationStore,
     SQLiteDatabase,
+    SQLiteEventSourceCheckpointStore,
     SQLiteEventStore,
     SQLiteKnowledgeStore,
     SQLiteMemoryStore,
@@ -54,6 +55,12 @@ def build_task_store() -> SQLiteTaskStore:
     """Create the default local task store."""
 
     return SQLiteTaskStore(build_database())
+
+
+def build_event_source_checkpoint_store() -> SQLiteEventSourceCheckpointStore:
+    """Create the default external event-source checkpoint store."""
+
+    return SQLiteEventSourceCheckpointStore(build_database())
 
 
 def build_event_store() -> SQLiteEventStore:
