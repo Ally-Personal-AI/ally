@@ -11,3 +11,9 @@ def default_database_path() -> Path:
     """Return the default local Ally database path."""
 
     return default_paths().data_dir / "ally.sqlite3"
+
+
+def default_runtime_database_path() -> Path:
+    """Return the disposable runtime-coordination database path."""
+
+    return default_paths().data_dir / "runtime" / "service.sqlite3"
