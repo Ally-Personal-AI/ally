@@ -239,6 +239,25 @@ class SQLiteKnowledgeStore:
             )
         return tuple(self._source_from_row(row) for row in rows)
 
+    def list_revisions(self, source_id: UUID) -> tuple[KnowledgeRevision, ...]:
+        if self.get_source(source_id) is None:
+            raise KeyError(f"Unknown knowledge source: {source_id}")
+
+        with self._database.connect() as connection:
+            rows = cast(
+                list[RevisionRow],
+                connection.execute(
+                    """
+                    SELECT id, source_id, revision, sha256, created_at
+                    FROM knowledge_revisions
+                    WHERE source_id = ?
+                    ORDER BY revision DESC
+                    """,
+                    (str(source_id),),
+                ).fetchall(),
+            )
+        return tuple(self._revision_from_row(row) for row in rows)
+
     def list_current_chunks(self, source_id: UUID) -> tuple[KnowledgeChunk, ...]:
         source = self.get_source(source_id)
         if source is None:
@@ -257,6 +276,24 @@ class SQLiteKnowledgeStore:
                     ORDER BY ordinal
                     """,
                     (str(source_id), source.current_revision),
+                ).fetchall(),
+            )
+        return tuple(self._chunk_from_row(row) for row in rows)
+
+    def list_revision_chunks(self, revision_id: UUID) -> tuple[KnowledgeChunk, ...]:
+        with self._database.connect() as connection:
+            rows = cast(
+                list[ChunkRow],
+                connection.execute(
+                    """
+                    SELECT
+                        id, source_id, revision_id, revision, ordinal, content,
+                        start_char, end_char, sha256, created_at
+                    FROM knowledge_chunks
+                    WHERE revision_id = ?
+                    ORDER BY ordinal
+                    """,
+                    (str(revision_id),),
                 ).fetchall(),
             )
         return tuple(self._chunk_from_row(row) for row in rows)
