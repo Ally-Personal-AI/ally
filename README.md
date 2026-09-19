@@ -236,6 +236,28 @@ uv run ally skills validate ./path/to/skill \
 
 A skill may declare required tools, optional tools, and typed configuration fields, but the manifest cannot grant permission to execute anything.
 
+## First-machine validation
+
+The repository includes a reproducible handoff for dedicated local-AI hardware.
+
+Inspect the local machine profile:
+
+```bash
+uv run ally validate hardware --json
+```
+
+With a loopback OpenAI-compatible model server running:
+
+```bash
+uv run ally validate local-model \
+  --model <model-id> \
+  --output validation/<runtime>-<model>.json
+```
+
+This runs the same deterministic core evaluations used by CI plus provider smoke evaluations and writes a machine-readable report. Generated validation artifacts are ignored by Git by default.
+
+See [Apple Silicon First-Machine Validation](docs/hardware/apple-silicon-validation.md) for the full procedure and exit criteria.
+
 ## Personal data boundary
 
 Personal runtime data, memory databases, secrets, downloaded model weights, generated indexes, and private logs are deliberately kept outside the repository.
