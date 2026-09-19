@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import cast
+from typing import Never, cast
 
 from pydantic import JsonValue
 
@@ -27,7 +27,7 @@ def _manager() -> LocalSkillManager:
     return LocalSkillManager(default_skill_install_root())
 
 
-def _reject_json_constant(constant: str) -> None:
+def _reject_json_constant(constant: str) -> Never:
     raise ValueError(f"non-standard JSON constant: {constant}")
 
 
