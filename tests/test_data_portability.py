@@ -1,4 +1,5 @@
 from pathlib import Path
+from uuid import UUID
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
@@ -62,8 +63,6 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
 
     conversation_store = SQLiteConversationStore(SQLiteDatabase(restored))
     event_store = SQLiteEventStore(SQLiteDatabase(restored))
-
-    from uuid import UUID
 
     conversation = conversation_store.get(UUID(conversation_id))
     event = event_store.get(UUID(event_id))
@@ -131,3 +130,23 @@ def test_restore_refuses_to_overwrite_existing_database(tmp_path: Path) -> None:
         restore_backup(archive, destination)
 
     assert destination.read_bytes() == b"do not replace"
+
+
+def test_backup_refuses_to_overwrite_existing_archive(tmp_path: Path) -> None:
+    source = tmp_path / "source.sqlite3"
+    seed_database(source)
+    archive = tmp_path / "state.ally-backup"
+    archive.write_bytes(b"keep me")
+
+    with pytest.raises(FileExistsError, match="refusing to overwrite"):
+        create_backup(SQLiteDatabase(source), archive)
+
+    assert archive.read_bytes() == b"keep me"
+
+
+def test_backup_refuses_live_database_as_destination(tmp_path: Path) -> None:
+    source = tmp_path / "source.sqlite3"
+    seed_database(source)
+
+    with pytest.raises(ValueError, match="live database"):
+        create_backup(SQLiteDatabase(source), source)
