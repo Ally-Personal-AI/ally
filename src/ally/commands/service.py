@@ -17,6 +17,7 @@ from ally.commands._storage import (
     build_service_cycle_run_store,
     build_service_lease_store,
 )
+from ally.diagnostics import build_service_health
 from ally.events import EventRuntime
 from ally.scheduler import ScheduleConflictError, SchedulerRuntime
 from ally.service import (
@@ -26,8 +27,8 @@ from ally.service import (
     ServiceRunConflictError,
     service_lease,
 )
-from ally.storage import default_runtime_database_path
-from ally.storage.sqlite import build_sqlite_service_health
+from ally.storage import default_database_path, default_runtime_database_path
+from ally.configuration import default_config_path
 
 
 def _parse_timestamp(value: str) -> datetime:
@@ -175,8 +176,9 @@ def run_service_history(
 
 def run_service_health(*, json_output: bool) -> int:
     try:
-        report = build_sqlite_service_health(
-            database_path=build_database().path,
+        report = build_service_health(
+            config_path=default_config_path(),
+            database_path=default_database_path(),
             runtime_database_path=default_runtime_database_path(),
         )
     except ValueError as exc:
