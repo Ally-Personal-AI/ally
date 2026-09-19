@@ -15,6 +15,7 @@ from ally.portability import (
 )
 from ally.scheduler import NewSchedule
 from ally.storage.sqlite import (
+    SQLiteAttentionDeliveryStore,
     SQLiteConversationStore,
     SQLiteDatabase,
     SQLiteEventStore,
@@ -45,6 +46,13 @@ def seed_database(path: Path) -> tuple[str, str, str]:
         attention="mention_later",
     )
 
+    deliveries = SQLiteAttentionDeliveryStore(database)
+    deliveries.record_attempt(
+        event_id=event.id,
+        sink_id="backup-test",
+        succeeded=True,
+    )
+
     schedules = SQLiteScheduleStore(database)
     schedule = schedules.create(
         NewSchedule(
@@ -66,7 +74,7 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
     validated = validate_backup(archive)
 
     assert validated == manifest
-    assert manifest.database.schema_versions == (1, 2, 3, 4, 5, 6, 7)
+    assert manifest.database.schema_versions == (1, 2, 3, 4, 5, 6, 7, 8)
 
     with ZipFile(archive, mode="r") as bundle:
         assert set(bundle.namelist()) == {"manifest.json", "ally.sqlite3"}
@@ -76,6 +84,7 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
 
     conversation_store = SQLiteConversationStore(SQLiteDatabase(restored))
     event_store = SQLiteEventStore(SQLiteDatabase(restored))
+    delivery_store = SQLiteAttentionDeliveryStore(SQLiteDatabase(restored))
     schedule_store = SQLiteScheduleStore(SQLiteDatabase(restored))
 
     conversation = conversation_store.get(UUID(conversation_id))
@@ -91,6 +100,10 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
     assert event is not None
     assert event.payload == {"value": 1}
     assert event.attention == "mention_later"
+    delivery = delivery_store.get(UUID(event_id), "backup-test")
+    assert delivery is not None
+    assert delivery.status == "succeeded"
+    assert delivery.attempts == 1
     assert schedule is not None
     assert schedule.name == "Synthetic schedule"
     assert schedule.interval_seconds == 300
