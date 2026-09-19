@@ -16,7 +16,7 @@ implementation of an earlier one.
 | Reliable agency | Implemented core | persisted tasks, approval pauses, verification, retries |
 | Model plan proposals | Implemented boundary | strict TaskPlan proposals; no persistence or execution authority |
 | Model memory proposals | Implemented boundary | reviewable extraction bundles; explicit selected acceptance only |
-| Dedicated-hardware validation | Ready to run | reproducible machine/provider validation and runbook |
+| Dedicated-hardware validation | Ready to run | versioned runtime/model evidence, neutral comparison, and first-machine runbook |
 | Proactivity | Implemented substrate + first real source | persisted events, deterministic attention, scheduling, delivery, restart-safe sources, bounded metadata-only filesystem observation, lease-protected cycle, portable lifecycle, structured read-only readiness |
 | Voice | Not started | local ASR/TTS and conversational voice |
 | Multi-user households | Not started | identities, shared/private state, permissions |
@@ -54,6 +54,11 @@ for review.
 These controls keep the first-machine evidence comparable over time: a model or
 runtime comparison should not silently change because unrelated dependencies
 floated between runs.
+
+Validation artifacts also fingerprint the frozen evaluation inputs and record
+the exact runtime/model configuration plus optional runtime-native performance
+observations. The comparison command reports hardware or suite mismatches and
+does not choose a default on the user's behalf.
 
 ## Hardware handoff
 

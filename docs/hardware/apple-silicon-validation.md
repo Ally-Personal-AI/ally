@@ -96,7 +96,9 @@ Bind the server to `127.0.0.1`. Record:
 - approximate model file size
 
 Do not change multiple variables between comparison runs unless the run is
-explicitly exploratory.
+explicitly exploratory. Translate only reproducibility-critical, non-secret
+flags into `--runtime-parameter NAME=VALUE`; never copy an arbitrary command
+line, credential, private path, or access-bearing model URL into a report.
 
 ## 4. Run the reproducible Ally validation
 
@@ -105,6 +107,12 @@ With the server available at the default endpoint:
 ```bash
 uv run ally validate local-model \
   --model <model-id> \
+  --runtime <runtime-name> \
+  --runtime-version <exact-version> \
+  --model-source <public-model-id> \
+  --quantization <quantization> \
+  --model-size-bytes <bytes> \
+  --context-length <tokens> \
   --output validation/<runtime>-<model>.json
 ```
 
@@ -114,6 +122,12 @@ For another loopback endpoint:
 uv run ally validate local-model \
   --endpoint http://127.0.0.1:11434/v1 \
   --model <model-id> \
+  --runtime <runtime-name> \
+  --runtime-version <exact-version> \
+  --model-source <public-model-id> \
+  --quantization <quantization> \
+  --model-size-bytes <bytes> \
+  --context-length <tokens> \
   --output validation/<runtime>-<model>.json
 ```
 
@@ -121,19 +135,22 @@ The generated JSON contains:
 
 - Ally version
 - timestamp
-- endpoint and model identifier
+- endpoint, model identifier, and non-secret runtime profile
+- content fingerprints for both frozen evaluation files
 - machine/OS/Python profile
 - deterministic core evaluation results
 - provider smoke evaluation results
+- optional runtime-native performance observations
 - evaluation duration
 
-The report contains no personal data when the frozen cases are used.
+Reports are schema-versioned and never overwrite an existing artifact. The
+report contains no personal data when the frozen cases and public identifiers
+are used.
 
 ## 5. Manual performance observations
 
-The initial provider abstraction does not yet standardize token-usage telemetry
-across runtimes, so record these runtime-native measurements alongside the JSON
-artifact:
+The initial provider abstraction does not standardize token-usage telemetry
+across runtimes. Obtain these measurements from the runtime itself:
 
 - model load time
 - time to first token
@@ -144,6 +161,23 @@ artifact:
 - maximum tested context before unacceptable slowdown or memory pressure
 
 Prefer runtime-native metrics over estimates.
+
+Record available numeric observations directly in the final validation
+artifact with the matching options:
+
+```bash
+--model-load-ms <milliseconds>
+--time-to-first-token-ms <milliseconds>
+--prompt-tokens-per-second <rate>
+--generation-tokens-per-second <rate>
+--peak-memory-bytes <bytes>
+--maximum-tested-context-tokens <tokens>
+--memory-pressure <normal|warning|critical|unknown>
+--thermal-state <nominal|fair|serious|critical|unknown>
+```
+
+Omit an unavailable measurement instead of estimating it. Use a new output
+filename when repeating a run so prior evidence remains intact.
 
 ## 6. Functional Ally checks
 
@@ -180,6 +214,20 @@ tokens/second. Compare:
 
 Keep the raw JSON reports so future hardware and model changes can be compared
 against the same baseline.
+
+Compare candidate artifacts after each candidate has completed the same frozen
+suite on the same machine:
+
+```bash
+uv run ally validate compare \
+  validation/<candidate-a>.json \
+  validation/<candidate-b>.json
+```
+
+The command warns when hardware or evaluation fingerprints differ and never
+selects a default automatically. See
+[Local-model Validation Evidence](../model-validation.md) for the complete
+artifact contract.
 
 ## Exit criteria
 

@@ -36,6 +36,17 @@ evidence.
 
 Backup V1 excludes both ordinary config and secret material.
 
+## Validation evidence
+
+Local-model validation artifacts contain only synthetic evaluation results,
+non-sensitive machine metadata, public model/runtime identifiers, and explicit
+operator-supplied settings. Ally does not capture raw process arguments or
+environment variables. Runtime parameter names associated with common secret
+material are rejected, values are bounded single-line text, and generated
+reports stay outside version control by default. Operators must not supply
+credentials, private paths, personal prompts, or access-bearing URLs as report
+metadata.
+
 ## Local filesystem observation
 
 Filesystem observation is explicit and metadata-only. The user selects one
