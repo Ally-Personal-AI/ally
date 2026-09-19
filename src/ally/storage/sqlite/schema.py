@@ -411,4 +411,27 @@ MIGRATIONS: tuple[Migration, ...] = (
             """,
         ),
     ),
+    Migration(
+        version=9,
+        name="event_source_checkpoints_v1",
+        statements=(
+            """
+            CREATE TABLE event_source_checkpoints (
+                source_id TEXT PRIMARY KEY,
+                cursor TEXT,
+                successful_polls INTEGER NOT NULL
+                    CHECK (successful_polls >= 1),
+                observations_published INTEGER NOT NULL
+                    CHECK (observations_published >= 0),
+                last_polled_at TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+            """
+            CREATE INDEX idx_event_source_checkpoints_updated
+            ON event_source_checkpoints(updated_at DESC)
+            """,
+        ),
+    ),
 )
