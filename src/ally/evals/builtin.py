@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from ally.context import ContextBlock
 from ally.context.render import render_context
 from ally.evals.models import EvalCase, EvaluationOutcome
+from ally.evals.registry import EvaluatorRegistry
 from ally.knowledge.chunking import chunk_text
 from ally.memory import MemoryKind, MemoryRecord, MemorySource, NewMemory
 from ally.memory.retrieval import LexicalMemoryRetriever
@@ -209,7 +210,7 @@ class MemoryRetrievalEvaluator:
         )
 
 
-def register_builtin_evaluators(registry) -> None:  # type: ignore[no-untyped-def]
+def register_builtin_evaluators(registry: EvaluatorRegistry) -> None:
     """Register deterministic evaluators that require no model or external service."""
 
     registry.register(PrivateGroundingPolicyEvaluator())
