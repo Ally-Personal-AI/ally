@@ -21,3 +21,13 @@ def is_loopback_http_url(value: str) -> bool:
         return ipaddress.ip_address(host).is_loopback
     except ValueError:
         return False
+
+
+def private_grounding_allowed(
+    endpoint: str,
+    *,
+    allow_remote_private_context: bool,
+) -> bool:
+    """Return whether private memory/document grounding may be sent to an endpoint."""
+
+    return is_loopback_http_url(endpoint) or allow_remote_private_context
