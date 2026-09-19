@@ -7,10 +7,24 @@ consequential actions. Security therefore begins before agency.
 
 1. **Source code** — safe to publish.
 2. **Configuration** — local, non-secret settings.
-3. **Secrets** — credentials and keys; never committed.
+3. **Secrets** — credentials and keys; never committed and never stored in ordinary config.
 4. **Personal data** — memory, conversations, files, indexes, and state; never committed.
 5. **Model assets** — local or externally downloaded weights; never committed.
 6. **Tools** — capabilities with explicit permission scopes.
+
+## Configuration and secret separation
+
+The versioned Ally config document is a strict non-secret schema. Unknown
+fields are rejected rather than silently retained.
+
+Future integrations refer to credentials by opaque `SecretRef` names and
+resolve the values through the `SecretStore` interface only when needed.
+
+The current in-memory secret backend exists for tests/development only. No
+production secret-entry CLI is exposed before a secure platform backend is
+validated.
+
+Backup V1 excludes both ordinary config and secret material.
 
 ## Action classes
 

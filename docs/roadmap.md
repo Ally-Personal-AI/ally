@@ -7,6 +7,7 @@ implementation of an earlier one.
 | --- | --- | --- |
 | Foundation | Implemented | local-first architecture, security/data boundaries, CI, ADRs |
 | Data portability | Implemented V1 | versioned integrity-checked SQLite backup/restore archives |
+| Configuration / secrets | Implemented boundary | strict non-secret config, secret references, backend abstraction |
 | Local conversation | Implemented | provider-neutral chat with local OpenAI-compatible adapter |
 | Long-term memory | Implemented V1 | temporal/provenance-aware explicit memory and grounding |
 | Personal knowledge | Implemented V1 | versioned plain-text ingestion, retrieval, grounding |

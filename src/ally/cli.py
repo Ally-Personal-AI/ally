@@ -8,6 +8,12 @@ from typing import cast
 
 from ally import __version__
 from ally.commands.chat import run_chat
+from ally.commands.configuration import (
+    run_config_init,
+    run_config_path,
+    run_config_show,
+    run_config_validate,
+)
 from ally.commands.conversations import run_list_conversations, run_show_conversation
 from ally.commands.data import run_data_backup, run_restore_backup, run_validate_backup
 from ally.commands.doctor import run_doctor
@@ -97,6 +103,25 @@ def build_parser() -> argparse.ArgumentParser:
         "--allow-private-context-remote",
         action="store_true",
         help="Allow memory/document grounding to be sent to a remote endpoint.",
+    )
+
+    config = subcommands.add_parser(
+        "config",
+        help="Inspect Ally's non-secret versioned configuration.",
+    )
+    config_commands = config.add_subparsers(dest="config_command")
+    config_commands.add_parser("path", help="Show the Ally config file path.")
+    config_commands.add_parser(
+        "init",
+        help="Create the default config without overwriting an existing file.",
+    )
+    config_commands.add_parser(
+        "show",
+        help="Show current config or safe defaults without writing a file.",
+    )
+    config_commands.add_parser(
+        "validate",
+        help="Validate the existing config file.",
     )
 
     conversations = subcommands.add_parser(
@@ -488,6 +513,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
             conversation_id=cast(str | None, args.conversation),
         )
+
+    if args.command == "config":
+        if args.config_command == "path":
+            return run_config_path()
+        if args.config_command == "init":
+            return run_config_init()
+        if args.config_command == "show":
+            return run_config_show()
+        if args.config_command == "validate":
+            return run_config_validate()
 
     if args.command == "conversations":
         if args.conversations_command == "list":
