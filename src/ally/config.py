@@ -23,10 +23,27 @@ class AllyPaths(BaseModel):
     data_dir: Path = Field(description="Personal state, memory, and runtime data.")
 
 
+def _separate_platform_paths(
+    config_dir: Path,
+    data_dir: Path,
+) -> AllyPaths:
+    """Keep config and personal data distinct even when an OS shares a base."""
+
+    if config_dir == data_dir:
+        return AllyPaths(
+            config_dir=config_dir / "config",
+            data_dir=data_dir / "data",
+        )
+    return AllyPaths(
+        config_dir=config_dir,
+        data_dir=data_dir,
+    )
+
+
 def default_paths() -> AllyPaths:
     """Return OS-appropriate default local paths for Ally."""
 
-    return AllyPaths(
-        config_dir=Path(user_config_dir(APP_NAME, APP_AUTHOR)),
-        data_dir=Path(user_data_dir(APP_NAME, APP_AUTHOR)),
+    return _separate_platform_paths(
+        Path(user_config_dir(APP_NAME, APP_AUTHOR)),
+        Path(user_data_dir(APP_NAME, APP_AUTHOR)),
     )

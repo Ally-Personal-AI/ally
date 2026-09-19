@@ -5,7 +5,7 @@ implementation of an earlier one.
 
 | Phase | Status | Current implementation |
 | --- | --- | --- |
-| Foundation | Implemented | local-first architecture, tested dependency boundaries, contributor map, security/data boundaries, CI, ADRs |
+| Foundation | Implemented | local-first architecture, tested dependency boundaries, contributor map, Linux quality CI + macOS portability smoke, security/data boundaries, ADRs |
 | Data portability | Implemented V1 | versioned integrity-checked SQLite backup/restore archives |
 | Configuration / secrets | Implemented boundary | strict non-secret config, secret references, backend abstraction |
 | Local conversation | Implemented | provider-neutral chat with local OpenAI-compatible adapter |

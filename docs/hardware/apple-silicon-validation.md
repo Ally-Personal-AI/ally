@@ -7,6 +7,12 @@ The goal is not merely to prove that a model answers prompts. It is to create
 repeatable evidence about which local runtime/model combination should become
 the first recommended Ally configuration.
 
+GitHub CI includes a macOS portability smoke gate. That gate is useful for
+catching operating-system differences in paths, SQLite, subprocesses, and other
+deterministic behavior, but it is **not** first-machine validation. Hosted CI
+does not establish target Apple Silicon model performance, unified-memory
+headroom, context capacity, latency, or sustained thermal behavior.
+
 ## Safety and data rules
 
 Use only the frozen synthetic evaluation cases in the repository during initial

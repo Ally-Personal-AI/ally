@@ -44,6 +44,18 @@ CI enforces these major boundaries in
 If a boundary genuinely needs to change, update the architecture documentation
 and record the reason in an ADR rather than adding a one-off test exception.
 
+## CI platforms
+
+The primary Ubuntu job runs lint, strict typing, coverage tests, and the frozen
+behavioral evaluation suite.
+
+A separate macOS smoke job installs the project, runs the full test suite, and
+runs the same frozen core evaluations. It exists to catch operating-system
+portability regressions without duplicating coverage/lint/type work.
+
+Passing macOS CI does not replace the dedicated Apple Silicon validation
+runbook or provide evidence about local-model performance.
+
 ## Pull requests
 
 - Keep changes focused.
