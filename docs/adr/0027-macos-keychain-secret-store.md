@@ -17,11 +17,13 @@ generic-password items in the current user's default Keychain. The opaque
 `SecretRef` name is the item account and an Ally-owned versioned identifier is
 the service.
 
-Values are UTF-8 encoded into a versioned, single-line representation before
-being supplied to `/usr/bin/security` through the password-prompt input. The
-value—raw or encoded—is never a process argument. A separate Keychain item
-stores only the sorted reference names so listing does not require dumping the
-Keychain or reading every value.
+Values are UTF-8 encoded into a versioned envelope and passed directly to
+Apple's modern `SecItemCopyMatching`, `SecItemAdd`, `SecItemUpdate`, and
+`SecItemDelete` Security-framework APIs through a narrow `ctypes` adapter. No
+secret-bearing subprocess is launched, and the value—raw or encoded—is never a
+process argument or environment variable. A separate Keychain item stores only
+the sorted reference names so listing does not require dumping the Keychain or
+reading every value.
 
 Reference-index changes and value changes are treated as one logical mutation.
 If the second change fails, Ally attempts to restore the previous item. A
@@ -45,9 +47,9 @@ The reference index and value are separate Keychain items, so no true
 cross-item transaction exists. Ally restores the prior state on observed
 failures, but abrupt process termination between writes may leave an orphaned
 value or stale index entry. Direct lookup and deletion remain possible by the
-known reference, and a future native Security-framework adapter may provide a
-stronger transaction/reconciliation mechanism.
+known reference. A future schema could trade that separation for a single-item
+transaction or add explicit index reconciliation.
 
-Actual password-prompt transport, OS access prompts, cross-process
-persistence, and locked-login-Keychain behavior must pass the dedicated-machine
-runbook before this adapter is considered fully accepted for production use.
+Actual OS access prompts, cross-process persistence, and
+locked-login-Keychain behavior must pass the dedicated-machine runbook before
+this adapter is considered fully accepted for production use.

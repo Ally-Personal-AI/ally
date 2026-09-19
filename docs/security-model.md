@@ -20,16 +20,19 @@ fields are rejected rather than silently retained.
 Integrations refer to credentials by opaque `SecretRef` names and
 resolve the values through the `SecretStore` interface only when needed.
 
-The macOS adapter stores values in the current user's default Keychain. Its CLI
+The macOS adapter stores values in the current user's default Keychain through
+Apple's modern Security-framework item APIs. Its CLI
 accepts values only through a non-echoing prompt and exposes set, reference
 list, availability check, and delete operations—never value retrieval. Secret
 payloads do not enter subprocess arguments, ordinary configuration, SQLite,
 logs, backend-derived exception output, or model context. Non-macOS systems and
 unavailable, locked, denied, or malformed Keychain state fail closed.
 
-Deterministic tests use a simulated Keychain command boundary. Actual login
-Keychain persistence and prompt behavior remain a dedicated-machine acceptance
-gate; hosted macOS CI is not treated as that evidence.
+Deterministic tests use a simulated Keychain boundary, while macOS CI exercises
+a synthetic item through the real framework on an ephemeral runner. Actual
+login-Keychain persistence and OS access-prompt behavior remain a
+dedicated-machine acceptance gate; hosted macOS CI is not treated as that
+evidence.
 
 Backup V1 excludes both ordinary config and secret material.
 

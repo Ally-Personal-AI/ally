@@ -1,107 +1,61 @@
 from __future__ import annotations
 
-import subprocess
+import ast
+import sys
 from dataclasses import dataclass, field
+from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from pydantic import SecretStr
 
-from ally.secrets.macos import (
-    KeychainCommandResult,
-    MacOSKeychainSecretStore,
-    SubprocessKeychainCommandRunner,
-)
+from ally.secrets.macos import MacOSKeychainSecretStore
+from ally.secrets.macos_native import SecurityFrameworkKeychainBackend
 from ally.secrets.store import SecretStoreUnavailableError
 
 
 @dataclass
-class FakeKeychainRunner:
-    items: dict[tuple[str, str], str] = field(default_factory=lambda: {})
-    calls: list[tuple[tuple[str, ...], str | None]] = field(
-        default_factory=lambda: []
-    )
-    failures: list[tuple[str, str, KeychainCommandResult]] = field(
-        default_factory=lambda: []
-    )
+class FakeKeychainBackend:
+    items: dict[tuple[str, str], bytes] = field(default_factory=lambda: {})
+    failures: list[tuple[str, str]] = field(default_factory=lambda: [])
 
-    def fail_once(
-        self,
-        *,
-        operation: str,
-        service: str,
-        stderr: str = "interaction not allowed",
-    ) -> None:
-        self.failures.append(
-            (
-                operation,
-                service,
-                KeychainCommandResult(returncode=51, stdout="", stderr=stderr),
-            )
-        )
+    def fail_once(self, *, operation: str, service: str) -> None:
+        self.failures.append((operation, service))
 
-    def run(
-        self,
-        arguments: tuple[str, ...],
-        *,
-        input_text: str | None = None,
-    ) -> KeychainCommandResult:
-        self.calls.append((arguments, input_text))
-        operation = arguments[1]
-        account = arguments[arguments.index("-a") + 1]
-        service = arguments[arguments.index("-s") + 1]
-
-        for index, (failed_operation, failed_service, result) in enumerate(
-            self.failures
-        ):
-            if operation == failed_operation and service == failed_service:
+    def _check_failure(self, *, operation: str, service: str) -> None:
+        for index, failure in enumerate(self.failures):
+            if failure == (operation, service):
                 self.failures.pop(index)
-                return result
-
-        key = (service, account)
-        if operation == "find-generic-password":
-            value = self.items.get(key)
-            if value is None:
-                return KeychainCommandResult(
-                    returncode=44,
-                    stdout="",
-                    stderr="The specified item could not be found in the keychain.",
+                raise SecretStoreUnavailableError(
+                    "macOS Keychain is unavailable or denied access"
                 )
-            return KeychainCommandResult(
-                returncode=0,
-                stdout=f"{value}\n",
-                stderr="",
-            )
-        if operation == "add-generic-password":
-            assert arguments[-1] == "-w"
-            assert input_text is not None
-            self.items[key] = input_text.removesuffix("\n")
-            return KeychainCommandResult(returncode=0, stdout="", stderr="")
-        if operation == "delete-generic-password":
-            if self.items.pop(key, None) is None:
-                return KeychainCommandResult(
-                    returncode=44,
-                    stdout="",
-                    stderr="errSecItemNotFound",
-                )
-            return KeychainCommandResult(returncode=0, stdout="", stderr="")
-        raise AssertionError(f"unexpected Keychain operation: {operation}")
+
+    def get(self, *, account: str, service: str) -> bytes | None:
+        self._check_failure(operation="get", service=service)
+        return self.items.get((service, account))
+
+    def set(self, *, account: str, service: str, value: bytes) -> None:
+        self._check_failure(operation="set", service=service)
+        self.items[(service, account)] = value
+
+    def delete(self, *, account: str, service: str) -> bool:
+        self._check_failure(operation="delete", service=service)
+        return self.items.pop((service, account), None) is not None
 
 
-def build_store(runner: FakeKeychainRunner) -> MacOSKeychainSecretStore:
+def build_store(backend: FakeKeychainBackend) -> MacOSKeychainSecretStore:
     return MacOSKeychainSecretStore(
-        runner=runner,
+        backend=backend,
         platform_name="darwin",
         service="test.ally.secrets",
-        executable="/synthetic/security",
     )
 
 
 def test_keychain_store_round_trip_lists_updates_and_deletes() -> None:
-    runner = FakeKeychainRunner()
-    store = build_store(runner)
-    secret_value = "first line\nsecond line λ"
+    backend = FakeKeychainBackend()
+    store = build_store(backend)
 
-    store.set("service.beta", SecretStr(secret_value))
+    store.set("service.beta", SecretStr("first line\nsecond line λ"))
     store.set("service.alpha", SecretStr("alpha-value"))
     store.set("service.beta", SecretStr("replacement"))
 
@@ -114,64 +68,47 @@ def test_keychain_store_round_trip_lists_updates_and_deletes() -> None:
     assert store.get("service.beta") is None
     assert store.list_names() == ("service.alpha",)
 
-    command_arguments = "\n".join(" ".join(arguments) for arguments, _ in runner.calls)
-    assert secret_value not in command_arguments
-    assert "alpha-value" not in command_arguments
-    assert "replacement" not in command_arguments
-    assert all(
-        arguments[0] == "/synthetic/security" for arguments, _ in runner.calls
-    )
+    stored_payloads = tuple(backend.items.values())
+    assert all(b"first line\nsecond line" not in value for value in stored_payloads)
+    assert all(b"alpha-value" not in value for value in stored_payloads)
+    assert all(b"replacement" not in value for value in stored_payloads)
 
 
 def test_keychain_store_fails_closed_on_locked_or_denied_backend() -> None:
-    runner = FakeKeychainRunner()
-    runner.fail_once(
-        operation="find-generic-password",
-        service="test.ally.secrets.index",
-        stderr="locked backend containing synthetic-secret-value",
-    )
-    store = build_store(runner)
+    backend = FakeKeychainBackend()
+    backend.fail_once(operation="get", service="test.ally.secrets.index")
+    store = build_store(backend)
 
     with pytest.raises(SecretStoreUnavailableError) as raised:
         store.list_names()
 
-    assert "synthetic-secret-value" not in str(raised.value)
     assert "unavailable" in str(raised.value)
 
 
 def test_keychain_set_rolls_back_when_reference_index_update_fails() -> None:
-    runner = FakeKeychainRunner()
-    store = build_store(runner)
-    runner.fail_once(
-        operation="add-generic-password",
-        service="test.ally.secrets.index",
-    )
+    backend = FakeKeychainBackend()
+    store = build_store(backend)
+    backend.fail_once(operation="set", service="test.ally.secrets.index")
 
     with pytest.raises(SecretStoreUnavailableError):
         store.set("service.token", SecretStr("new-value"))
 
-    assert ("test.ally.secrets", "service.token") not in runner.items
+    assert ("test.ally.secrets", "service.token") not in backend.items
 
 
 def test_keychain_update_and_delete_restore_previous_value_on_index_failure() -> None:
-    runner = FakeKeychainRunner()
-    store = build_store(runner)
+    backend = FakeKeychainBackend()
+    store = build_store(backend)
     store.set("service.token", SecretStr("original"))
 
-    runner.fail_once(
-        operation="add-generic-password",
-        service="test.ally.secrets.index",
-    )
+    backend.fail_once(operation="set", service="test.ally.secrets.index")
     with pytest.raises(SecretStoreUnavailableError):
         store.set("service.token", SecretStr("replacement"))
     loaded = store.get("service.token")
     assert loaded is not None
     assert loaded.get_secret_value() == "original"
 
-    runner.fail_once(
-        operation="add-generic-password",
-        service="test.ally.secrets.index",
-    )
+    backend.fail_once(operation="set", service="test.ally.secrets.index")
     with pytest.raises(SecretStoreUnavailableError):
         store.delete("service.token")
     loaded = store.get("service.token")
@@ -181,33 +118,71 @@ def test_keychain_update_and_delete_restore_previous_value_on_index_failure() ->
 
 
 def test_keychain_store_rejects_corrupt_item_and_index_data() -> None:
-    runner = FakeKeychainRunner()
-    store = build_store(runner)
-    runner.items[("test.ally.secrets", "service.token")] = "not-an-ally-item"
+    backend = FakeKeychainBackend()
+    store = build_store(backend)
+    backend.items[("test.ally.secrets", "service.token")] = b"not-an-ally-item"
 
     with pytest.raises(SecretStoreUnavailableError, match="invalid format"):
         store.get("service.token")
 
-    runner.items[("test.ally.secrets.index", "references")] = "not-an-index"
+    backend.items[("test.ally.secrets.index", "references")] = b"not-an-index"
     with pytest.raises(SecretStoreUnavailableError, match="invalid"):
         store.list_names()
 
 
-def test_keychain_store_is_unavailable_off_macos() -> None:
+def test_keychain_store_and_native_backend_are_unavailable_off_macos() -> None:
     with pytest.raises(SecretStoreUnavailableError, match="unavailable"):
         MacOSKeychainSecretStore(platform_name="linux")
+    with pytest.raises(SecretStoreUnavailableError, match="unavailable"):
+        SecurityFrameworkKeychainBackend(platform_name="linux")
 
 
-def test_subprocess_runner_redacts_spawn_failures(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def fail_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
-        raise OSError("synthetic-secret-value")
-
-    monkeypatch.setattr(subprocess, "run", fail_run)
-    runner = SubprocessKeychainCommandRunner()
+def test_native_backend_redacts_framework_load_failures(tmp_path: Path) -> None:
+    secret_marker = "synthetic-secret-in-missing-path"
 
     with pytest.raises(SecretStoreUnavailableError) as raised:
-        runner.run(("/usr/bin/security", "example"), input_text="synthetic-secret-value")
+        SecurityFrameworkKeychainBackend(
+            platform_name="darwin",
+            security_framework=tmp_path / secret_marker,
+            core_foundation_framework=tmp_path / "missing-core",
+        )
 
-    assert "synthetic-secret-value" not in str(raised.value)
+    assert secret_marker not in str(raised.value)
+
+
+def test_native_adapter_has_no_subprocess_secret_transport() -> None:
+    sources = (
+        Path("src/ally/secrets/macos.py").read_text(encoding="utf-8"),
+        Path("src/ally/secrets/macos_native.py").read_text(encoding="utf-8"),
+    )
+
+    imported_modules = {
+        alias.name
+        for source in sources
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    }
+    assert "subprocess" not in imported_modules
+    assert all("/usr/bin/security" not in source for source in sources)
+    assert "SecItemCopyMatching" in sources[1]
+    assert "SecItemAdd" in sources[1]
+    assert "SecItemUpdate" in sources[1]
+    assert "SecItemDelete" in sources[1]
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="requires Apple frameworks")
+def test_native_backend_round_trip_on_ephemeral_macos_runner() -> None:
+    backend = SecurityFrameworkKeychainBackend()
+    service = f"ai.ally.ci.synthetic.{uuid4()}"
+    account = "ci-probe"
+    value = b"synthetic-ci-secret"
+
+    try:
+        assert backend.get(account=account, service=service) is None
+        backend.set(account=account, service=service, value=value)
+        assert backend.get(account=account, service=service) == value
+    finally:
+        backend.delete(account=account, service=service)
+
+    assert backend.get(account=account, service=service) is None

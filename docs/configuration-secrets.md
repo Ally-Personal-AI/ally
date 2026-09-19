@@ -62,15 +62,16 @@ The repository provides:
 The macOS adapter stores each value as a generic-password item below Ally's
 service namespace. A second Keychain item contains only the sorted opaque
 reference names, allowing `list` to avoid dumping or scanning unrelated
-Keychain records. Values are versioned and encoded into a prompt-safe line
-before being given to Apple's `security` command. That encoding is a transport
-format, not encryption; Keychain provides the security boundary.
+Keychain records. Values use a versioned encoded envelope before becoming
+Keychain data. That envelope is a migration/validation format, not encryption;
+Keychain provides the security boundary.
 
-The adapter invokes `/usr/bin/security` directly without a shell. Secret
-material is supplied through the command's password-prompt input and never
-placed in process arguments. Backend output is never copied into CLI errors.
-If Keychain is unavailable, locked, denied, or contains malformed Ally data,
-the operation fails closed.
+The adapter calls Apple's modern `SecItemCopyMatching`, `SecItemAdd`,
+`SecItemUpdate`, and `SecItemDelete` Security-framework APIs directly through a
+narrow native boundary. It never launches a secret-bearing subprocess or puts
+secret material in process arguments or environment variables. Raw OS status
+details are never copied into CLI errors. If Keychain is unavailable, locked,
+denied, or contains malformed Ally data, the operation fails closed.
 
 Commands on macOS:
 
@@ -90,9 +91,11 @@ cannot be used safely. `delete` returns 0 when deleted, 1 when already missing,
 and 2 on an operational error.
 
 The adapter and CLI are covered by deterministic simulated-Keychain tests on
-Linux and macOS CI. Persistence and prompt behavior against the dedicated
-machine's actual login Keychain remain part of the first-machine acceptance
-run; see [Apple Silicon first-machine validation](hardware/apple-silicon-validation.md).
+Linux and macOS CI. macOS CI also exercises a synthetic item through the real
+Security framework on its ephemeral runner. Persistence and OS access-prompt
+behavior against the dedicated machine's actual login Keychain remain part of
+the first-machine acceptance run; see
+[Apple Silicon first-machine validation](hardware/apple-silicon-validation.md).
 
 ## Deliberate omissions
 

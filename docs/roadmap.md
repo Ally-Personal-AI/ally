@@ -7,7 +7,7 @@ implementation of an earlier one.
 | --- | --- | --- |
 | Foundation | Implemented | local-first architecture, tested dependency boundaries, contributor map, locked dependencies, Linux quality CI + macOS portability smoke, coverage regression gate, automated dependency maintenance, security/data boundaries, ADRs |
 | Data portability | Implemented V1 | versioned integrity-checked SQLite backup/restore archives |
-| Configuration / secrets | Adapter implemented; machine acceptance pending | strict non-secret config, macOS Keychain adapter, reference-only CLI, fail-closed simulated tests |
+| Configuration / secrets | Adapter implemented; machine acceptance pending | strict non-secret config, direct macOS Security-framework adapter, reference-only CLI, fail-closed tests |
 | Local conversation | Implemented | provider-neutral chat with local OpenAI-compatible adapter |
 | Long-term memory | Implemented V1 | temporal/provenance-aware explicit memory and grounding |
 | Personal knowledge | Implemented V1 | versioned plain-text ingestion, retrieval, grounding |
