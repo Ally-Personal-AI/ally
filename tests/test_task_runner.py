@@ -4,10 +4,11 @@ from pydantic import JsonValue
 
 from ally.security.tool_policy import DefaultToolPolicy
 from ally.storage.sqlite import SQLiteDatabase, SQLiteTaskStore
-from ally.tasks import NewTaskStep, TaskPlan, TaskRunner
+from ally.tasks import NewTaskStep, TaskPlan, TaskRunner, TaskStepRecord, VerificationResult
 from ally.tools import ToolRegistry, ToolRisk, ToolSpec
 from ally.tools.audit import ToolAuditRecord
 from ally.tools.executor import ToolExecutor
+from ally.tools.models import ToolExecution
 
 
 class InMemoryAuditStore:
@@ -46,6 +47,18 @@ class SyntheticTool:
         if self.fail_first and self.calls == 1:
             raise RuntimeError("synthetic failure")
         return {"calls": self.calls, "arguments": arguments}
+
+
+class RejectingVerifier:
+    def verify(
+        self,
+        step: TaskStepRecord,
+        execution: ToolExecution,
+    ) -> VerificationResult:
+        return VerificationResult(
+            passed=False,
+            detail=f"Synthetic verification rejected {step.tool_name}.",
+        )
 
 
 def build_runner(
@@ -156,3 +169,50 @@ def test_failed_step_requires_deliberate_retry(tmp_path: Path) -> None:
     assert completed.status == "succeeded"
     assert tool.calls == 2
     assert store.list_steps(task.id)[0].attempts == 2
+
+
+def test_verification_can_fail_after_successful_tool_execution(tmp_path: Path) -> None:
+    tool = SyntheticTool(name="test.read", risk="read_only")
+    store, _, executor, _ = build_runner(tmp_path, tool)
+    task, _ = store.create(
+        TaskPlan(
+            goal="Synthetic verification failure",
+            steps=(NewTaskStep(tool_name="test.read"),),
+        )
+    )
+    runner = TaskRunner(store, executor, verifier=RejectingVerifier())
+
+    result = runner.run(task.id)
+    step = store.list_steps(task.id)[0]
+
+    assert tool.calls == 1
+    assert result.status == "failed"
+    assert step.status == "failed"
+    assert step.last_output == {"calls": 1, "arguments": {}}
+    assert step.last_error == "Synthetic verification rejected test.read."
+
+
+def test_running_step_is_recovered_after_restart(tmp_path: Path) -> None:
+    tool = SyntheticTool(name="test.read", risk="read_only")
+    store, _, executor, _ = build_runner(tmp_path, tool)
+    task, steps = store.create(
+        TaskPlan(
+            goal="Synthetic crash recovery",
+            steps=(NewTaskStep(tool_name="test.read"),),
+        )
+    )
+    store.set_task_status(task.id, "running")
+    store.set_step_status(
+        steps[0].id,
+        "running",
+        increment_attempts=True,
+    )
+
+    restarted_runner = TaskRunner(store, executor)
+    result = restarted_runner.run(task.id)
+    step = store.list_steps(task.id)[0]
+
+    assert result.status == "succeeded"
+    assert step.status == "succeeded"
+    assert step.attempts == 2
+    assert tool.calls == 1
