@@ -3,14 +3,24 @@
 from __future__ import annotations
 
 from ally.attention.models import AttentionDeliveryRecord, validate_sink_id
-from ally.attention.sinks import AttentionSink
+from ally.attention.sinks import (
+    DELIVERABLE_ATTENTION_CLASSES,
+    AttentionSink,
+)
 from ally.attention.store import AttentionDeliveryStore
 from ally.events import EventStore
 
 
-def _bounded_error(exc: Exception) -> str:
-    rendered = f"{type(exc).__name__}: {exc}"
-    return rendered[:1000]
+def delivery_key(*, sink_id: str, event_id: str) -> str:
+    """Return stable identity a sink may use for external idempotency."""
+
+    return f"attention:{sink_id}:{event_id}"
+
+
+def _safe_error(exc: Exception) -> str:
+    """Persist only the exception class; arbitrary messages may contain secrets."""
+
+    return type(exc).__name__
 
 
 class AttentionDeliveryRuntime:
@@ -34,7 +44,11 @@ class AttentionDeliveryRuntime:
             raise ValueError("limit must be positive")
 
         sink_id = validate_sink_id(sink.id)
-        accepted = sink.accepted_attention
+        accepted = tuple(
+            attention
+            for attention in sink.accepted_attention
+            if attention in DELIVERABLE_ATTENTION_CLASSES
+        )
         if not accepted:
             return ()
 
@@ -57,15 +71,19 @@ class AttentionDeliveryRuntime:
                 if existing is not None and existing.status == "succeeded":
                     continue
 
+                key = delivery_key(
+                    sink_id=sink_id,
+                    event_id=str(event.id),
+                )
                 try:
-                    sink.deliver(event)
+                    sink.deliver(event, delivery_key=key)
                 except Exception as exc:
                     attempts.append(
                         self._deliveries.record_attempt(
                             event_id=event.id,
                             sink_id=sink_id,
                             succeeded=False,
-                            error=_bounded_error(exc),
+                            error=_safe_error(exc),
                         )
                     )
                 else:
