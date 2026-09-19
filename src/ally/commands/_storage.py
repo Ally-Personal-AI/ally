@@ -2,6 +2,7 @@
 
 from ally.storage import default_database_path
 from ally.storage.sqlite import (
+    SQLiteAttentionDeliveryStore,
     SQLiteConversationStore,
     SQLiteDatabase,
     SQLiteEventStore,
@@ -11,6 +12,12 @@ from ally.storage.sqlite import (
     SQLiteTaskStore,
     SQLiteToolAuditStore,
 )
+
+
+def build_attention_delivery_store() -> SQLiteAttentionDeliveryStore:
+    """Create the default local attention delivery store."""
+
+    return SQLiteAttentionDeliveryStore(build_database())
 
 
 def build_database() -> SQLiteDatabase:
