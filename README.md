@@ -349,6 +349,23 @@ Archives record the Ally version, database schema history, byte size, and SHA-25
 
 Backup V1 includes core SQLite state only. It deliberately excludes model weights, caches, configuration, logs, and secrets.
 
+## Configuration and secrets
+
+Ally configuration is versioned, strict, and deliberately non-secret.
+
+```bash
+uv run ally config path
+uv run ally config show
+uv run ally config init
+uv run ally config validate
+```
+
+The current config schema contains only local inference defaults and privacy defaults. Unknown fields are rejected.
+
+Credentials are represented by opaque `SecretRef` names and resolved through the `SecretStore` interface. The repository currently includes only an ephemeral in-memory secret backend for tests and development; there is intentionally no CLI for entering secret values until a secure operating-system backend is validated.
+
+See [Configuration and Secrets](docs/configuration-secrets.md).
+
 ## Personal data boundary
 
 Personal runtime data, memory databases, secrets, downloaded model weights, generated indexes, and private logs are deliberately kept outside the repository.
