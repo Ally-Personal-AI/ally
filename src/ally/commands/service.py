@@ -11,17 +11,23 @@ from ally.attention import (
 )
 from ally.commands._storage import (
     build_attention_delivery_store,
+    build_database,
     build_event_store,
     build_schedule_store,
+    build_service_cycle_run_store,
     build_service_lease_store,
 )
 from ally.events import EventRuntime
 from ally.scheduler import ScheduleConflictError, SchedulerRuntime
 from ally.service import (
     ProactiveServiceCycle,
+    ProactiveServiceRunner,
     ServiceLeaseUnavailableError,
+    ServiceRunConflictError,
     service_lease,
 )
+from ally.storage import default_runtime_database_path
+from ally.storage.sqlite import build_sqlite_service_health
 
 
 def _parse_timestamp(value: str) -> datetime:
@@ -56,17 +62,20 @@ def run_proactive_cycle(
             ttl_seconds=lease_seconds,
         ):
             event_store = build_event_store()
-            cycle = ProactiveServiceCycle(
-                SchedulerRuntime(
-                    build_schedule_store(),
-                    EventRuntime(event_store),
+            runner = ProactiveServiceRunner(
+                ProactiveServiceCycle(
+                    SchedulerRuntime(
+                        build_schedule_store(),
+                        EventRuntime(event_store),
+                    ),
+                    AttentionDeliveryRuntime(
+                        event_store,
+                        build_attention_delivery_store(),
+                    ),
                 ),
-                AttentionDeliveryRuntime(
-                    event_store,
-                    build_attention_delivery_store(),
-                ),
+                build_service_cycle_run_store(),
             )
-            report = cycle.run(
+            report, run = runner.run(
                 as_of=observed_at,
                 sinks=(ConsoleAttentionSink(),),
                 schedule_limit=schedule_limit,
@@ -75,6 +84,7 @@ def run_proactive_cycle(
     except (
         ScheduleConflictError,
         ServiceLeaseUnavailableError,
+        ServiceRunConflictError,
         ValueError,
     ) as exc:
         print(f"Service error: {exc}")
@@ -83,12 +93,17 @@ def run_proactive_cycle(
     if json_output:
         print(
             json.dumps(
-                report.model_dump(mode="json"),
+                {
+                    "cycle": report.model_dump(mode="json"),
+                    "run": run.model_dump(mode="json"),
+                },
                 indent=2,
                 sort_keys=True,
             )
         )
     else:
+        print(f"Run: {run.id}")
+        print(f"Status: {run.status}")
         print(f"Observed at: {report.observed_at.isoformat()}")
         print(f"Scheduled events: {report.scheduled_events}")
         print(f"Delivery attempts: {report.delivery_attempts}")
@@ -111,3 +126,88 @@ def run_list_service_leases() -> int:
             f"owner={record.owner_id}  expires={record.expires_at.isoformat()}"
         )
     return 0
+
+
+def run_service_history(
+    *,
+    limit: int,
+    json_output: bool,
+) -> int:
+    try:
+        records = build_service_cycle_run_store().list(limit=limit)
+    except ValueError as exc:
+        print(f"Service error: {exc}")
+        return 2
+
+    if json_output:
+        print(
+            json.dumps(
+                [record.model_dump(mode="json") for record in records],
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0
+
+    if not records:
+        print("No service cycle history.")
+        return 0
+
+    for record in records:
+        finished = (
+            record.finished_at.isoformat()
+            if record.finished_at is not None
+            else "(running)"
+        )
+        print(
+            f"{record.id}  {record.status}  "
+            f"started={record.started_at.isoformat()}  "
+            f"finished={finished}  "
+            f"scheduled={record.scheduled_events}  "
+            f"deliveries={record.delivery_attempts}  "
+            f"failures={record.delivery_failures}"
+        )
+        if record.error_class is not None:
+            print(f"  error_class={record.error_class}")
+
+    return 0
+
+
+def run_service_health(*, json_output: bool) -> int:
+    try:
+        report = build_sqlite_service_health(
+            database_path=build_database().path,
+            runtime_database_path=default_runtime_database_path(),
+        )
+    except ValueError as exc:
+        print(f"Service error: {exc}")
+        return 2
+
+    if json_output:
+        print(
+            json.dumps(
+                report.model_dump(mode="json"),
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    else:
+        print(f"Status: {report.status}")
+        print(f"Database exists: {report.database_exists}")
+        print(f"Database integrity: {report.database_integrity_ok}")
+        print(f"Schema current: {report.schema_current}")
+        print(f"Runtime coordination: {report.runtime_coordination_ok}")
+        print(f"Proactive lease active: {report.proactive_lease_active}")
+        if report.latest_cycle is None:
+            print("Latest cycle: (none)")
+        else:
+            print(
+                f"Latest cycle: {report.latest_cycle.id} "
+                f"{report.latest_cycle.status}"
+            )
+
+    if report.status == "healthy":
+        return 0
+    if report.status == "uninitialized":
+        return 1
+    return 2
