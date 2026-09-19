@@ -4,6 +4,7 @@ from ally.storage import default_database_path
 from ally.storage.sqlite import (
     SQLiteConversationStore,
     SQLiteDatabase,
+    SQLiteEventStore,
     SQLiteKnowledgeStore,
     SQLiteMemoryStore,
     SQLiteTaskStore,
@@ -45,3 +46,9 @@ def build_task_store() -> SQLiteTaskStore:
     """Create the default local task store."""
 
     return SQLiteTaskStore(build_database())
+
+
+def build_event_store() -> SQLiteEventStore:
+    """Create the default local event store."""
+
+    return SQLiteEventStore(build_database())
