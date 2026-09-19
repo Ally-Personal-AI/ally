@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from uuid import UUID
 
 from ally.context import ContextBlock
 from ally.context.lexical import lexical_tokens
@@ -38,7 +39,7 @@ class LexicalKnowledgeRetriever:
             return ()
 
         hits: list[KnowledgeHit] = []
-        source_cache: dict[object, KnowledgeSource] = {}
+        source_cache: dict[UUID, KnowledgeSource] = {}
 
         for chunk in self._store.list_search_candidates(limit=self._candidate_limit):
             chunk_tokens = lexical_tokens(chunk.content)
