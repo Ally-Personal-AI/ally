@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -70,11 +71,15 @@ def write_jsonl(path: Path, count: int) -> None:
     lines = []
     for index in range(count):
         lines.append(
-            (
-                '{"external_id":"obs-%d","event_type":"synthetic.changed",'
-                '"importance":"important","payload":{"index":%d}}'
+            json.dumps(
+                {
+                    "external_id": f"obs-{index}",
+                    "event_type": "synthetic.changed",
+                    "importance": "important",
+                    "payload": {"index": index},
+                },
+                sort_keys=True,
             )
-            % (index, index)
         )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
