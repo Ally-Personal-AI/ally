@@ -18,6 +18,22 @@ AttentionClass = Literal[
     "act",
 ]
 
+EVENT_IMPORTANCE_LEVELS: tuple[EventImportance, ...] = (
+    "noise",
+    "routine",
+    "important",
+    "urgent",
+    "critical",
+)
+ATTENTION_CLASSES: tuple[AttentionClass, ...] = (
+    "ignore",
+    "remember",
+    "mention_later",
+    "notify",
+    "interrupt",
+    "act",
+)
+
 
 class NewEvent(BaseModel):
     """One observed event before attention policy is applied."""
