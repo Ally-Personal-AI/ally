@@ -121,3 +121,56 @@ unexpected_permission = "all"
 
     with pytest.raises(SkillManifestError, match="Invalid skill manifest"):
         load_skill_package(root)
+
+
+def test_subprocess_execution_requires_explicit_entrypoint() -> None:
+    with pytest.raises(ValueError, match="requires an entrypoint"):
+        SkillManifest(
+            id="sample.skill",
+            name="Sample",
+            version="1.0.0",
+            description="Synthetic.",
+            execution="python_subprocess_v1",
+        )
+
+
+def test_subprocess_execution_v1_exposes_no_tools_or_config() -> None:
+    with pytest.raises(ValueError, match="does not expose Ally tools"):
+        SkillManifest(
+            id="sample.skill",
+            name="Sample",
+            version="1.0.0",
+            description="Synthetic.",
+            entrypoint="sample:run",
+            execution="python_subprocess_v1",
+            required_tools=("system.info",),
+        )
+
+    with pytest.raises(ValueError, match="does not expose skill config"):
+        SkillManifest(
+            id="sample.skill",
+            name="Sample",
+            version="1.0.0",
+            description="Synthetic.",
+            entrypoint="sample:run",
+            execution="python_subprocess_v1",
+            config={
+                "mode": {
+                    "type": "string",
+                    "description": "Synthetic mode.",
+                }
+            },
+        )
+
+
+def test_entrypoint_alone_does_not_grant_execution() -> None:
+    manifest = SkillManifest(
+        id="sample.skill",
+        name="Sample",
+        version="1.0.0",
+        description="Synthetic.",
+        entrypoint="sample:run",
+    )
+
+    assert manifest.entrypoint == "sample:run"
+    assert manifest.execution is None
