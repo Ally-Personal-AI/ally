@@ -1,8 +1,8 @@
-import pytest
-
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
+
+import pytest
 
 from ally.storage.sqlite import SQLiteDatabase, SQLiteToolAuditStore
 from ally.tools.audit import ToolAuditRecord
