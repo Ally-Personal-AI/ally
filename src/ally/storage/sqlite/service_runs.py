@@ -45,6 +45,8 @@ class SQLiteServiceCycleRunStore:
     ) -> int:
         cutoff = _as_utc(before)
         finished = _as_utc(finished_at)
+        if finished < cutoff:
+            raise ValueError("stale recovery finish time cannot precede cutoff")
 
         with self._database.connect() as connection:
             cursor = connection.execute(
