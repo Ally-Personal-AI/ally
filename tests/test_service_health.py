@@ -5,7 +5,7 @@ from uuid import UUID
 
 from ally.configuration import FileConfigStore
 from ally.diagnostics import build_service_health
-from ally.service import SQLiteServiceLeaseStore
+from ally.service import ServiceHealthReport, SQLiteServiceLeaseStore
 from ally.storage.sqlite import (
     SQLiteDatabase,
     SQLiteServiceCycleRunStore,
@@ -34,7 +34,7 @@ def record_success(path: Path) -> None:
     )
 
 
-def check_map(report) -> dict[str, str]:
+def check_map(report: ServiceHealthReport) -> dict[str, str]:
     return {check.id: check.severity for check in report.checks}
 
 
