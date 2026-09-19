@@ -9,6 +9,10 @@ from uuid import UUID
 from ally.scheduler.models import NewSchedule, ScheduleRecord
 
 
+class ScheduleConflictError(RuntimeError):
+    """Raised when a due schedule changed before it could be advanced."""
+
+
 class ScheduleStore(Protocol):
     def create(self, schedule: NewSchedule) -> ScheduleRecord:
         ...
