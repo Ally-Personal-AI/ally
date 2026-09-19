@@ -47,6 +47,14 @@ def _build_private_context_provider() -> ContextProvider:
     )
 
 
+def _private_context_allowed(
+    endpoint: str,
+    *,
+    allow_private_context_remote: bool,
+) -> bool:
+    return is_loopback_http_url(endpoint) or allow_private_context_remote
+
+
 def run_chat(
     *,
     endpoint: str,
@@ -61,7 +69,10 @@ def run_chat(
         is_remote = not is_loopback_http_url(endpoint)
 
         context_provider: ContextProvider | None = None
-        if not is_remote or allow_private_context_remote:
+        if _private_context_allowed(
+            endpoint,
+            allow_private_context_remote=allow_private_context_remote,
+        ):
             context_provider = _build_private_context_provider()
         elif allow_remote:
             print(
