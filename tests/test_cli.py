@@ -112,3 +112,26 @@ def test_eval_provider_parser_defaults_to_loopback() -> None:
     assert args.endpoint == "http://127.0.0.1:8080/v1"
     assert args.model == "example"
     assert args.allow_remote is False
+
+
+def test_tools_list_parser() -> None:
+    args = build_parser().parse_args(["tools", "list"])
+
+    assert args.command == "tools"
+    assert args.tools_command == "list"
+
+
+def test_tools_run_parser_uses_empty_arguments_by_default() -> None:
+    args = build_parser().parse_args(["tools", "run", "system.info"])
+
+    assert args.tools_command == "run"
+    assert args.name == "system.info"
+    assert args.arguments == "{}"
+    assert args.approved is False
+
+
+def test_tools_audit_parser_has_bounded_default() -> None:
+    args = build_parser().parse_args(["tools", "audit"])
+
+    assert args.tools_command == "audit"
+    assert args.limit == 20
