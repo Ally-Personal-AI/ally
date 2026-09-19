@@ -380,4 +380,35 @@ MIGRATIONS: tuple[Migration, ...] = (
             """,
         ),
     ),
+    Migration(
+        version=8,
+        name="attention_delivery_v1",
+        statements=(
+            """
+            CREATE TABLE attention_deliveries (
+                id TEXT PRIMARY KEY,
+                event_id TEXT NOT NULL
+                    REFERENCES event_records(id) ON DELETE CASCADE,
+                sink_id TEXT NOT NULL,
+                status TEXT NOT NULL
+                    CHECK (status IN ('succeeded', 'failed')),
+                attempts INTEGER NOT NULL
+                    CHECK (attempts >= 1),
+                last_error TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                delivered_at TEXT,
+                UNIQUE (event_id, sink_id)
+            )
+            """,
+            """
+            CREATE INDEX idx_attention_deliveries_status
+            ON attention_deliveries(status, updated_at DESC)
+            """,
+            """
+            CREATE INDEX idx_attention_deliveries_event
+            ON attention_deliveries(event_id)
+            """,
+        ),
+    ),
 )
