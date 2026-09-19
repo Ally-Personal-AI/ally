@@ -31,6 +31,7 @@ supersede previous ADRs rather than silently rewriting project history.
 22. [Service lifecycle history is portable and payload-free](0022-service-lifecycle-is-portable-and-payload-free.md)
 23. [Service health is structured read-only readiness](0023-service-health-is-read-only-readiness.md)
 24. [Executable skills run outside Ally Core](0024-executable-skills-run-outside-core.md)
+25. [Package dependency direction is tested](0025-package-dependency-direction-is-tested.md)
 
 ## Adding an ADR
 
