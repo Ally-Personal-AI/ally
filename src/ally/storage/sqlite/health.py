@@ -94,29 +94,42 @@ def build_sqlite_service_health(
             uri=True,
         )
         try:
-            row = connection.execute("PRAGMA quick_check").fetchone()
-            integrity_ok = bool(row and row[0] == "ok")
+            quick_check_row = cast(
+                tuple[str] | None,
+                connection.execute("PRAGMA quick_check").fetchone(),
+            )
+            integrity_ok = bool(
+                quick_check_row and quick_check_row[0] == "ok"
+            )
 
-            migration_table = connection.execute(
+            migration_table = cast(
+                tuple[int] | None,
+                connection.execute(
                 """
                 SELECT 1
                 FROM sqlite_master
                 WHERE type = 'table'
                   AND name = 'ally_schema_migrations'
                 """
-            ).fetchone()
+                ).fetchone(),
+            )
             if migration_table is not None:
-                migration_rows = connection.execute(
+                migration_rows = cast(
+                    list[tuple[int]],
+                    connection.execute(
                     """
                     SELECT version
                     FROM ally_schema_migrations
                     ORDER BY version
                     """
-                ).fetchall()
-                versions = tuple(int(item[0]) for item in migration_rows)
+                    ).fetchall(),
+                )
+                versions = tuple(item[0] for item in migration_rows)
 
             if integrity_ok and versions == expected:
-                run_row = connection.execute(
+                run_row = cast(
+                    ServiceRunRow | None,
+                    connection.execute(
                     """
                     SELECT
                         id,
@@ -132,9 +145,10 @@ def build_sqlite_service_health(
                     ORDER BY started_at DESC, id DESC
                     LIMIT 1
                     """
-                ).fetchone()
+                    ).fetchone(),
+                )
                 if run_row is not None:
-                    latest = _from_run_row(cast(ServiceRunRow, run_row))
+                    latest = _from_run_row(run_row)
         finally:
             connection.close()
     except sqlite3.DatabaseError:
