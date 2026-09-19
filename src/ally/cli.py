@@ -10,6 +10,12 @@ from ally import __version__
 from ally.commands.chat import run_chat
 from ally.commands.conversations import run_list_conversations, run_show_conversation
 from ally.commands.doctor import run_doctor
+from ally.commands.knowledge import (
+    run_ingest_knowledge_file,
+    run_list_knowledge_sources,
+    run_search_knowledge,
+    run_show_knowledge_source,
+)
 from ally.commands.memory import (
     run_list_memories,
     run_remember,
@@ -96,6 +102,35 @@ def build_parser() -> argparse.ArgumentParser:
 
     memory_retract = memory_commands.add_parser("retract", help="Retract a memory.")
     memory_retract.add_argument("memory_id")
+
+    knowledge = subcommands.add_parser(
+        "knowledge",
+        help="Ingest and inspect personal knowledge.",
+    )
+    knowledge_commands = knowledge.add_subparsers(dest="knowledge_command")
+
+    knowledge_ingest = knowledge_commands.add_parser(
+        "ingest",
+        help="Ingest a UTF-8 plain-text file.",
+    )
+    knowledge_ingest.add_argument("path")
+
+    knowledge_list = knowledge_commands.add_parser("list", help="List knowledge sources.")
+    knowledge_list.add_argument("--limit", type=int, default=50)
+
+    knowledge_show = knowledge_commands.add_parser(
+        "show",
+        help="Show a knowledge source and revision history.",
+    )
+    knowledge_show.add_argument("source_id")
+
+    knowledge_search = knowledge_commands.add_parser(
+        "search",
+        help="Search current knowledge chunks.",
+    )
+    knowledge_search.add_argument("query")
+    knowledge_search.add_argument("--limit", type=int, default=8)
+
     return parser
 
 
@@ -152,6 +187,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         if args.memory_command == "retract":
             return run_retract_memory(memory_id=cast(str, args.memory_id))
+
+    if args.command == "knowledge":
+        if args.knowledge_command == "ingest":
+            return run_ingest_knowledge_file(path=cast(str, args.path))
+        if args.knowledge_command == "list":
+            return run_list_knowledge_sources(limit=cast(int, args.limit))
+        if args.knowledge_command == "show":
+            return run_show_knowledge_source(source_id=cast(str, args.source_id))
+        if args.knowledge_command == "search":
+            return run_search_knowledge(
+                query=cast(str, args.query),
+                limit=cast(int, args.limit),
+            )
 
     parser.print_help()
     return 0
