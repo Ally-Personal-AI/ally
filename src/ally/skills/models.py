@@ -133,6 +133,8 @@ class SkillWorkerResponse(BaseModel):
             raise ValueError("successful skill response cannot have error_class")
         if not self.ok and self.error_class is None:
             raise ValueError("failed skill response requires error_class")
+        if not self.ok and self.result is not None:
+            raise ValueError("failed skill response cannot retain result")
         return self
 
 
@@ -170,6 +172,8 @@ class SkillExecutionResult(BaseModel):
             raise ValueError("successful skill execution cannot have error_class")
         if self.status != "succeeded" and self.error_class is None:
             raise ValueError("failed skill execution requires error_class")
+        if self.status != "succeeded" and self.result is not None:
+            raise ValueError("failed skill execution cannot retain result")
         return self
 
 
