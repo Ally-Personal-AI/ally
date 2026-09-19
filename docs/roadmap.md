@@ -57,7 +57,7 @@ floated between runs.
 
 ## Hardware handoff
 
-Before selecting hardware-specific adapters, default models, context budgets,
+Before selecting hardware-specific model adapters, default models, context budgets,
 or enabling any automatic model-driven planning or memory behavior, run the
 first-machine procedure in [hardware/apple-silicon-validation.md](hardware/apple-silicon-validation.md).
 

@@ -607,7 +607,7 @@ uv run ally secrets check service.api-token
 uv run ally secrets delete service.api-token
 ```
 
-`set` reads from a non-echoing interactive prompt. No command prints or exports a secret value, and non-macOS or unavailable Keychain state fails closed. Deterministic adapter tests run in CI; actual login-Keychain persistence remains an explicit dedicated-machine acceptance check.
+`set` reads from a non-echoing interactive prompt. No command prints or exports a secret value, and non-macOS or unavailable Keychain state fails closed. CI includes a real Security-framework round trip with an ephemeral synthetic item; actual login-Keychain persistence remains an explicit dedicated-machine acceptance check.
 
 See [Configuration and Secrets](docs/configuration-secrets.md).
 
