@@ -51,7 +51,8 @@ def test_install_copies_package_disabled_without_importing_entrypoint(
     assert (installed_root / "skill.toml").is_file()
     assert (installed_root / "boom.py").is_file()
     assert source.is_dir()
-    assert manager.load_package("sample.skill", "1.0.0").manifest.entrypoint == "boom:run"
+    installed = manager.load_package("sample.skill", "1.0.0")
+    assert installed.manifest.entrypoint == "boom:run"
 
 
 def test_install_rejects_missing_required_tools(tmp_path: Path) -> None:
