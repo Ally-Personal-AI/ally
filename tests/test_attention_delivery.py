@@ -81,7 +81,7 @@ def create_event(
     *,
     name: str,
     attention: AttentionClass,
-):
+) -> EventRecord:
     return events.create(
         NewEvent(
             type=f"synthetic.{name}",
@@ -271,3 +271,35 @@ def test_delivery_key_is_stable() -> None:
         "attention:console:"
         "00000000-0000-0000-0000-000000000001"
     )
+
+
+def test_delivery_record_rejects_inconsistent_terminal_state() -> None:
+    from datetime import UTC, datetime
+    from uuid import uuid4
+
+    from ally.attention import AttentionDeliveryRecord
+
+    now = datetime.now(UTC)
+
+    with pytest.raises(ValueError, match="requires delivered_at"):
+        AttentionDeliveryRecord(
+            id=uuid4(),
+            event_id=uuid4(),
+            sink_id="recording",
+            status="succeeded",
+            attempts=1,
+            created_at=now,
+            updated_at=now,
+        )
+
+    with pytest.raises(ValueError, match="failed delivery cannot"):
+        AttentionDeliveryRecord(
+            id=uuid4(),
+            event_id=uuid4(),
+            sink_id="recording",
+            status="failed",
+            attempts=1,
+            created_at=now,
+            updated_at=now,
+            delivered_at=now,
+        )
