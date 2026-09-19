@@ -4,7 +4,12 @@ from pathlib import Path
 from uuid import UUID
 
 from ally.configuration import AllyConfig, FileConfigStore
-from ally.service import SQLiteServiceLeaseStore, collect_service_health
+from ally.service import (
+    HealthCheckResult,
+    SQLiteServiceLeaseStore,
+    ServiceHealthReport,
+    collect_service_health,
+)
 from ally.storage.sqlite import SQLiteDatabase
 from ally.storage.sqlite.schema import MIGRATIONS
 
@@ -13,7 +18,7 @@ OWNER_B = UUID("00000000-0000-0000-0000-000000000002")
 NOW = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
 
 
-def check(report, identifier: str):
+def check(report: ServiceHealthReport, identifier: str) -> HealthCheckResult:
     return next(item for item in report.checks if item.id == identifier)
 
 
