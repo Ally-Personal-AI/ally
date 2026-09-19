@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ipaddress
 from types import TracebackType
 from urllib.parse import urlparse
 
@@ -11,6 +10,7 @@ from pydantic import BaseModel, ValidationError
 
 from ally.models.base import ChatRequest, ChatResponse
 from ally.models.errors import ProviderConnectionError, ProviderResponseError
+from ally.security.network import is_loopback_http_url
 
 
 class _ResponseMessage(BaseModel):
@@ -24,17 +24,6 @@ class _ResponseChoice(BaseModel):
 class _CompletionResponse(BaseModel):
     model: str | None = None
     choices: list[_ResponseChoice]
-
-
-def _is_loopback_host(host: str | None) -> bool:
-    if host is None:
-        return False
-    if host.lower() == "localhost":
-        return True
-    try:
-        return ipaddress.ip_address(host).is_loopback
-    except ValueError:
-        return False
 
 
 class OpenAICompatibleProvider:
@@ -54,7 +43,7 @@ class OpenAICompatibleProvider:
         parsed = urlparse(normalized_url)
         if parsed.scheme not in {"http", "https"} or parsed.hostname is None:
             raise ValueError("base_url must be an absolute HTTP(S) URL")
-        if not allow_remote and not _is_loopback_host(parsed.hostname):
+        if not allow_remote and not is_loopback_http_url(normalized_url):
             raise ValueError(
                 "Remote inference endpoints are disabled by default; "
                 "set allow_remote=True explicitly."
