@@ -27,13 +27,15 @@ def _manager() -> LocalSkillManager:
     return LocalSkillManager(default_skill_install_root())
 
 
+def _reject_json_constant(constant: str) -> None:
+    raise ValueError(f"non-standard JSON constant: {constant}")
+
+
 def _parse_input(value: str) -> dict[str, JsonValue]:
     try:
         raw = json.loads(
             value,
-            parse_constant=lambda constant: (_ for _ in ()).throw(
-                ValueError(f"non-standard JSON constant: {constant}")
-            ),
+            parse_constant=_reject_json_constant,
         )
     except (json.JSONDecodeError, ValueError) as exc:
         raise ValueError(f"skill input must be valid JSON: {exc}") from exc
