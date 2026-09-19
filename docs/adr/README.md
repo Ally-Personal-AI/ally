@@ -34,6 +34,7 @@ supersede previous ADRs rather than silently rewriting project history.
 25. [Package dependency direction is tested](0025-package-dependency-direction-is-tested.md)
 26. [Filesystem observation is metadata-only and explicitly rooted](0026-filesystem-observation-is-metadata-only.md)
 27. [macOS secrets use Keychain and a reference-only CLI](0027-macos-keychain-secret-store.md)
+28. [Model validation evidence is versioned and comparison is neutral](0028-model-validation-evidence-is-versioned.md)
 
 ## Adding an ADR
 

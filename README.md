@@ -312,10 +312,30 @@ With a loopback OpenAI-compatible model server running:
 ```bash
 uv run ally validate local-model \
   --model <model-id> \
+  --runtime <runtime-name> \
+  --runtime-version <exact-version> \
+  --quantization <quantization> \
+  --context-length <tokens> \
   --output validation/<runtime>-<model>.json
 ```
 
-This runs the same deterministic core evaluations used by CI plus provider smoke evaluations and writes a machine-readable report. Generated validation artifacts are ignored by Git by default.
+This runs the same deterministic core evaluations used by CI plus provider smoke
+evaluations and writes a versioned machine-readable report. The report includes
+evaluation-file fingerprints and may record explicit non-secret runtime settings
+and runtime-native performance observations. Existing evidence is never
+overwritten.
+
+Compare candidate reports without assigning an automatic score or default:
+
+```bash
+uv run ally validate compare \
+  validation/<candidate-a>.json \
+  validation/<candidate-b>.json
+```
+
+Generated validation artifacts are ignored by Git by default. See
+[Local-model Validation Evidence](docs/model-validation.md) for the complete
+report contract and command options.
 
 See [Apple Silicon First-Machine Validation](docs/hardware/apple-silicon-validation.md) for the full procedure and exit criteria.
 

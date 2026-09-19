@@ -2,6 +2,7 @@ from pathlib import Path
 
 from ally.diagnostics.hardware import HardwareProfile, collect_hardware_profile
 from ally.diagnostics.validation import (
+    RuntimeProfile,
     run_local_model_validation,
     write_validation_report,
 )
@@ -68,6 +69,7 @@ def test_local_model_validation_composes_existing_eval_framework(
         provider=DeterministicProvider(),
         endpoint="http://127.0.0.1:8080/v1",
         model="synthetic",
+        runtime=RuntimeProfile(name="synthetic-runtime", version="1.0"),
         core_case_file=core_cases,
         provider_case_file=provider_cases,
         hardware=hardware,
@@ -77,6 +79,9 @@ def test_local_model_validation_composes_existing_eval_framework(
     assert report.core.passed == 1
     assert report.provider.passed == 1
     assert report.hardware == hardware
+    assert report.schema_version == 1
+    assert report.runtime.name == "synthetic-runtime"
+    assert len(report.evaluation_suite.core_sha256) == 64
 
     destination = write_validation_report(report, tmp_path / "reports" / "run.json")
     assert destination.is_file()

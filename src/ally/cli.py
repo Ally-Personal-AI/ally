@@ -94,6 +94,7 @@ from ally.commands.tasks import (
 )
 from ally.commands.tools import run_list_tools, run_tool, run_tool_audit
 from ally.commands.validate import (
+    run_compare_validation_reports,
     run_hardware_report,
     run_local_model_validation_command,
 )
@@ -812,6 +813,45 @@ def build_parser() -> argparse.ArgumentParser:
     )
     validate_model.add_argument("--model", required=True)
     validate_model.add_argument(
+        "--runtime",
+        required=True,
+        help="Runtime name, such as llama.cpp or MLX LM.",
+    )
+    validate_model.add_argument(
+        "--runtime-version",
+        required=True,
+        help="Exact runtime version used for this evidence.",
+    )
+    validate_model.add_argument("--model-source")
+    validate_model.add_argument("--quantization")
+    validate_model.add_argument("--precision")
+    validate_model.add_argument("--model-size-bytes", type=int)
+    validate_model.add_argument("--context-length", type=int)
+    validate_model.add_argument(
+        "--runtime-parameter",
+        action="append",
+        default=[],
+        dest="runtime_parameters",
+        metavar="NAME=VALUE",
+        help="Record one explicit non-secret runtime setting; repeat as needed.",
+    )
+    validate_model.add_argument("--model-load-ms", type=float)
+    validate_model.add_argument("--time-to-first-token-ms", type=float)
+    validate_model.add_argument("--prompt-tokens-per-second", type=float)
+    validate_model.add_argument("--generation-tokens-per-second", type=float)
+    validate_model.add_argument("--peak-memory-bytes", type=int)
+    validate_model.add_argument("--maximum-tested-context-tokens", type=int)
+    validate_model.add_argument(
+        "--memory-pressure",
+        choices=("normal", "warning", "critical", "unknown"),
+        default="unknown",
+    )
+    validate_model.add_argument(
+        "--thermal-state",
+        choices=("nominal", "fair", "serious", "critical", "unknown"),
+        default="unknown",
+    )
+    validate_model.add_argument(
         "--core-cases",
         default="evals/cases/core.jsonl",
     )
@@ -823,6 +863,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         default="validation/ally-local-model.json",
     )
+
+    validate_compare = validate_commands.add_parser(
+        "compare",
+        help="Compare two or more versioned validation reports without choosing a default.",
+    )
+    validate_compare.add_argument("reports", nargs="+")
+    validate_compare.add_argument("--json", action="store_true", dest="json_output")
 
     plan = subcommands.add_parser(
         "plan",
@@ -1169,9 +1216,39 @@ def main(argv: Sequence[str] | None = None) -> int:
             return run_local_model_validation_command(
                 endpoint=cast(str, args.endpoint),
                 model=cast(str, args.model),
+                runtime_name=cast(str, args.runtime),
+                runtime_version=cast(str, args.runtime_version),
+                model_source=cast(str | None, args.model_source),
+                quantization=cast(str | None, args.quantization),
+                precision=cast(str | None, args.precision),
+                model_size_bytes=cast(int | None, args.model_size_bytes),
+                context_length=cast(int | None, args.context_length),
+                runtime_parameters=cast(Sequence[str], args.runtime_parameters),
+                model_load_ms=cast(float | None, args.model_load_ms),
+                time_to_first_token_ms=cast(float | None, args.time_to_first_token_ms),
+                prompt_tokens_per_second=cast(
+                    float | None,
+                    args.prompt_tokens_per_second,
+                ),
+                generation_tokens_per_second=cast(
+                    float | None,
+                    args.generation_tokens_per_second,
+                ),
+                peak_memory_bytes=cast(int | None, args.peak_memory_bytes),
+                maximum_tested_context_tokens=cast(
+                    int | None,
+                    args.maximum_tested_context_tokens,
+                ),
+                memory_pressure=cast(str, args.memory_pressure),
+                thermal_state=cast(str, args.thermal_state),
                 core_case_file=cast(str, args.core_cases),
                 provider_case_file=cast(str, args.provider_cases),
                 output=cast(str, args.output),
+            )
+        if args.validate_command == "compare":
+            return run_compare_validation_reports(
+                report_paths=cast(Sequence[str], args.reports),
+                json_output=cast(bool, args.json_output),
             )
 
     if args.command == "plan" and args.plan_command == "propose":
