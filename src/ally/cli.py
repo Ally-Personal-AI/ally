@@ -54,6 +54,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Explicitly allow a non-loopback inference endpoint.",
     )
+    chat.add_argument(
+        "--allow-private-context-remote",
+        action="store_true",
+        help="Allow memory/document grounding to be sent to a remote endpoint.",
+    )
 
     conversations = subcommands.add_parser(
         "conversations",
@@ -147,6 +152,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             model=cast(str, args.model),
             prompt=cast(str | None, args.prompt),
             allow_remote=cast(bool, args.allow_remote),
+            allow_private_context_remote=cast(
+                bool,
+                args.allow_private_context_remote,
+            ),
             conversation_id=cast(str | None, args.conversation),
         )
 
