@@ -12,6 +12,7 @@ from ally.service.models import (
     ServiceCycleRunRecord,
     ServiceCycleRunStatus,
     ServiceHealthReport,
+    ServiceHealthStatus,
 )
 from ally.storage.sqlite.schema import MIGRATIONS
 
@@ -89,7 +90,7 @@ def build_sqlite_service_health(
 
     try:
         connection = sqlite3.connect(
-            f"file:{database_path}?mode=ro",
+            f"{database_path.resolve().as_uri()}?mode=ro",
             uri=True,
         )
         try:
@@ -140,6 +141,7 @@ def build_sqlite_service_health(
         integrity_ok = False
 
     schema_current = versions == expected
+    status: ServiceHealthStatus
     if not integrity_ok:
         status = "degraded"
     elif not versions:
