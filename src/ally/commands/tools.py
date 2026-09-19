@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import cast
 
 from pydantic import JsonValue
 
@@ -35,7 +36,7 @@ def run_tool(
         print("Tool arguments must be a JSON object.")
         return 2
 
-    arguments = dict[str, JsonValue](parsed)
+    arguments = cast(dict[str, JsonValue], parsed)
     executor = ToolExecutor(
         build_default_tool_registry(),
         DefaultToolPolicy(),
