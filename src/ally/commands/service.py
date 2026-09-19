@@ -1,4 +1,4 @@
-"""Human-facing bounded proactive service-cycle command."""
+"""Human-facing bounded service operations."""
 
 from __future__ import annotations
 
@@ -13,10 +13,15 @@ from ally.commands._storage import (
     build_attention_delivery_store,
     build_event_store,
     build_schedule_store,
+    build_service_lease_store,
 )
 from ally.events import EventRuntime
 from ally.scheduler import ScheduleConflictError, SchedulerRuntime
-from ally.service import ProactiveServiceCycle
+from ally.service import (
+    ProactiveServiceCycle,
+    ServiceLeaseUnavailableError,
+    service_lease,
+)
 
 
 def _parse_timestamp(value: str) -> datetime:
@@ -36,6 +41,7 @@ def run_proactive_cycle(
     schedule_limit: int,
     delivery_limit: int,
     sink_name: str,
+    lease_seconds: int,
     json_output: bool,
 ) -> int:
     if sink_name != "console":
@@ -44,24 +50,33 @@ def run_proactive_cycle(
 
     try:
         observed_at = datetime.now(UTC) if at is None else _parse_timestamp(at)
-        event_store = build_event_store()
-        cycle = ProactiveServiceCycle(
-            SchedulerRuntime(
-                build_schedule_store(),
-                EventRuntime(event_store),
-            ),
-            AttentionDeliveryRuntime(
-                event_store,
-                build_attention_delivery_store(),
-            ),
-        )
-        report = cycle.run(
-            as_of=observed_at,
-            sinks=(ConsoleAttentionSink(),),
-            schedule_limit=schedule_limit,
-            delivery_limit=delivery_limit,
-        )
-    except (ScheduleConflictError, ValueError) as exc:
+        with service_lease(
+            build_service_lease_store(),
+            name="proactive-cycle",
+            ttl_seconds=lease_seconds,
+        ):
+            event_store = build_event_store()
+            cycle = ProactiveServiceCycle(
+                SchedulerRuntime(
+                    build_schedule_store(),
+                    EventRuntime(event_store),
+                ),
+                AttentionDeliveryRuntime(
+                    event_store,
+                    build_attention_delivery_store(),
+                ),
+            )
+            report = cycle.run(
+                as_of=observed_at,
+                sinks=(ConsoleAttentionSink(),),
+                schedule_limit=schedule_limit,
+                delivery_limit=delivery_limit,
+            )
+    except (
+        ScheduleConflictError,
+        ServiceLeaseUnavailableError,
+        ValueError,
+    ) as exc:
         print(f"Service error: {exc}")
         return 2
 
@@ -80,3 +95,19 @@ def run_proactive_cycle(
         print(f"Delivery failures: {report.delivery_failures}")
 
     return 0 if report.successful else 2
+
+
+def run_list_service_leases() -> int:
+    now = datetime.now(UTC)
+    records = build_service_lease_store().list()
+    if not records:
+        print("No service leases.")
+        return 0
+
+    for record in records:
+        state = "active" if record.expires_at > now else "expired"
+        print(
+            f"{record.name}  {state}  "
+            f"owner={record.owner_id}  expires={record.expires_at.isoformat()}"
+        )
+    return 0
