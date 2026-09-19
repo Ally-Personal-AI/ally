@@ -56,7 +56,12 @@ from ally.commands.schedules import (
     run_show_schedule,
     run_tick_schedules,
 )
-from ally.commands.service import run_list_service_leases, run_proactive_cycle
+from ally.commands.service import (
+    run_list_service_leases,
+    run_proactive_cycle,
+    run_service_health,
+    run_service_history,
+)
 from ally.commands.skills import (
     run_disable_skill,
     run_enable_skill,
@@ -511,6 +516,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="Inspect ephemeral runtime service leases.",
     )
 
+    service_history = service_commands.add_parser(
+        "history",
+        help="Inspect portable proactive service lifecycle history.",
+    )
+    service_history.add_argument("--limit", type=int, default=50)
+    service_history.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
+    service_health = service_commands.add_parser(
+        "health",
+        help="Inspect durable state and ephemeral coordination health.",
+    )
+    service_health.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
     schedules = subcommands.add_parser(
         "schedules",
         help="Create and advance persisted time-based event schedules.",
@@ -936,6 +962,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         if args.service_command == "leases":
             return run_list_service_leases()
+        if args.service_command == "history":
+            return run_service_history(
+                limit=cast(int, args.limit),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.service_command == "health":
+            return run_service_health(
+                json_output=cast(bool, args.json_output),
+            )
 
     if args.command == "schedules":
         if args.schedules_command == "create":
