@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -12,14 +13,16 @@ from ally.portability import (
     restore_backup,
     validate_backup,
 )
+from ally.scheduler import NewSchedule
 from ally.storage.sqlite import (
     SQLiteConversationStore,
     SQLiteDatabase,
     SQLiteEventStore,
+    SQLiteScheduleStore,
 )
 
 
-def seed_database(path: Path) -> tuple[str, str]:
+def seed_database(path: Path) -> tuple[str, str, str]:
     database = SQLiteDatabase(path)
     conversations = SQLiteConversationStore(database)
     conversation = conversations.create(title="Synthetic")
@@ -41,19 +44,29 @@ def seed_database(path: Path) -> tuple[str, str]:
         ),
         attention="mention_later",
     )
-    return str(conversation.id), str(event.id)
+
+    schedules = SQLiteScheduleStore(database)
+    schedule = schedules.create(
+        NewSchedule(
+            name="Synthetic schedule",
+            event_type="synthetic.scheduled",
+            starts_at=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            interval_seconds=300,
+        )
+    )
+    return str(conversation.id), str(event.id), str(schedule.id)
 
 
 def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
     source = tmp_path / "source.sqlite3"
-    conversation_id, event_id = seed_database(source)
+    conversation_id, event_id, schedule_id = seed_database(source)
     archive = tmp_path / "state.ally-backup"
 
     manifest = create_backup(SQLiteDatabase(source), archive)
     validated = validate_backup(archive)
 
     assert validated == manifest
-    assert manifest.database.schema_versions == (1, 2, 3, 4, 5, 6)
+    assert manifest.database.schema_versions == (1, 2, 3, 4, 5, 6, 7)
 
     with ZipFile(archive, mode="r") as bundle:
         assert set(bundle.namelist()) == {"manifest.json", "ally.sqlite3"}
@@ -63,9 +76,11 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
 
     conversation_store = SQLiteConversationStore(SQLiteDatabase(restored))
     event_store = SQLiteEventStore(SQLiteDatabase(restored))
+    schedule_store = SQLiteScheduleStore(SQLiteDatabase(restored))
 
     conversation = conversation_store.get(UUID(conversation_id))
     event = event_store.get(UUID(event_id))
+    schedule = schedule_store.get(UUID(schedule_id))
 
     assert conversation is not None
     assert conversation.title == "Synthetic"
@@ -76,6 +91,9 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
     assert event is not None
     assert event.payload == {"value": 1}
     assert event.attention == "mention_later"
+    assert schedule is not None
+    assert schedule.name == "Synthetic schedule"
+    assert schedule.interval_seconds == 300
 
 
 def test_backup_validation_rejects_tampered_database(tmp_path: Path) -> None:
