@@ -38,36 +38,49 @@ class AttentionDeliveryRuntime:
         if not accepted:
             return ()
 
-        events = self._events.pending_attention(
-            attentions=accepted,
-            limit=limit,
-        )
-
+        page_size = max(50, limit)
+        offset = 0
         attempts: list[AttentionDeliveryRecord] = []
-        for event in events:
-            existing = self._deliveries.get(event.id, sink_id)
-            if existing is not None and existing.status == "succeeded":
-                continue
 
-            try:
-                sink.deliver(event)
-            except Exception as exc:
-                attempts.append(
-                    self._deliveries.record_attempt(
-                        event_id=event.id,
-                        sink_id=sink_id,
-                        succeeded=False,
-                        error=_bounded_error(exc),
-                    )
-                )
-                continue
-
-            attempts.append(
-                self._deliveries.record_attempt(
-                    event_id=event.id,
-                    sink_id=sink_id,
-                    succeeded=True,
-                )
+        while len(attempts) < limit:
+            events = self._events.pending_attention(
+                attentions=accepted,
+                limit=page_size,
+                offset=offset,
             )
+            if not events:
+                break
+            offset += len(events)
+
+            for event in events:
+                existing = self._deliveries.get(event.id, sink_id)
+                if existing is not None and existing.status == "succeeded":
+                    continue
+
+                try:
+                    sink.deliver(event)
+                except Exception as exc:
+                    attempts.append(
+                        self._deliveries.record_attempt(
+                            event_id=event.id,
+                            sink_id=sink_id,
+                            succeeded=False,
+                            error=_bounded_error(exc),
+                        )
+                    )
+                else:
+                    attempts.append(
+                        self._deliveries.record_attempt(
+                            event_id=event.id,
+                            sink_id=sink_id,
+                            succeeded=True,
+                        )
+                    )
+
+                if len(attempts) >= limit:
+                    break
+
+            if len(events) < page_size:
+                break
 
         return tuple(attempts)
