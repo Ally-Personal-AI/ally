@@ -9,6 +9,7 @@ import json
 import os
 import re
 import shutil
+from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
@@ -243,10 +244,8 @@ class LocalSkillManager:
             ) from exc
 
         skill_root = package_root.parent
-        try:
+        with suppress(OSError):
             skill_root.rmdir()
-        except OSError:
-            pass
 
         return installation
 
