@@ -48,20 +48,24 @@ class ServiceCycleRunRecord(BaseModel):
 
     @model_validator(mode="after")
     def validate_lifecycle(self) -> ServiceCycleRunRecord:
-        if self.status == "running":
-            if self.finished_at is not None:
-                raise ValueError("running service cycle cannot have finished_at")
-            if self.error_class is not None:
-                raise ValueError("running service cycle cannot have error_class")
-        elif self.finished_at is None:
+        if self.status == "running" and self.finished_at is not None:
+            raise ValueError("running service cycle cannot have finished_at")
+        if self.status == "running" and self.error_class is not None:
+            raise ValueError("running service cycle cannot have error_class")
+        if self.status != "running" and self.finished_at is None:
             raise ValueError("terminal service cycle requires finished_at")
 
-        if self.status in ("failed", "interrupted"):
-            if self.error_class is None:
-                raise ValueError(
-                    f"{self.status} service cycle requires error_class"
-                )
-        elif self.error_class is not None:
+        if (
+            self.status in ("failed", "interrupted")
+            and self.error_class is None
+        ):
+            raise ValueError(
+                f"{self.status} service cycle requires error_class"
+            )
+        if (
+            self.status not in ("failed", "interrupted")
+            and self.error_class is not None
+        ):
             raise ValueError(
                 f"{self.status} service cycle cannot retain error_class"
             )
