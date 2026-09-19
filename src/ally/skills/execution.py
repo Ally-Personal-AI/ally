@@ -66,12 +66,13 @@ def _validate_runtime_tree(root: Path) -> None:
 
 
 def _kill_process(process: subprocess.Popen[bytes]) -> None:
-    if process.poll() is not None:
-        return
     try:
         if os.name == "posix":
+            # The process-group ID remains the worker PID even if the worker
+            # itself has already exited. Kill the group so forked descendants
+            # cannot outlive one bounded execution.
             os.killpg(process.pid, signal.SIGKILL)
-        else:
+        elif process.poll() is None:
             process.kill()
     except OSError:
         pass
@@ -209,6 +210,9 @@ class SkillProcessExecutor:
                 timed_out = True
                 _kill_process(process)
                 process.wait()
+            finally:
+                if os.name == "posix":
+                    _kill_process(process)
 
             stdout_thread.join(timeout=2)
             stderr_thread.join(timeout=2)
