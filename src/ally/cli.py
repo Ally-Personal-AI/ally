@@ -25,6 +25,7 @@ from ally.commands.memory import (
     run_show_memory,
     run_supersede_memory,
 )
+from ally.commands.skills import run_inspect_skill, run_validate_skill
 from ally.commands.tools import run_list_tools, run_tool, run_tool_audit
 from ally.memory import MEMORY_KINDS, MEMORY_PRIVACY_LEVELS, MemoryKind, MemoryPrivacy
 
@@ -188,6 +189,31 @@ def build_parser() -> argparse.ArgumentParser:
     tool_audit = tool_commands.add_parser("audit", help="Show recent tool audit records.")
     tool_audit.add_argument("--limit", type=int, default=20)
 
+    skills = subcommands.add_parser(
+        "skills",
+        help="Inspect and validate Ally skill packages.",
+    )
+    skill_commands = skills.add_subparsers(dest="skills_command")
+
+    skill_inspect = skill_commands.add_parser(
+        "inspect",
+        help="Inspect a skill.toml package without executing it.",
+    )
+    skill_inspect.add_argument("path")
+
+    skill_validate = skill_commands.add_parser(
+        "validate",
+        help="Validate a skill manifest and its required tool names.",
+    )
+    skill_validate.add_argument("path")
+    skill_validate.add_argument(
+        "--available-tool",
+        action="append",
+        default=[],
+        dest="available_tools",
+        help="Tool name available to the target runtime; may be repeated.",
+    )
+
     return parser
 
 
@@ -288,6 +314,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         if args.tools_command == "audit":
             return run_tool_audit(limit=cast(int, args.limit))
+
+    if args.command == "skills":
+        if args.skills_command == "inspect":
+            return run_inspect_skill(path=cast(str, args.path))
+        if args.skills_command == "validate":
+            return run_validate_skill(
+                path=cast(str, args.path),
+                available_tools=tuple(cast(list[str], args.available_tools)),
+            )
 
     parser.print_help()
     return 0
