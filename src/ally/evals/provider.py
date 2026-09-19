@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Self
+
 from pydantic import BaseModel, Field, model_validator
 
 from ally.evals.models import EvalCase, EvaluationOutcome
@@ -20,7 +22,7 @@ class _ProviderExpected(BaseModel):
     excludes: tuple[str, ...] = ()
 
     @model_validator(mode="after")
-    def require_assertion(self):
+    def require_assertion(self) -> Self:
         if self.exact is None and not self.contains and not self.excludes:
             raise ValueError("provider evaluation requires at least one assertion")
         return self
