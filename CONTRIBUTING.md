@@ -58,7 +58,7 @@ and record the reason in an ADR rather than adding a one-off test exception.
 
 ## CI platforms
 
-The primary Ubuntu job runs lint, strict typing, coverage tests with a 70%
+The primary Ubuntu job runs lint, strict typing, coverage tests with an 80%
 minimum project-wide coverage gate, and the frozen behavioral evaluation suite.
 Both CI jobs install the exact committed dependency graph with
 `uv sync --locked`.
@@ -69,6 +69,19 @@ portability regressions without duplicating coverage/lint/type work.
 
 Passing macOS CI does not replace the dedicated Apple Silicon validation
 runbook or provide evidence about local-model performance.
+
+The separate read-only security workflow audits the locked runtime dependency
+graph and statically checks GitHub workflow definitions. Run the same checks
+locally with:
+
+```bash
+uv sync --locked --extra security
+uv export --locked --no-dev --no-emit-project --output-file /tmp/ally-runtime-requirements.txt
+uv run pip-audit --strict --require-hashes --disable-pip --progress-spinner off --requirement /tmp/ally-runtime-requirements.txt
+uv run zizmor --offline --strict-collection .github
+```
+
+See [Security Policy](SECURITY.md) for finding triage and exception rules.
 
 ## Pull requests
 
