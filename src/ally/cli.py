@@ -11,6 +11,12 @@ from ally.commands.chat import run_chat
 from ally.commands.conversations import run_list_conversations, run_show_conversation
 from ally.commands.doctor import run_doctor
 from ally.commands.evals import run_core_evals, run_provider_evals
+from ally.commands.events import (
+    run_emit_event,
+    run_handle_event,
+    run_list_events,
+    run_show_event,
+)
 from ally.commands.knowledge import (
     run_ingest_knowledge_file,
     run_list_knowledge_sources,
@@ -42,6 +48,12 @@ from ally.commands.tools import run_list_tools, run_tool, run_tool_audit
 from ally.commands.validate import (
     run_hardware_report,
     run_local_model_validation_command,
+)
+from ally.events import (
+    ATTENTION_CLASSES,
+    EVENT_IMPORTANCE_LEVELS,
+    AttentionClass,
+    EventImportance,
 )
 from ally.memory import (
     MEMORY_KINDS,
@@ -292,6 +304,55 @@ def build_parser() -> argparse.ArgumentParser:
     task_retry.add_argument("task_id")
     task_retry.add_argument("step_id")
 
+    events = subcommands.add_parser(
+        "events",
+        help="Inspect and emit persisted proactive events.",
+    )
+    event_commands = events.add_subparsers(dest="events_command")
+
+    event_emit = event_commands.add_parser(
+        "emit",
+        help="Persist one explicit event and classify its attention.",
+    )
+    event_emit.add_argument("event_type")
+    event_emit.add_argument("--source", default="cli")
+    event_emit.add_argument(
+        "--importance",
+        choices=EVENT_IMPORTANCE_LEVELS,
+        default="routine",
+    )
+    event_emit.add_argument(
+        "--payload",
+        default="{}",
+        help="Event payload as a JSON object.",
+    )
+
+    event_list = event_commands.add_parser("list", help="List recent events.")
+    event_list.add_argument("--limit", type=int, default=50)
+    event_list.add_argument("--attention", choices=ATTENTION_CLASSES)
+    handled_group = event_list.add_mutually_exclusive_group()
+    handled_group.add_argument(
+        "--handled",
+        action="store_const",
+        const=True,
+        dest="handled",
+    )
+    handled_group.add_argument(
+        "--pending",
+        action="store_const",
+        const=False,
+        dest="handled",
+    )
+
+    event_show = event_commands.add_parser("show", help="Show one event.")
+    event_show.add_argument("event_id")
+
+    event_handle = event_commands.add_parser(
+        "handle",
+        help="Mark an event as handled.",
+    )
+    event_handle.add_argument("event_id")
+
     skills = subcommands.add_parser(
         "skills",
         help="Inspect and validate Ally skill packages.",
@@ -511,6 +572,25 @@ def main(argv: Sequence[str] | None = None) -> int:
                 task_id=cast(str, args.task_id),
                 step_id=cast(str, args.step_id),
             )
+
+    if args.command == "events":
+        if args.events_command == "emit":
+            return run_emit_event(
+                event_type=cast(str, args.event_type),
+                source=cast(str, args.source),
+                importance=cast(EventImportance, args.importance),
+                payload_json=cast(str, args.payload),
+            )
+        if args.events_command == "list":
+            return run_list_events(
+                limit=cast(int, args.limit),
+                attention=cast(AttentionClass | None, args.attention),
+                handled=cast(bool | None, args.handled),
+            )
+        if args.events_command == "show":
+            return run_show_event(event_id=cast(str, args.event_id))
+        if args.events_command == "handle":
+            return run_handle_event(event_id=cast(str, args.event_id))
 
     if args.command == "skills":
         if args.skills_command == "inspect":
