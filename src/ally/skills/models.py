@@ -12,7 +12,7 @@ SkillConfigType = Literal["string", "integer", "number", "boolean"]
 
 
 class SkillConfigField(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     type: SkillConfigType
     description: str = Field(min_length=1)
@@ -73,4 +73,4 @@ class SkillInstallation(BaseModel):
     version: str
     source_uri: str
     installed_at: datetime
-    enabled: bool = True
+    enabled: bool = False
