@@ -406,3 +406,31 @@ def test_nested_skill_module_entrypoint_executes_from_package(
     assert result.status == "succeeded"
     assert result.result == {"nested": 7}
     assert audit.list()[0].status == "succeeded"
+
+
+def test_custom_skill_exception_name_is_not_persisted(
+    tmp_path: Path,
+) -> None:
+    source = write_executable_skill(
+        tmp_path / "source",
+        code="""
+class SECRET_PAYLOAD_NAME(Exception):
+    pass
+
+def run(data):
+    raise SECRET_PAYLOAD_NAME("private")
+""".strip()
+        + "\n",
+    )
+    _, audit, runtime = build_runtime(tmp_path, source)
+
+    result = runtime.execute(
+        "sample.skill",
+        "1.0.0",
+        input_data={},
+    )
+
+    assert result.status == "failed"
+    assert result.error_class == "SkillError"
+    record = audit.list()[0]
+    assert record.error_class == "SkillError"
