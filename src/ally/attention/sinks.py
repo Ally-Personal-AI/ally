@@ -8,6 +8,12 @@ from typing import Protocol
 
 from ally.events import AttentionClass, EventRecord
 
+DELIVERABLE_ATTENTION_CLASSES: tuple[AttentionClass, ...] = (
+    "mention_later",
+    "notify",
+    "interrupt",
+)
+
 
 class AttentionSink(Protocol):
     @property
@@ -18,7 +24,12 @@ class AttentionSink(Protocol):
     def accepted_attention(self) -> tuple[AttentionClass, ...]:
         ...
 
-    def deliver(self, event: EventRecord) -> None:
+    def deliver(
+        self,
+        event: EventRecord,
+        *,
+        delivery_key: str,
+    ) -> None:
         ...
 
 
@@ -34,11 +45,16 @@ class ConsoleAttentionSink:
 
     @property
     def accepted_attention(self) -> tuple[AttentionClass, ...]:
-        return ("mention_later", "notify", "interrupt")
+        return DELIVERABLE_ATTENTION_CLASSES
 
-    def deliver(self, event: EventRecord) -> None:
+    def deliver(
+        self,
+        event: EventRecord,
+        *,
+        delivery_key: str,
+    ) -> None:
         rendered = json.dumps(event.payload, sort_keys=True)
         self._writer(
             f"[{event.attention}] {event.type} source={event.source} "
-            f"payload={rendered}"
+            f"delivery={delivery_key} payload={rendered}"
         )
