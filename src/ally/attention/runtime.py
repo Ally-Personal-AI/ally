@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ally.attention.models import AttentionDeliveryRecord
+from ally.attention.models import AttentionDeliveryRecord, validate_sink_id
 from ally.attention.sinks import AttentionSink
 from ally.attention.store import AttentionDeliveryStore
 from ally.events import EventStore
@@ -33,6 +33,7 @@ class AttentionDeliveryRuntime:
         if limit < 1:
             raise ValueError("limit must be positive")
 
+        sink_id = validate_sink_id(sink.id)
         accepted = sink.accepted_attention
         if not accepted:
             return ()
@@ -44,7 +45,7 @@ class AttentionDeliveryRuntime:
 
         attempts: list[AttentionDeliveryRecord] = []
         for event in events:
-            existing = self._deliveries.get(event.id, sink.id)
+            existing = self._deliveries.get(event.id, sink_id)
             if existing is not None and existing.status == "succeeded":
                 continue
 
@@ -54,7 +55,7 @@ class AttentionDeliveryRuntime:
                 attempts.append(
                     self._deliveries.record_attempt(
                         event_id=event.id,
-                        sink_id=sink.id,
+                        sink_id=sink_id,
                         succeeded=False,
                         error=_bounded_error(exc),
                     )
@@ -64,7 +65,7 @@ class AttentionDeliveryRuntime:
             attempts.append(
                 self._deliveries.record_attempt(
                     event_id=event.id,
-                    sink_id=sink.id,
+                    sink_id=sink_id,
                     succeeded=True,
                 )
             )
