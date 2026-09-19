@@ -319,10 +319,6 @@ def test_skill_input_size_and_timeout_configuration_are_bounded(
     assert audit.list() == ()
 
 
-@pytest.mark.skipif(
-    not hasattr(os, "symlink"),
-    reason="symlinks unavailable on this platform",
-)
 def test_execution_result_is_json_only(tmp_path: Path) -> None:
     source = write_executable_skill(
         tmp_path / "source",
@@ -343,3 +339,70 @@ def run(data):
     assert result.status == "failed"
     assert result.error_class == "TypeError"
     assert audit.list()[0].error_class == "TypeError"
+
+
+def test_isolated_skill_cannot_import_parent_ally_package(
+    tmp_path: Path,
+) -> None:
+    source = write_executable_skill(
+        tmp_path / "source",
+        code="""
+def run(data):
+    try:
+        import ally
+    except ModuleNotFoundError:
+        return {"ally_importable": False}
+    return {"ally_importable": True}
+""".strip()
+        + "\n",
+    )
+    _, audit, runtime = build_runtime(tmp_path, source)
+
+    result = runtime.execute(
+        "sample.skill",
+        "1.0.0",
+        input_data={},
+    )
+
+    assert result.status == "succeeded"
+    assert result.result == {"ally_importable": False}
+    assert audit.list()[0].status == "succeeded"
+
+
+def test_nested_skill_module_entrypoint_executes_from_package(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "source"
+    root.mkdir(parents=True)
+    (root / "skill.toml").write_text(
+        "\n".join(
+            [
+                'id = "sample.skill"',
+                'name = "Sample Skill"',
+                'version = "1.0.0"',
+                'description = "Nested synthetic executable skill."',
+                'entrypoint = "nested.worker:run"',
+                'execution = "python_subprocess_v1"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    nested = root / "nested"
+    nested.mkdir()
+    (nested / "__init__.py").write_text("", encoding="utf-8")
+    (nested / "worker.py").write_text(
+        "def run(data):\n    return {'nested': data['value']}\n",
+        encoding="utf-8",
+    )
+    _, audit, runtime = build_runtime(tmp_path, root)
+
+    result = runtime.execute(
+        "sample.skill",
+        "1.0.0",
+        input_data={"value": 7},
+    )
+
+    assert result.status == "succeeded"
+    assert result.result == {"nested": 7}
+    assert audit.list()[0].status == "succeeded"
