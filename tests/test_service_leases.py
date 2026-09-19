@@ -5,8 +5,8 @@ from uuid import UUID
 import pytest
 
 from ally.service import (
-    SQLiteServiceLeaseStore,
     ServiceLeaseUnavailableError,
+    SQLiteServiceLeaseStore,
     service_lease,
 )
 from ally.storage import default_database_path, default_runtime_database_path
@@ -197,14 +197,13 @@ def test_service_lease_context_releases_after_normal_exit(tmp_path: Path) -> Non
 def test_service_lease_context_releases_after_exception(tmp_path: Path) -> None:
     store = build_store(tmp_path / "runtime.sqlite3")
 
-    with pytest.raises(RuntimeError, match="synthetic"):
-        with service_lease(
-            store,
-            name="proactive-cycle",
-            ttl_seconds=300,
-            owner_id=OWNER_A,
-        ):
-            raise RuntimeError("synthetic")
+    with pytest.raises(RuntimeError, match="synthetic"), service_lease(
+        store,
+        name="proactive-cycle",
+        ttl_seconds=300,
+        owner_id=OWNER_A,
+    ):
+        raise RuntimeError("synthetic")
 
     assert store.get("proactive-cycle") is None
 
@@ -218,14 +217,16 @@ def test_service_lease_context_rejects_existing_owner(tmp_path: Path) -> None:
         ttl_seconds=300,
     )
 
-    with pytest.raises(ServiceLeaseUnavailableError, match="already held"):
-        with service_lease(
-            store,
-            name="proactive-cycle",
-            ttl_seconds=300,
-            owner_id=OWNER_B,
-        ):
-            raise AssertionError("unreachable")
+    with pytest.raises(
+        ServiceLeaseUnavailableError,
+        match="already held",
+    ), service_lease(
+        store,
+        name="proactive-cycle",
+        ttl_seconds=300,
+        owner_id=OWNER_B,
+    ):
+        raise AssertionError("unreachable")
 
 
 def test_invalid_name_ttl_and_naive_time_are_rejected(tmp_path: Path) -> None:
