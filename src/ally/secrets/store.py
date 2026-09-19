@@ -32,9 +32,8 @@ class InMemorySecretStore:
         self._values: dict[str, SecretStr] = {}
 
     def set(self, name: str, value: SecretStr) -> None:
-        if not name.strip():
-            raise ValueError("secret name cannot be empty")
-        self._values[name] = value
+        validated = SecretRef(name=name)
+        self._values[validated.name] = value
 
     def get(self, name: str) -> SecretStr | None:
         return self._values.get(name)
