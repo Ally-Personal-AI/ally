@@ -339,6 +339,44 @@ uv run ally events handle <event-uuid>
 
 There is not yet a background event daemon or model-based attention classifier. Those future layers must build on this persisted boundary.
 
+## Persisted schedules
+
+Ally can persist one-shot and fixed-interval schedules as deterministic sources of proactive events.
+
+Create a one-shot schedule:
+
+```bash
+uv run ally schedules create \
+  --name "Synthetic reminder" \
+  --event-type reminder.synthetic \
+  --at 2026-10-01T09:00:00+00:00 \
+  --importance important \
+  --payload '{"message":"synthetic"}'
+```
+
+Add `--every-seconds <n>` for a fixed interval. Schedules may be inspected,
+enabled, or disabled explicitly:
+
+```bash
+uv run ally schedules list
+uv run ally schedules show <schedule-uuid>
+uv run ally schedules disable <schedule-uuid>
+uv run ally schedules enable <schedule-uuid>
+```
+
+Evaluate due schedules explicitly:
+
+```bash
+uv run ally schedules tick --at 2026-10-01T09:00:00+00:00
+```
+
+Missed interval occurrences are coalesced into one event rather than replayed as
+a storm. Scheduled events use persisted dedupe keys so retrying after a partial
+failure does not duplicate an already-created event.
+
+There is intentionally no scheduler daemon yet. A future OS service will call
+this same persisted boundary.
+
 ## Data portability
 
 Ally V1 backups are user-owned, versioned ZIP archives containing exactly:

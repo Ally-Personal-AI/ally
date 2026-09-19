@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from datetime import UTC, datetime
 from typing import cast
 from uuid import UUID, uuid4
@@ -11,6 +12,18 @@ from pydantic import JsonValue
 
 from ally.events.models import AttentionClass, EventImportance, EventRecord, NewEvent
 from ally.storage.sqlite.database import SQLiteDatabase
+
+EventRow = tuple[
+    str,
+    str,
+    str,
+    str,
+    str,
+    str,
+    str | None,
+    str,
+    str | None,
+]
 
 
 class SQLiteEventStore:
@@ -33,35 +46,62 @@ class SQLiteEventStore:
             importance=event.importance,
             attention=attention,
             payload=event.payload,
+            dedupe_key=event.dedupe_key,
             created_at=datetime.now(UTC),
         )
 
         with self._database.connect() as connection:
-            connection.execute(
-                """
-                INSERT INTO event_records(
-                    id,
-                    type,
-                    source,
-                    importance,
-                    attention,
-                    payload_json,
-                    created_at,
-                    handled_at
+            try:
+                connection.execute(
+                    """
+                    INSERT INTO event_records(
+                        id,
+                        type,
+                        source,
+                        importance,
+                        attention,
+                        payload_json,
+                        dedupe_key,
+                        created_at,
+                        handled_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        str(record.id),
+                        record.type,
+                        record.source,
+                        record.importance,
+                        record.attention,
+                        json.dumps(record.payload, sort_keys=True),
+                        record.dedupe_key,
+                        record.created_at.isoformat(),
+                        None,
+                    ),
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    str(record.id),
-                    record.type,
-                    record.source,
-                    record.importance,
-                    record.attention,
-                    json.dumps(record.payload, sort_keys=True),
-                    record.created_at.isoformat(),
-                    None,
-                ),
-            )
+            except sqlite3.IntegrityError:
+                if event.dedupe_key is None:
+                    raise
+                row = connection.execute(
+                    """
+                    SELECT
+                        id,
+                        type,
+                        source,
+                        importance,
+                        attention,
+                        payload_json,
+                        dedupe_key,
+                        created_at,
+                        handled_at
+                    FROM event_records
+                    WHERE dedupe_key = ?
+                    """,
+                    (event.dedupe_key,),
+                ).fetchone()
+                if row is None:
+                    raise
+                return self._from_row(cast(EventRow, row))
 
         return record
 
@@ -76,6 +116,7 @@ class SQLiteEventStore:
                     importance,
                     attention,
                     payload_json,
+                    dedupe_key,
                     created_at,
                     handled_at
                 FROM event_records
@@ -86,12 +127,7 @@ class SQLiteEventStore:
 
         if row is None:
             return None
-        return self._from_row(
-            cast(
-                tuple[str, str, str, str, str, str, str, str | None],
-                row,
-            )
-        )
+        return self._from_row(cast(EventRow, row))
 
     def list(
         self,
@@ -126,6 +162,7 @@ class SQLiteEventStore:
                 importance,
                 attention,
                 payload_json,
+                dedupe_key,
                 created_at,
                 handled_at
             FROM event_records
@@ -136,7 +173,7 @@ class SQLiteEventStore:
 
         with self._database.connect() as connection:
             rows = cast(
-                list[tuple[str, str, str, str, str, str, str, str | None]],
+                list[EventRow],
                 connection.execute(query, tuple(params)).fetchall(),
             )
 
@@ -161,9 +198,7 @@ class SQLiteEventStore:
         return loaded
 
     @staticmethod
-    def _from_row(
-        row: tuple[str, str, str, str, str, str, str, str | None],
-    ) -> EventRecord:
+    def _from_row(row: EventRow) -> EventRecord:
         (
             identifier,
             event_type,
@@ -171,6 +206,7 @@ class SQLiteEventStore:
             importance,
             attention,
             payload_json,
+            dedupe_key,
             created_at,
             handled_at,
         ) = row
@@ -181,6 +217,7 @@ class SQLiteEventStore:
             importance=cast(EventImportance, importance),
             attention=cast(AttentionClass, attention),
             payload=cast(dict[str, JsonValue], json.loads(payload_json)),
+            dedupe_key=dedupe_key,
             created_at=datetime.fromisoformat(created_at),
             handled_at=(
                 None if handled_at is None else datetime.fromisoformat(handled_at)

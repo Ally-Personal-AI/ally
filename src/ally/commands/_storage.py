@@ -7,6 +7,7 @@ from ally.storage.sqlite import (
     SQLiteEventStore,
     SQLiteKnowledgeStore,
     SQLiteMemoryStore,
+    SQLiteScheduleStore,
     SQLiteTaskStore,
     SQLiteToolAuditStore,
 )
@@ -52,3 +53,9 @@ def build_event_store() -> SQLiteEventStore:
     """Create the default local event store."""
 
     return SQLiteEventStore(build_database())
+
+
+def build_schedule_store() -> SQLiteScheduleStore:
+    """Create the default local schedule store."""
+
+    return SQLiteScheduleStore(build_database())

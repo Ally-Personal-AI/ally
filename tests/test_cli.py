@@ -368,3 +368,75 @@ def test_skills_enable_disable_uninstall_parsers() -> None:
     assert uninstall.skills_command == "uninstall"
     assert enable.skill_id == "sample.skill"
     assert enable.version == "1.0.0"
+
+
+def test_schedules_create_parser_has_safe_defaults() -> None:
+    args = build_parser().parse_args(
+        [
+            "schedules",
+            "create",
+            "--name",
+            "Synthetic",
+            "--event-type",
+            "synthetic.event",
+            "--at",
+            "2026-01-01T12:00:00+00:00",
+        ]
+    )
+
+    assert args.command == "schedules"
+    assert args.schedules_command == "create"
+    assert args.name == "Synthetic"
+    assert args.event_type == "synthetic.event"
+    assert args.at == "2026-01-01T12:00:00+00:00"
+    assert args.every_seconds is None
+    assert args.importance == "routine"
+    assert args.payload == "{}"
+    assert args.disabled is False
+
+
+def test_schedules_create_parser_accepts_interval_and_disabled() -> None:
+    args = build_parser().parse_args(
+        [
+            "schedules",
+            "create",
+            "--name",
+            "Recurring",
+            "--event-type",
+            "synthetic.interval",
+            "--at",
+            "2026-01-01T12:00:00+00:00",
+            "--every-seconds",
+            "300",
+            "--disabled",
+        ]
+    )
+
+    assert args.every_seconds == 300
+    assert args.disabled is True
+
+
+def test_schedules_tick_parser_is_bounded() -> None:
+    args = build_parser().parse_args(
+        [
+            "schedules",
+            "tick",
+            "--at",
+            "2026-01-01T12:00:00+00:00",
+        ]
+    )
+
+    assert args.schedules_command == "tick"
+    assert args.at == "2026-01-01T12:00:00+00:00"
+    assert args.limit == 100
+
+
+def test_schedules_management_parsers_accept_identifier() -> None:
+    show = build_parser().parse_args(["schedules", "show", "schedule-id"])
+    enable = build_parser().parse_args(["schedules", "enable", "schedule-id"])
+    disable = build_parser().parse_args(["schedules", "disable", "schedule-id"])
+
+    assert show.schedules_command == "show"
+    assert enable.schedules_command == "enable"
+    assert disable.schedules_command == "disable"
+    assert show.schedule_id == "schedule-id"
