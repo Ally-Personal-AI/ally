@@ -56,7 +56,11 @@ from ally.commands.schedules import (
     run_show_schedule,
     run_tick_schedules,
 )
-from ally.commands.service import run_list_service_leases, run_proactive_cycle
+from ally.commands.service import (
+    run_list_service_leases,
+    run_proactive_cycle,
+    run_service_health,
+)
 from ally.commands.skills import (
     run_disable_skill,
     run_enable_skill,
@@ -510,6 +514,15 @@ def build_parser() -> argparse.ArgumentParser:
         "leases",
         help="Inspect ephemeral runtime service leases.",
     )
+    service_health = service_commands.add_parser(
+        "health",
+        help="Run non-mutating service readiness checks.",
+    )
+    service_health.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
 
     schedules = subcommands.add_parser(
         "schedules",
@@ -936,6 +949,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         if args.service_command == "leases":
             return run_list_service_leases()
+        if args.service_command == "health":
+            return run_service_health(
+                json_output=cast(bool, args.json_output)
+            )
 
     if args.command == "schedules":
         if args.schedules_command == "create":
