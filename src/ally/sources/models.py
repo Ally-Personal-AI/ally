@@ -50,7 +50,10 @@ class EventSourceCheckpoint(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    source_id: str
+    source_id: str = Field(
+        min_length=1,
+        pattern=r"^[a-z0-9][a-z0-9_.-]*$",
+    )
     cursor: str | None = Field(default=None, max_length=4096)
     successful_polls: int = Field(ge=1)
     observations_published: int = Field(ge=0)
@@ -69,7 +72,10 @@ class EventSourcePollReport(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    source_id: str
+    source_id: str = Field(
+        min_length=1,
+        pattern=r"^[a-z0-9][a-z0-9_.-]*$",
+    )
     from_cursor: str | None
     to_cursor: str | None
     events: tuple[EventRecord, ...] = ()
