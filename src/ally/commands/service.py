@@ -11,12 +11,13 @@ from ally.attention import (
 )
 from ally.commands._storage import (
     build_attention_delivery_store,
-    build_database,
     build_event_store,
     build_schedule_store,
     build_service_cycle_run_store,
     build_service_lease_store,
 )
+from ally.configuration import default_config_path
+from ally.diagnostics import build_service_health
 from ally.events import EventRuntime
 from ally.scheduler import ScheduleConflictError, SchedulerRuntime
 from ally.service import (
@@ -26,8 +27,7 @@ from ally.service import (
     ServiceRunConflictError,
     service_lease,
 )
-from ally.storage import default_runtime_database_path
-from ally.storage.sqlite import build_sqlite_service_health
+from ally.storage import default_database_path, default_runtime_database_path
 
 
 def _parse_timestamp(value: str) -> datetime:
@@ -175,8 +175,9 @@ def run_service_history(
 
 def run_service_health(*, json_output: bool) -> int:
     try:
-        report = build_sqlite_service_health(
-            database_path=build_database().path,
+        report = build_service_health(
+            config_path=default_config_path(),
+            database_path=default_database_path(),
             runtime_database_path=default_runtime_database_path(),
         )
     except ValueError as exc:
@@ -193,6 +194,11 @@ def run_service_health(*, json_output: bool) -> int:
         )
     else:
         print(f"Status: {report.status}")
+        for check in report.checks:
+            print(
+                f"[{check.severity.upper()}] "
+                f"{check.id}: {check.summary}"
+            )
         print(f"Database exists: {report.database_exists}")
         print(f"Database integrity: {report.database_integrity_ok}")
         print(f"Schema current: {report.schema_current}")
@@ -208,6 +214,6 @@ def run_service_health(*, json_output: bool) -> int:
 
     if report.status == "healthy":
         return 0
-    if report.status == "uninitialized":
+    if report.status == "degraded":
         return 1
     return 2

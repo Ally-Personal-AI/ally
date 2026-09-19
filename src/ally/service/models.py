@@ -15,7 +15,8 @@ ServiceCycleRunStatus = Literal[
     "failed",
     "interrupted",
 ]
-ServiceHealthStatus = Literal["healthy", "degraded", "uninitialized"]
+HealthCheckSeverity = Literal["ok", "warning", "error"]
+ServiceHealthStatus = Literal["healthy", "degraded", "unhealthy"]
 
 
 def _require_aware(value: datetime) -> datetime:
@@ -91,12 +92,28 @@ class ServiceCycleRunRecord(BaseModel):
         return self
 
 
+class ServiceHealthCheck(BaseModel):
+    """One safe deterministic readiness check."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: str = Field(
+        min_length=1,
+        pattern=r"^[a-z0-9][a-z0-9_.-]*$",
+    )
+    severity: HealthCheckSeverity
+    summary: str = Field(min_length=1, max_length=256)
+
+
 class ServiceHealthReport(BaseModel):
-    """Read-only local health snapshot without private runtime payloads."""
+    """Read-only readiness snapshot without private runtime payloads."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     status: ServiceHealthStatus
+    checks: tuple[ServiceHealthCheck, ...] = ()
+    config_exists: bool = False
+    config_valid: bool = False
     database_exists: bool
     database_integrity_ok: bool
     schema_current: bool
@@ -105,6 +122,8 @@ class ServiceHealthReport(BaseModel):
     latest_cycle: ServiceCycleRunRecord | None = None
     runtime_database_exists: bool = False
     runtime_coordination_ok: bool = True
+    active_lease_count: int = Field(default=0, ge=0)
+    expired_lease_count: int = Field(default=0, ge=0)
     proactive_lease_active: bool = False
     proactive_lease_expires_at: datetime | None = None
 

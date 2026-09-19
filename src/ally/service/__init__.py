@@ -7,8 +7,10 @@ from ally.service.leases import (
     service_lease,
 )
 from ally.service.models import (
+    HealthCheckSeverity,
     ServiceCycleRunRecord,
     ServiceCycleRunStatus,
+    ServiceHealthCheck,
     ServiceHealthReport,
     ServiceHealthStatus,
 )
@@ -24,6 +26,7 @@ from ally.service.store import (
 )
 
 __all__ = [
+    "HealthCheckSeverity",
     "ProactiveCycleReport",
     "ProactiveServiceCycle",
     "ProactiveServiceRunner",
@@ -31,6 +34,7 @@ __all__ = [
     "ServiceCycleRunRecord",
     "ServiceCycleRunStatus",
     "ServiceCycleRunStore",
+    "ServiceHealthCheck",
     "ServiceHealthReport",
     "ServiceHealthStatus",
     "ServiceLeaseRecord",

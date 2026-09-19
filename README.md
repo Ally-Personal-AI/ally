@@ -479,10 +479,19 @@ first acquires the ephemeral lease and only then repairs that abandoned history
 as `interrupted`. The portable single-running constraint is a consistency
 guard, not an overlap lock.
 
-Health combines read-only checks of the user-owned database with the separate
-runtime lease signal. A `running` lifecycle record is healthy only while the
-`proactive-cycle` lease is active. Health returns exit code `0` for healthy,
-`1` for uninitialized, and `2` for degraded.
+Health is a structured read-only readiness report. It validates an existing
+non-secret config, checks both SQLite databases without writing or migrating
+them, verifies that core migration history is an exact supported prefix, counts
+active/expired runtime leases, and cross-checks a portable `running` lifecycle
+record against the `proactive-cycle` lease.
+
+Each check is `ok`, `warning`, or `error`. Overall status is `healthy`,
+`degraded`, or `unhealthy`, with exit codes `0`, `1`, and `2`
+respectively. Missing uninitialized state is a warning; corrupt or unsupported
+state is an error.
+
+See [Service Health and Readiness](docs/service-health.md) for the stable check
+IDs and contributor rules.
 
 ## External event sources
 
