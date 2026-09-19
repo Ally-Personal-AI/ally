@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 from datetime import UTC, datetime
 from pathlib import Path
@@ -20,6 +21,8 @@ from ally.skills.loader import SkillManifestError, load_skill_package
 from ally.skills.models import SkillInstallation, SkillPackage
 
 _METADATA_NAME = ".ally-installation.json"
+_SKILL_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_.-]*$")
+_VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$")
 
 
 class SkillInstallationError(ValueError):
@@ -85,11 +88,30 @@ def _load_metadata(path: Path) -> SkillInstallation:
         ) from exc
 
 
+def _validate_selector(value: str, *, label: str, pattern: re.Pattern[str]) -> str:
+    if pattern.fullmatch(value) is None:
+        raise SkillInstallationError(f"invalid {label}: {value}")
+    return value
+
+
 class LocalSkillManager:
     """Manage copied skill packages without importing executable code."""
 
     def __init__(self, root: Path) -> None:
         self.root = root.expanduser().resolve()
+
+    def _package_root(self, skill_id: str, version: str) -> Path:
+        safe_id = _validate_selector(
+            skill_id,
+            label="skill ID",
+            pattern=_SKILL_ID_PATTERN,
+        )
+        safe_version = _validate_selector(
+            version,
+            label="skill version",
+            pattern=_VERSION_PATTERN,
+        )
+        return self.root / safe_id / safe_version
 
     def install(
         self,
@@ -108,10 +130,9 @@ class LocalSkillManager:
                 f"missing required tools: {names}"
             )
 
-        destination = (
-            self.root
-            / package.manifest.id
-            / package.manifest.version
+        destination = self._package_root(
+            package.manifest.id,
+            package.manifest.version,
         )
         if destination.exists():
             raise SkillInstallationError(
@@ -164,7 +185,7 @@ class LocalSkillManager:
         skill_id: str,
         version: str,
     ) -> SkillInstallation | None:
-        path = self.root / skill_id / version / _METADATA_NAME
+        path = self._package_root(skill_id, version) / _METADATA_NAME
         if not path.is_file():
             return None
         return _load_metadata(path)
@@ -176,7 +197,7 @@ class LocalSkillManager:
         *,
         enabled: bool,
     ) -> SkillInstallation:
-        package_root = self.root / skill_id / version
+        package_root = self._package_root(skill_id, version)
         metadata = _metadata_path(package_root)
         current = self.get(skill_id, version)
         if current is None:
@@ -208,8 +229,13 @@ class LocalSkillManager:
                 f"skill is not installed: {skill_id}@{version}"
             )
 
-        package_root = self.root / skill_id / version
-        shutil.rmtree(package_root)
+        package_root = self._package_root(skill_id, version)
+        try:
+            shutil.rmtree(package_root)
+        except OSError as exc:
+            raise SkillInstallationError(
+                f"could not uninstall skill package: {exc}"
+            ) from exc
 
         skill_root = package_root.parent
         try:
@@ -226,7 +252,7 @@ class LocalSkillManager:
     ) -> SkillPackage:
         """Validate an installed package as data; never import its entrypoint."""
 
-        package_root = self.root / skill_id / version
+        package_root = self._package_root(skill_id, version)
         try:
             return load_skill_package(package_root)
         except SkillManifestError as exc:
