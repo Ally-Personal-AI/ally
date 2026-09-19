@@ -11,6 +11,7 @@ from ally.attention import (
     AttentionDeliveryRuntime,
     AttentionSink,
 )
+from ally.attention.models import validate_sink_id
 from ally.scheduler import ScheduleTick, SchedulerRuntime
 
 
@@ -87,18 +88,22 @@ class ProactiveServiceCycle:
         if delivery_limit < 1:
             raise ValueError("delivery_limit must be positive")
 
+        sink_ids: list[str] = []
+        seen_sinks: set[str] = set()
+        for sink in sinks:
+            sink_id = validate_sink_id(sink.id)
+            if sink_id in seen_sinks:
+                raise ValueError(f"duplicate attention sink ID: {sink_id}")
+            seen_sinks.add(sink_id)
+            sink_ids.append(sink_id)
+
         schedule_ticks = self._scheduler.tick(
             as_of=observed_at,
             limit=schedule_limit,
         )
 
         deliveries: list[SinkDeliverySummary] = []
-        seen_sinks: set[str] = set()
-        for sink in sinks:
-            if sink.id in seen_sinks:
-                raise ValueError(f"duplicate attention sink ID: {sink.id}")
-            seen_sinks.add(sink.id)
-
+        for sink, sink_id in zip(sinks, sink_ids, strict=True):
             attempts = self._attention.deliver_pending(
                 sink,
                 limit=delivery_limit,
@@ -107,7 +112,7 @@ class ProactiveServiceCycle:
             failed = sum(record.status == "failed" for record in attempts)
             deliveries.append(
                 SinkDeliverySummary(
-                    sink_id=sink.id,
+                    sink_id=sink_id,
                     attempts=attempts,
                     succeeded=succeeded,
                     failed=failed,
