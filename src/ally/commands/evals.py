@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ally.evals import EvaluationRunner, EvaluatorRegistry
+from ally.evals import EvalSummary, EvaluationRunner, EvaluatorRegistry
 from ally.evals.builtin import register_builtin_evaluators
 from ally.evals.loader import load_eval_cases
 from ally.evals.provider import ProviderResponseEvaluator
@@ -13,7 +13,7 @@ from ally.models.errors import ModelProviderError
 from ally.models.providers import OpenAICompatibleProvider
 
 
-def _print_summary(*, summary, json_output: bool) -> None:  # type: ignore[no-untyped-def]
+def _print_summary(*, summary: EvalSummary, json_output: bool) -> None:
     if json_output:
         print(render_json_summary(summary))
     else:
