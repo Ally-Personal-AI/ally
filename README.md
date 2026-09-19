@@ -179,6 +179,44 @@ uv run ally tools audit
 
 The initial policy allows read-only tools, requires explicit approval for reversible and externally consequential tools, and denies high-consequence tools. Models and future agents do not bypass this boundary.
 
+## Persistent tasks
+
+Task execution is a persisted state machine rather than an ephemeral agent loop. A task plan is JSON with an ordered set of tool steps:
+
+```json
+{
+  "goal": "Inspect the local Ally runtime",
+  "steps": [
+    {
+      "tool_name": "system.info",
+      "arguments": {}
+    }
+  ]
+}
+```
+
+Create and run it:
+
+```bash
+uv run ally tasks create ./task.json
+uv run ally tasks run <task-uuid>
+```
+
+Inspect persisted state:
+
+```bash
+uv run ally tasks list
+uv run ally tasks show <task-uuid>
+```
+
+If a step requires approval, execution pauses with `waiting_approval`. Resume only after explicitly naming the approved step:
+
+```bash
+uv run ally tasks run <task-uuid> --approve-step <step-uuid>
+```
+
+Failed steps remain failed until deliberately reset with `ally tasks retry`. Tool execution, permission policy, audit, and verification remain separate layers.
+
 ## Personal data boundary
 
 Personal runtime data, memory databases, secrets, downloaded model weights, generated indexes, and private logs are deliberately kept outside the repository.

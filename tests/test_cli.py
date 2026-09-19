@@ -135,3 +135,35 @@ def test_tools_audit_parser_has_bounded_default() -> None:
 
     assert args.tools_command == "audit"
     assert args.limit == 20
+
+
+def test_tasks_create_parser_accepts_plan_file() -> None:
+    args = build_parser().parse_args(["tasks", "create", "task.json"])
+
+    assert args.command == "tasks"
+    assert args.tasks_command == "create"
+    assert args.plan_path == "task.json"
+
+
+def test_tasks_run_parser_collects_explicit_step_approvals() -> None:
+    args = build_parser().parse_args(
+        [
+            "tasks",
+            "run",
+            "task-id",
+            "--approve-step",
+            "step-a",
+            "--approve-step",
+            "step-b",
+        ]
+    )
+
+    assert args.tasks_command == "run"
+    assert args.approved_steps == ["step-a", "step-b"]
+
+
+def test_tasks_list_parser_has_bounded_default() -> None:
+    args = build_parser().parse_args(["tasks", "list"])
+
+    assert args.tasks_command == "list"
+    assert args.limit == 20

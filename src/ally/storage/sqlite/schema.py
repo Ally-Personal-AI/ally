@@ -108,7 +108,8 @@ MIGRATIONS: tuple[Migration, ...] = (
             ON memory_records(valid_from, valid_until)
             """,
         ),
-    ),    Migration(
+    ),
+    Migration(
         version=3,
         name="knowledge_v1",
         statements=(
@@ -214,6 +215,66 @@ MIGRATIONS: tuple[Migration, ...] = (
             """
             CREATE INDEX idx_tool_audit_invocation
             ON tool_audit_records(invocation_id)
+            """,
+        ),
+    ),
+    Migration(
+        version=5,
+        name="tasks_v1",
+        statements=(
+            """
+            CREATE TABLE tasks (
+                id TEXT PRIMARY KEY,
+                goal TEXT NOT NULL,
+                status TEXT NOT NULL
+                    CHECK (
+                        status IN (
+                            'pending',
+                            'running',
+                            'waiting_approval',
+                            'succeeded',
+                            'failed',
+                            'cancelled'
+                        )
+                    ),
+                failure TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE task_steps (
+                id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL
+                    REFERENCES tasks(id) ON DELETE CASCADE,
+                position INTEGER NOT NULL CHECK (position >= 0),
+                tool_name TEXT NOT NULL,
+                arguments_json TEXT NOT NULL,
+                status TEXT NOT NULL
+                    CHECK (
+                        status IN (
+                            'pending',
+                            'running',
+                            'approval_required',
+                            'succeeded',
+                            'failed'
+                        )
+                    ),
+                attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+                last_output_json TEXT,
+                last_error TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE (task_id, position)
+            )
+            """,
+            """
+            CREATE INDEX idx_tasks_updated
+            ON tasks(updated_at DESC)
+            """,
+            """
+            CREATE INDEX idx_task_steps_task
+            ON task_steps(task_id, position)
             """,
         ),
     ),
