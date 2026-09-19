@@ -26,6 +26,19 @@ validated.
 
 Backup V1 excludes both ordinary config and secret material.
 
+## Local filesystem observation
+
+Filesystem observation is explicit and metadata-only. The user selects one
+allowlisted directory root per source. The adapter does not read file contents,
+does not follow symbolic links, ignores hidden entries by default, and rejects a
+symbolic-link root. Relative paths, sizes, and modification times may enter
+event payloads; filesystem identity is restricted to the opaque checkpoint for
+rename detection.
+
+Scan failures fail closed without advancing the source checkpoint. See
+[Local filesystem event source](filesystem-source.md) and
+[ADR 0026](adr/0026-filesystem-observation-is-metadata-only.md).
+
 ## Action classes
 
 Future actions will be classified at minimum as:
