@@ -104,10 +104,12 @@ def test_enable_one_version_disables_other_version(tmp_path: Path) -> None:
 
     assert first.enabled is True
     assert second.enabled is True
-    assert manager.get("sample.skill", "1.0.0") is not None
-    assert manager.get("sample.skill", "1.0.0").enabled is False  # type: ignore[union-attr]
-    assert manager.get("sample.skill", "2.0.0") is not None
-    assert manager.get("sample.skill", "2.0.0").enabled is True  # type: ignore[union-attr]
+    loaded_first = manager.get("sample.skill", "1.0.0")
+    loaded_second = manager.get("sample.skill", "2.0.0")
+    assert loaded_first is not None
+    assert loaded_second is not None
+    assert loaded_first.enabled is False
+    assert loaded_second.enabled is True
 
 
 def test_uninstall_removes_copy_but_preserves_source(tmp_path: Path) -> None:
@@ -121,3 +123,13 @@ def test_uninstall_removes_copy_but_preserves_source(tmp_path: Path) -> None:
     assert manager.get("sample.skill", "1.0.0") is None
     assert source.is_dir()
     assert (source / "skill.toml").is_file()
+
+
+def test_management_rejects_path_traversal_selectors(tmp_path: Path) -> None:
+    manager = LocalSkillManager(tmp_path / "installed")
+
+    with pytest.raises(SkillInstallationError, match="invalid skill ID"):
+        manager.get("../escape", "1.0.0")
+
+    with pytest.raises(SkillInstallationError, match="invalid skill version"):
+        manager.get("sample.skill", "../1.0.0")
