@@ -466,3 +466,36 @@ def test_attention_history_parser_accepts_status_filter() -> None:
     assert args.attention_command == "history"
     assert args.status == "failed"
     assert args.limit == 50
+
+
+def test_service_cycle_parser_has_bounded_defaults() -> None:
+    args = build_parser().parse_args(["service", "cycle"])
+
+    assert args.command == "service"
+    assert args.service_command == "cycle"
+    assert args.at is None
+    assert args.schedule_limit == 100
+    assert args.delivery_limit == 50
+    assert args.sink == "console"
+    assert args.json_output is False
+
+
+def test_service_cycle_parser_accepts_explicit_time_and_json() -> None:
+    args = build_parser().parse_args(
+        [
+            "service",
+            "cycle",
+            "--at",
+            "2026-01-01T12:00:00+00:00",
+            "--schedule-limit",
+            "10",
+            "--delivery-limit",
+            "5",
+            "--json",
+        ]
+    )
+
+    assert args.at == "2026-01-01T12:00:00+00:00"
+    assert args.schedule_limit == 10
+    assert args.delivery_limit == 5
+    assert args.json_output is True

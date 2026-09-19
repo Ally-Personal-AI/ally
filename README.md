@@ -409,6 +409,33 @@ delivery key so future external interfaces can implement idempotent retries.
 The console sink is for development only. Desktop notifications, mobile, and
 voice delivery are not implemented yet and must use this same boundary.
 
+## Proactive service cycle
+
+The persisted proactivity components can be composed into one bounded runtime
+operation without starting a daemon:
+
+```bash
+uv run ally service cycle
+```
+
+Use an explicit time for deterministic testing:
+
+```bash
+uv run ally service cycle \
+  --at 2026-10-01T09:00:00+00:00 \
+  --schedule-limit 100 \
+  --delivery-limit 50
+```
+
+A cycle evaluates due schedules first and then delivers pending attention, so an
+event produced by a due schedule can be surfaced in the same cycle. The command
+returns nonzero when a sink delivery attempt fails and can emit a structured
+report with `--json`.
+
+This is intentionally a one-shot operation. It does not sleep, loop,
+daemonize, or install operating-system services. Future `launchd`,
+`systemd`, or Windows service wrappers should invoke this same boundary.
+
 ## Data portability
 
 Ally V1 backups are user-owned, versioned ZIP archives containing exactly:

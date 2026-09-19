@@ -56,6 +56,7 @@ from ally.commands.schedules import (
     run_show_schedule,
     run_tick_schedules,
 )
+from ally.commands.service import run_proactive_cycle
 from ally.commands.skills import (
     run_disable_skill,
     run_enable_skill,
@@ -461,6 +462,40 @@ def build_parser() -> argparse.ArgumentParser:
     )
     event_handle.add_argument("event_id")
 
+    service = subcommands.add_parser(
+        "service",
+        help="Run bounded service operations without starting a daemon.",
+    )
+    service_commands = service.add_subparsers(dest="service_command")
+    service_cycle = service_commands.add_parser(
+        "cycle",
+        help="Run one proactive schedule-and-attention cycle.",
+    )
+    service_cycle.add_argument(
+        "--at",
+        help="Optional timezone-aware ISO-8601 evaluation time.",
+    )
+    service_cycle.add_argument(
+        "--schedule-limit",
+        type=int,
+        default=100,
+    )
+    service_cycle.add_argument(
+        "--delivery-limit",
+        type=int,
+        default=50,
+    )
+    service_cycle.add_argument(
+        "--sink",
+        choices=("console",),
+        default="console",
+    )
+    service_cycle.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
     schedules = subcommands.add_parser(
         "schedules",
         help="Create and advance persisted time-based event schedules.",
@@ -838,6 +873,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             return run_show_event(event_id=cast(str, args.event_id))
         if args.events_command == "handle":
             return run_handle_event(event_id=cast(str, args.event_id))
+
+    if args.command == "service" and args.service_command == "cycle":
+        return run_proactive_cycle(
+            at=cast(str | None, args.at),
+            schedule_limit=cast(int, args.schedule_limit),
+            delivery_limit=cast(int, args.delivery_limit),
+            sink_name=cast(str, args.sink),
+            json_output=cast(bool, args.json_output),
+        )
 
     if args.command == "schedules":
         if args.schedules_command == "create":
