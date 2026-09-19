@@ -25,6 +25,7 @@ from ally.commands.memory import (
     run_show_memory,
     run_supersede_memory,
 )
+from ally.commands.skills import run_inspect_skill, run_validate_skill
 from ally.memory import MEMORY_KINDS, MEMORY_PRIVACY_LEVELS, MemoryKind, MemoryPrivacy
 
 
@@ -163,6 +164,31 @@ def build_parser() -> argparse.ArgumentParser:
     eval_provider.add_argument("--allow-remote", action="store_true")
     eval_provider.add_argument("--json", action="store_true", dest="json_output")
 
+    skills = subcommands.add_parser(
+        "skills",
+        help="Inspect and validate Ally skill packages.",
+    )
+    skill_commands = skills.add_subparsers(dest="skills_command")
+
+    skill_inspect = skill_commands.add_parser(
+        "inspect",
+        help="Inspect a skill.toml package without executing it.",
+    )
+    skill_inspect.add_argument("path")
+
+    skill_validate = skill_commands.add_parser(
+        "validate",
+        help="Validate a skill manifest and its required tool names.",
+    )
+    skill_validate.add_argument("path")
+    skill_validate.add_argument(
+        "--available-tool",
+        action="append",
+        default=[],
+        dest="available_tools",
+        help="Tool name available to the target runtime; may be repeated.",
+    )
+
     return parser
 
 
@@ -250,6 +276,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 model=cast(str, args.model),
                 allow_remote=cast(bool, args.allow_remote),
                 json_output=cast(bool, args.json_output),
+            )
+
+    if args.command == "skills":
+        if args.skills_command == "inspect":
+            return run_inspect_skill(path=cast(str, args.path))
+        if args.skills_command == "validate":
+            return run_validate_skill(
+                path=cast(str, args.path),
+                available_tools=tuple(cast(list[str], args.available_tools)),
             )
 
     parser.print_help()
