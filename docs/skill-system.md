@@ -20,6 +20,8 @@ The initial manifest schema includes:
 - typed configuration fields
 - secret markers for configuration values that must not be treated as ordinary data
 
+Unknown manifest fields are rejected.
+
 A manifest can declare that a skill needs a capability. It cannot grant itself
 that capability. Tool availability and tool permission remain controlled by the
 tool registry and Ally's policy engine.
@@ -42,15 +44,50 @@ description = "IANA timezone used for the briefing."
 required = true
 ```
 
+## Local installation
+
+Ally can install an explicit local package into Ally-owned application data:
+
+```text
+skills/<skill-id>/<version>/
+```
+
+Installation performs data validation only. It never imports the entrypoint.
+
+Before copying, Ally:
+
+- validates the manifest;
+- rejects symbolic links and non-regular package entries;
+- rejects the reserved Ally installation metadata filename;
+- validates declared required tools against the current runtime registry;
+- validates skill ID/version before using them as filesystem path components.
+
+Installed packages are disabled by default.
+
+Only one version of a skill ID may be enabled at a time. Enabling one version
+automatically disables another enabled version with the same ID.
+
+Uninstall removes only Ally's copied package. The original source directory is
+never modified.
+
+Commands:
+
+```bash
+uv run ally skills install ./skill
+uv run ally skills installed
+uv run ally skills enable <skill-id> <version>
+uv run ally skills disable <skill-id> <version>
+uv run ally skills uninstall <skill-id> <version>
+```
+
 ## Current scope
 
-Ally can load, inspect, validate, and catalog packages without executing them.
-The current CLI accepts an explicit set of available tool names for dependency
-validation.
+Ally can load, inspect, validate, catalog, install, enable, disable, and
+uninstall local packages without executing them.
 
-Installation, signatures, remote registries, marketplaces, and generated skill
-sandboxing are deliberately deferred. Those features must build on this
-manifest boundary rather than bypass it.
+Signature verification, remote registries, marketplaces, runtime loading, and
+generated-skill sandboxing remain deliberately deferred. Those features must
+build on this local installation boundary rather than bypass it.
 
 Generated skills will eventually be built and tested in a sandbox before a user
 is asked to approve their permissions and installation.

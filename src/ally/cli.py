@@ -43,7 +43,15 @@ from ally.commands.memory_proposals import (
     run_propose_memories,
 )
 from ally.commands.planning import run_propose_plan
-from ally.commands.skills import run_inspect_skill, run_validate_skill
+from ally.commands.skills import (
+    run_disable_skill,
+    run_enable_skill,
+    run_inspect_skill,
+    run_install_skill,
+    run_list_installed_skills,
+    run_uninstall_skill,
+    run_validate_skill,
+)
 from ally.commands.tasks import (
     run_create_task,
     run_list_tasks,
@@ -432,6 +440,38 @@ def build_parser() -> argparse.ArgumentParser:
         help="Tool name available to the target runtime; may be repeated.",
     )
 
+    skill_install = skill_commands.add_parser(
+        "install",
+        help="Copy a validated local skill package into Ally-owned storage.",
+    )
+    skill_install.add_argument("path")
+
+    skill_commands.add_parser(
+        "installed",
+        help="List locally installed skill versions.",
+    )
+
+    skill_enable = skill_commands.add_parser(
+        "enable",
+        help="Enable one installed skill version.",
+    )
+    skill_enable.add_argument("skill_id")
+    skill_enable.add_argument("version")
+
+    skill_disable = skill_commands.add_parser(
+        "disable",
+        help="Disable one installed skill version.",
+    )
+    skill_disable.add_argument("skill_id")
+    skill_disable.add_argument("version")
+
+    skill_uninstall = skill_commands.add_parser(
+        "uninstall",
+        help="Remove one Ally-owned installed skill version.",
+    )
+    skill_uninstall.add_argument("skill_id")
+    skill_uninstall.add_argument("version")
+
     validate = subcommands.add_parser(
         "validate",
         help="Run reproducible machine and local-model validation.",
@@ -674,6 +714,25 @@ def main(argv: Sequence[str] | None = None) -> int:
             return run_validate_skill(
                 path=cast(str, args.path),
                 available_tools=tuple(cast(list[str], args.available_tools)),
+            )
+        if args.skills_command == "install":
+            return run_install_skill(path=cast(str, args.path))
+        if args.skills_command == "installed":
+            return run_list_installed_skills()
+        if args.skills_command == "enable":
+            return run_enable_skill(
+                skill_id=cast(str, args.skill_id),
+                version=cast(str, args.version),
+            )
+        if args.skills_command == "disable":
+            return run_disable_skill(
+                skill_id=cast(str, args.skill_id),
+                version=cast(str, args.version),
+            )
+        if args.skills_command == "uninstall":
+            return run_uninstall_skill(
+                skill_id=cast(str, args.skill_id),
+                version=cast(str, args.version),
             )
 
     if args.command == "validate":

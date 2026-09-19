@@ -12,7 +12,7 @@ SkillConfigType = Literal["string", "integer", "number", "boolean"]
 
 
 class SkillConfigField(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     type: SkillConfigType
     description: str = Field(min_length=1)
@@ -23,7 +23,7 @@ class SkillConfigField(BaseModel):
 class SkillManifest(BaseModel):
     """Validated contents of a skill.toml file."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     schema_version: Literal[1] = 1
     id: str = Field(min_length=1, pattern=r"^[a-z0-9][a-z0-9_.-]*$")
@@ -57,7 +57,7 @@ class SkillManifest(BaseModel):
 
 
 class SkillPackage(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     root: str
     manifest: SkillManifest
@@ -66,11 +66,11 @@ class SkillPackage(BaseModel):
 class SkillInstallation(BaseModel):
     """Metadata for one locally installed skill package."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     id: UUID
     skill_id: str
     version: str
     source_uri: str
     installed_at: datetime
-    enabled: bool = True
+    enabled: bool = False

@@ -105,3 +105,19 @@ description = "Synthetic."
 
     with pytest.raises(ValueError, match="already registered"):
         catalog.register(package)
+
+
+def test_loader_rejects_unknown_manifest_fields(tmp_path: Path) -> None:
+    root = write_skill(
+        tmp_path / "unknown",
+        """
+id = "sample.skill"
+name = "Sample"
+version = "1.0.0"
+description = "Synthetic."
+unexpected_permission = "all"
+""".strip(),
+    )
+
+    with pytest.raises(SkillManifestError, match="Invalid skill manifest"):
+        load_skill_package(root)
