@@ -111,6 +111,12 @@ def create_backup(
     """Create an atomic versioned archive containing only Ally database state."""
 
     resolved = destination.expanduser().resolve()
+    source_path = database.path.expanduser().resolve()
+    if resolved == source_path:
+        raise ValueError("backup destination cannot be the live database path")
+    if resolved.exists():
+        raise FileExistsError(f"refusing to overwrite existing backup: {resolved}")
+
     resolved.parent.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory(prefix="ally-backup-") as temporary:
@@ -194,10 +200,11 @@ def _read_archive(
             "database schema versions do not match manifest"
         )
 
-    latest_supported = max(migration.version for migration in MIGRATIONS)
-    if actual_versions and max(actual_versions) > latest_supported:
+    supported_versions = tuple(migration.version for migration in MIGRATIONS)
+    expected_prefix = supported_versions[: len(actual_versions)]
+    if actual_versions != expected_prefix:
         raise BackupValidationError(
-            "backup uses a newer Ally database schema than this installation"
+            "backup database schema history is not a supported migration prefix"
         )
 
     return manifest, snapshot
