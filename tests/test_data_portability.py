@@ -93,7 +93,7 @@ def test_backup_validation_rejects_tampered_database(tmp_path: Path) -> None:
         bundle.writestr("manifest.json", manifest)
         bundle.writestr("ally.sqlite3", database + b"x")
 
-    with pytest.raises(BackupValidationError, match="size|SHA-256"):
+    with pytest.raises(BackupValidationError, match=r"size|SHA-256"):
         validate_backup(tampered)
 
 
