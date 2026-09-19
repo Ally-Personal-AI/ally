@@ -29,8 +29,13 @@ def _manager() -> LocalSkillManager:
 
 def _parse_input(value: str) -> dict[str, JsonValue]:
     try:
-        raw = json.loads(value)
-    except json.JSONDecodeError as exc:
+        raw = json.loads(
+            value,
+            parse_constant=lambda constant: (_ for _ in ()).throw(
+                ValueError(f"non-standard JSON constant: {constant}")
+            ),
+        )
+    except (json.JSONDecodeError, ValueError) as exc:
         raise ValueError(f"skill input must be valid JSON: {exc}") from exc
     if not isinstance(raw, dict):
         raise ValueError("skill input must be a JSON object")
