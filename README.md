@@ -436,6 +436,37 @@ This is intentionally a one-shot operation. It does not sleep, loop,
 daemonize, or install operating-system services. Future `launchd`,
 `systemd`, or Windows service wrappers should invoke this same boundary.
 
+## Service lifecycle and health
+
+Each proactive service-cycle attempt is recorded as payload-free operational
+metadata. The record contains timestamps, status, schedule/delivery counts, and
+a safe exception class when a cycle fails. It never copies event payloads,
+prompts, documents, arbitrary exception messages, credentials, or model output.
+
+Inspect recent cycle history:
+
+```bash
+uv run ally service history
+uv run ally service history --json
+```
+
+Inspect local health without mutating or migrating the database:
+
+```bash
+uv run ally service health
+uv run ally service health --json
+```
+
+Health verifies SQLite `quick_check`, compares applied migrations with the
+schema expected by the running code, and inspects the latest cycle lifecycle.
+A valid database with no service-cycle history is reported as
+`uninitialized`; failed, degraded, interrupted, stale-running, corrupt, or
+outdated state is reported as `degraded`.
+
+Only one fresh service cycle may be recorded as `running`. A later cycle
+recovers a running lease older than one hour as `interrupted`; a newer running
+lease blocks concurrent execution.
+
 ## External event sources
 
 External integrations observe changes and return bounded, validated observations
