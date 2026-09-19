@@ -17,7 +17,7 @@ from pydantic import ValidationError
 from ally.config import default_paths
 from ally.skills.catalog import SkillCatalog
 from ally.skills.loader import SkillManifestError, load_skill_package
-from ally.skills.models import SkillInstallation
+from ally.skills.models import SkillInstallation, SkillPackage
 
 _METADATA_NAME = ".ally-installation.json"
 
@@ -32,11 +32,19 @@ def default_skill_install_root() -> Path:
     return default_paths().data_dir / "skills"
 
 
-def _ensure_package_has_no_symlinks(root: Path) -> None:
+def _validate_package_tree(root: Path) -> None:
     for path in root.rglob("*"):
+        if path.name == _METADATA_NAME:
+            raise SkillInstallationError(
+                f"skill package contains reserved metadata file: {path}"
+            )
         if path.is_symlink():
             raise SkillInstallationError(
                 f"skill packages may not contain symlinks: {path}"
+            )
+        if not path.is_file() and not path.is_dir():
+            raise SkillInstallationError(
+                f"skill packages may contain only regular files/directories: {path}"
             )
 
 
@@ -91,7 +99,7 @@ class LocalSkillManager:
     ) -> SkillInstallation:
         package = load_skill_package(source)
         source_root = Path(package.root)
-        _ensure_package_has_no_symlinks(source_root)
+        _validate_package_tree(source_root)
 
         missing = SkillCatalog.missing_required_tools(package, available_tools)
         if missing:
@@ -215,7 +223,7 @@ class LocalSkillManager:
         self,
         skill_id: str,
         version: str,
-    ):
+    ) -> SkillPackage:
         """Validate an installed package as data; never import its entrypoint."""
 
         package_root = self.root / skill_id / version
