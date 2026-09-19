@@ -327,4 +327,57 @@ MIGRATIONS: tuple[Migration, ...] = (
             """,
         ),
     ),
+    Migration(
+        version=7,
+        name="scheduler_v1",
+        statements=(
+            """
+            ALTER TABLE event_records
+            ADD COLUMN dedupe_key TEXT
+            """,
+            """
+            CREATE UNIQUE INDEX idx_events_dedupe_key
+            ON event_records(dedupe_key)
+            WHERE dedupe_key IS NOT NULL
+            """,
+            """
+            CREATE TABLE schedules (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                importance TEXT NOT NULL
+                    CHECK (
+                        importance IN (
+                            'noise',
+                            'routine',
+                            'important',
+                            'urgent',
+                            'critical'
+                        )
+                    ),
+                payload_json TEXT NOT NULL,
+                starts_at TEXT NOT NULL,
+                interval_seconds INTEGER
+                    CHECK (
+                        interval_seconds IS NULL
+                        OR interval_seconds >= 1
+                    ),
+                next_run_at TEXT,
+                last_run_at TEXT,
+                enabled INTEGER NOT NULL
+                    CHECK (enabled IN (0, 1)),
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+            """
+            CREATE INDEX idx_schedules_due
+            ON schedules(enabled, next_run_at)
+            """,
+            """
+            CREATE INDEX idx_schedules_updated
+            ON schedules(updated_at DESC)
+            """,
+        ),
+    ),
 )
