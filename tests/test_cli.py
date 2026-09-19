@@ -50,6 +50,14 @@ def test_conversations_show_parser_accepts_identifier() -> None:
     assert args.conversation_id == "abc"
 
 
+def test_secrets_set_parser_accepts_only_an_opaque_reference() -> None:
+    args = build_parser().parse_args(["secrets", "set", "service.token"])
+
+    assert args.command == "secrets"
+    assert args.secrets_command == "set"
+    assert args.name == "service.token"
+
+
 def test_memory_remember_parser_has_safe_defaults() -> None:
     args = build_parser().parse_args(["memory", "remember", "Synthetic fact"])
 

@@ -45,7 +45,41 @@ uv run ally eval run evals/cases/core.jsonl
 
 All deterministic checks should pass before testing a model.
 
-## 2. Start one local OpenAI-compatible inference server
+## 2. Accept the login-Keychain adapter
+
+Use a new synthetic value that is not a real credential. Do not put the value
+in the shell command, history, an environment variable, or this repository.
+
+```bash
+uv run ally secrets set validation.synthetic
+uv run ally secrets check validation.synthetic
+uv run ally secrets list
+```
+
+End the process and open a new shell, then run `check` and `list` again. Both
+must report the reference, while neither command may display the value. Create
+and inspect a normal Ally backup; it must still contain exactly
+`manifest.json` and `ally.sqlite3`.
+
+On the dedicated machine only, an operator who can safely unlock the login
+Keychain should also exercise locked-state behavior. Lock the login Keychain
+using Keychain Access, run `check`, and confirm Ally either receives an OS
+unlock prompt or exits with the generic unavailable/denied message. It must
+not print the value or raw Keychain diagnostic. Unlock the Keychain and confirm
+`check` succeeds again.
+
+Finally, remove the synthetic item and verify the missing status:
+
+```bash
+uv run ally secrets delete validation.synthetic
+uv run ally secrets check validation.synthetic
+```
+
+The final `check` should exit with status 1. Record the macOS version and any OS
+prompts observed. If setting, cross-process persistence, locked-state handling,
+or deletion differs from this sequence, the Keychain milestone remains open.
+
+## 3. Start one local OpenAI-compatible inference server
 
 The first comparison should test runtimes one at a time. Suitable candidates
 include llama.cpp-compatible servers and Apple-optimized runtimes that expose
@@ -64,7 +98,7 @@ Bind the server to `127.0.0.1`. Record:
 Do not change multiple variables between comparison runs unless the run is
 explicitly exploratory.
 
-## 3. Run the reproducible Ally validation
+## 4. Run the reproducible Ally validation
 
 With the server available at the default endpoint:
 
@@ -95,7 +129,7 @@ The generated JSON contains:
 
 The report contains no personal data when the frozen cases are used.
 
-## 4. Manual performance observations
+## 5. Manual performance observations
 
 The initial provider abstraction does not yet standardize token-usage telemetry
 across runtimes, so record these runtime-native measurements alongside the JSON
@@ -111,7 +145,7 @@ artifact:
 
 Prefer runtime-native metrics over estimates.
 
-## 5. Functional Ally checks
+## 6. Functional Ally checks
 
 After provider smoke evaluation passes, use synthetic data to exercise:
 
@@ -129,7 +163,7 @@ After provider smoke evaluation passes, use synthetic data to exercise:
 Do not enable automatic memory writes or consequential tools during the
 first-machine session.
 
-## 6. Compare runtimes/models
+## 7. Compare runtimes/models
 
 A candidate should not become the default merely because it has the highest raw
 tokens/second. Compare:

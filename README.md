@@ -598,7 +598,16 @@ uv run ally config validate
 
 The current config schema contains only local inference defaults and privacy defaults. Unknown fields are rejected.
 
-Credentials are represented by opaque `SecretRef` names and resolved through the `SecretStore` interface. The repository currently includes only an ephemeral in-memory secret backend for tests and development; there is intentionally no CLI for entering secret values until a secure operating-system backend is validated.
+Credentials are represented by opaque `SecretRef` names and resolved through the `SecretStore` interface. On macOS, Ally has a Keychain adapter and a reference-only CLI:
+
+```bash
+uv run ally secrets set service.api-token
+uv run ally secrets list
+uv run ally secrets check service.api-token
+uv run ally secrets delete service.api-token
+```
+
+`set` reads from a non-echoing interactive prompt. No command prints or exports a secret value, and non-macOS or unavailable Keychain state fails closed. CI includes a real Security-framework round trip with an ephemeral synthetic item; actual login-Keychain persistence remains an explicit dedicated-machine acceptance check.
 
 See [Configuration and Secrets](docs/configuration-secrets.md).
 

@@ -39,7 +39,7 @@ exists. `config init` refuses to overwrite an existing file.
 Credentials, tokens, passwords, private keys, and similar values are not Ally
 configuration.
 
-Future components refer to them with an opaque `SecretRef`:
+Components refer to them with an opaque `SecretRef`:
 
 ```json
 {
@@ -50,20 +50,61 @@ Future components refer to them with an opaque `SecretRef`:
 The actual value is resolved through the `SecretStore` protocol only at the
 point a component requires it.
 
-The repository currently provides `InMemorySecretStore` for deterministic
-tests and development. It is ephemeral and is not a production credential
-backend.
+Reference names contain 1–128 lowercase letters, digits, dots, underscores, or
+hyphens and must start with a letter or digit.
 
-A platform secure-store implementation (for example macOS Keychain) will
-implement the same interface after validation on target hardware.
+The repository provides:
+
+- `InMemorySecretStore` for deterministic tests only; and
+- `MacOSKeychainSecretStore`, an adapter for the current user's default macOS
+  Keychain.
+
+The macOS adapter stores each value as a generic-password item below Ally's
+service namespace. A second Keychain item contains only the sorted opaque
+reference names, allowing `list` to avoid dumping or scanning unrelated
+Keychain records. Values use a versioned encoded envelope before becoming
+Keychain data. That envelope is a migration/validation format, not encryption;
+Keychain provides the security boundary.
+
+The adapter calls Apple's modern `SecItemCopyMatching`, `SecItemAdd`,
+`SecItemUpdate`, and `SecItemDelete` Security-framework APIs directly through a
+narrow native boundary. It never launches a secret-bearing subprocess or puts
+secret material in process arguments or environment variables. Raw OS status
+details are never copied into CLI errors. If Keychain is unavailable, locked,
+denied, or contains malformed Ally data, the operation fails closed.
+
+Commands on macOS:
+
+```bash
+uv run ally secrets set service.api-token
+uv run ally secrets list
+uv run ally secrets check service.api-token
+uv run ally secrets delete service.api-token
+```
+
+`set` accepts no value flag or environment-variable input; it requires a
+non-echoing interactive prompt. `list`, `check`, and `delete` print references
+and status only. There is deliberately no command that prints a value.
+
+`check` returns status 0 when available, 1 when missing, and 2 when the store
+cannot be used safely. `delete` returns 0 when deleted, 1 when already missing,
+and 2 on an operational error.
+
+The adapter and CLI are covered by deterministic simulated-Keychain tests on
+Linux and macOS CI. macOS CI also exercises a synthetic item through the real
+Security framework on its ephemeral runner. Persistence and OS access-prompt
+behavior against the dedicated machine's actual login Keychain remain part of
+the first-machine acceptance run; see
+[Apple Silicon first-machine validation](hardware/apple-silicon-validation.md).
 
 ## Deliberate omissions
 
-There is currently no CLI command for entering or printing secret values.
-There is also no secret export in Ally backup V1.
+There is no CLI command for printing or exporting secret values. Ally backup
+V1 contains exactly its manifest and SQLite snapshot, so it cannot include
+Keychain items, their reference index, or ordinary configuration.
 
-These omissions are intentional. A secure credential path should be added only
-when the platform backend can be validated end to end.
+Non-macOS platforms currently fail closed until an operating-system credential
+adapter is implemented and validated for that platform.
 
 ## Rules for contributors
 
@@ -75,3 +116,5 @@ when the platform backend can be validated end to end.
 - Never add secrets to backup archives, evaluation fixtures, examples, or tests.
 - Synthetic secret strings are permitted only in isolated tests and must not be
   copied from real user data.
+- Never pass a secret to a subprocess argument, environment variable, log,
+  exception message, or model prompt.

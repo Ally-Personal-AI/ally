@@ -7,7 +7,7 @@ implementation of an earlier one.
 | --- | --- | --- |
 | Foundation | Implemented | local-first architecture, tested dependency boundaries, contributor map, locked dependencies, Linux quality CI + macOS portability smoke, coverage regression gate, automated dependency maintenance, security/data boundaries, ADRs |
 | Data portability | Implemented V1 | versioned integrity-checked SQLite backup/restore archives |
-| Configuration / secrets | Implemented boundary | strict non-secret config, secret references, backend abstraction |
+| Configuration / secrets | Adapter implemented; machine acceptance pending | strict non-secret config, direct macOS Security-framework adapter, reference-only CLI, fail-closed tests |
 | Local conversation | Implemented | provider-neutral chat with local OpenAI-compatible adapter |
 | Long-term memory | Implemented V1 | temporal/provenance-aware explicit memory and grounding |
 | Personal knowledge | Implemented V1 | versioned plain-text ingestion, retrieval, grounding |
@@ -57,7 +57,7 @@ floated between runs.
 
 ## Hardware handoff
 
-Before selecting hardware-specific adapters, default models, context budgets,
+Before selecting hardware-specific model adapters, default models, context budgets,
 or enabling any automatic model-driven planning or memory behavior, run the
 first-machine procedure in [hardware/apple-silicon-validation.md](hardware/apple-silicon-validation.md).
 

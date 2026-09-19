@@ -56,6 +56,12 @@ from ally.commands.schedules import (
     run_show_schedule,
     run_tick_schedules,
 )
+from ally.commands.secrets import (
+    run_check_secret,
+    run_delete_secret,
+    run_list_secret_references,
+    run_set_secret,
+)
 from ally.commands.service import (
     run_list_service_leases,
     run_proactive_cycle,
@@ -304,6 +310,35 @@ def build_parser() -> argparse.ArgumentParser:
         "--destination",
         help="Optional database path; defaults to Ally's normal local database.",
     )
+
+    secrets = subcommands.add_parser(
+        "secrets",
+        help="Manage opaque references in the operating-system secret store.",
+    )
+    secret_commands = secrets.add_subparsers(dest="secrets_command")
+
+    secret_set = secret_commands.add_parser(
+        "set",
+        help="Prompt securely and store a secret value by opaque reference.",
+    )
+    secret_set.add_argument("name")
+
+    secret_commands.add_parser(
+        "list",
+        help="List opaque secret references without reading their values.",
+    )
+
+    secret_check = secret_commands.add_parser(
+        "check",
+        help="Report whether one secret reference is available.",
+    )
+    secret_check.add_argument("name")
+
+    secret_delete = secret_commands.add_parser(
+        "delete",
+        help="Delete one secret value and its opaque reference.",
+    )
+    secret_delete.add_argument("name")
 
     eval_command = subcommands.add_parser(
         "eval",
@@ -921,6 +956,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 archive=cast(str, args.archive),
                 destination=cast(str | None, args.destination),
             )
+
+    if args.command == "secrets":
+        if args.secrets_command == "set":
+            return run_set_secret(name=cast(str, args.name))
+        if args.secrets_command == "list":
+            return run_list_secret_references()
+        if args.secrets_command == "check":
+            return run_check_secret(name=cast(str, args.name))
+        if args.secrets_command == "delete":
+            return run_delete_secret(name=cast(str, args.name))
 
     if args.command == "eval":
         if args.eval_command == "run":

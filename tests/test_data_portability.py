@@ -4,6 +4,7 @@ from uuid import UUID
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
+from pydantic import SecretStr
 
 from ally.conversations import NewConversationMessage
 from ally.events import NewEvent
@@ -14,6 +15,7 @@ from ally.portability import (
     validate_backup,
 )
 from ally.scheduler import NewSchedule
+from ally.secrets import InMemorySecretStore
 from ally.skills import SkillExecutionResult
 from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
@@ -239,3 +241,19 @@ def test_backup_refuses_live_database_as_destination(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="live database"):
         create_backup(SQLiteDatabase(source), source)
+
+
+def test_backup_contains_no_secret_store_values(tmp_path: Path) -> None:
+    secret_store = InMemorySecretStore()
+    secret_value = "synthetic-backup-exclusion-marker"
+    secret_store.set("service.token", SecretStr(secret_value))
+    archive = tmp_path / "state.ally-backup"
+
+    create_backup(SQLiteDatabase(tmp_path / "source.sqlite3"), archive)
+
+    with ZipFile(archive, mode="r") as bundle:
+        assert set(bundle.namelist()) == {"manifest.json", "ally.sqlite3"}
+        assert all(
+            secret_value.encode() not in bundle.read(member)
+            for member in bundle.namelist()
+        )
