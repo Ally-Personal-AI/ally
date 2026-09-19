@@ -14,16 +14,16 @@ from ally.storage.sqlite import (
 )
 
 
-def build_attention_delivery_store() -> SQLiteAttentionDeliveryStore:
-    """Create the default local attention delivery store."""
-
-    return SQLiteAttentionDeliveryStore(build_database())
-
-
 def build_database() -> SQLiteDatabase:
     """Create the default local database handle."""
 
     return SQLiteDatabase(default_database_path())
+
+
+def build_attention_delivery_store() -> SQLiteAttentionDeliveryStore:
+    """Create the default local attention delivery store."""
+
+    return SQLiteAttentionDeliveryStore(build_database())
 
 
 def build_conversation_store() -> SQLiteConversationStore:
