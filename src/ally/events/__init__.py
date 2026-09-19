@@ -3,6 +3,8 @@
 from ally.events.attention import DefaultAttentionPolicy
 from ally.events.dispatch import EventDispatcher, EventHandler
 from ally.events.models import (
+    ATTENTION_CLASSES,
+    EVENT_IMPORTANCE_LEVELS,
     AttentionClass,
     EventImportance,
     EventRecord,
@@ -12,6 +14,8 @@ from ally.events.runtime import EventRuntime
 from ally.events.store import EventStore
 
 __all__ = [
+    "ATTENTION_CLASSES",
+    "EVENT_IMPORTANCE_LEVELS",
     "AttentionClass",
     "DefaultAttentionPolicy",
     "EventDispatcher",
