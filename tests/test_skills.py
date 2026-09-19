@@ -174,3 +174,15 @@ def test_entrypoint_alone_does_not_grant_execution() -> None:
 
     assert manifest.entrypoint == "sample:run"
     assert manifest.execution is None
+
+
+def test_manifest_rejects_malformed_dotted_entrypoint() -> None:
+    with pytest.raises(ValueError, match="entrypoint"):
+        SkillManifest(
+            id="sample.skill",
+            name="Sample",
+            version="1.0.0",
+            description="Synthetic.",
+            entrypoint="package..module:run",
+            execution="python_subprocess_v1",
+        )
