@@ -463,14 +463,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 output=cast(str, args.output),
             )
 
-    if args.command == "plan":
-        if args.plan_command == "propose":
-            return run_propose_plan(
-                endpoint=cast(str, args.endpoint),
-                model=cast(str, args.model),
-                goal=cast(str, args.goal),
-                allow_remote=cast(bool, args.allow_remote),
-            )
+    if args.command == "plan" and args.plan_command == "propose":
+        return run_propose_plan(
+            endpoint=cast(str, args.endpoint),
+            model=cast(str, args.model),
+            goal=cast(str, args.goal),
+            allow_remote=cast(bool, args.allow_remote),
+        )
 
     parser.print_help()
     return 0
