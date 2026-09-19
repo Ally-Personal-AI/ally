@@ -19,13 +19,25 @@ Then read the tests for the subsystem you plan to change.
 ## Development
 
 ```bash
-uv sync --extra dev
+uv sync --locked --extra dev
 uv run ally doctor
 uv run ruff check .
 uv run pyright
 uv run pytest
 uv run ally eval run evals/cases/core.jsonl
 ```
+
+## Reproducible dependencies
+
+`uv.lock` is committed and is the authoritative dependency resolution used by
+CI and first-machine validation.
+
+- Use `uv sync --locked --extra dev` for ordinary development and validation.
+- If `pyproject.toml` changes dependencies, run `uv lock` and commit the
+  resulting lockfile change in the same pull request.
+- Do not hand-edit `uv.lock`.
+- Dependency update pull requests must pass both Linux quality CI and macOS
+  portability CI before merge.
 
 ## Package placement
 
@@ -46,8 +58,10 @@ and record the reason in an ADR rather than adding a one-off test exception.
 
 ## CI platforms
 
-The primary Ubuntu job runs lint, strict typing, coverage tests, and the frozen
-behavioral evaluation suite.
+The primary Ubuntu job runs lint, strict typing, coverage tests with a 70%
+minimum project-wide coverage gate, and the frozen behavioral evaluation suite.
+Both CI jobs install the exact committed dependency graph with
+`uv sync --locked`.
 
 A separate macOS smoke job installs the project, runs the full test suite, and
 runs the same frozen core evaluations. It exists to catch operating-system
