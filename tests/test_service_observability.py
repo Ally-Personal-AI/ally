@@ -11,8 +11,8 @@ from ally.scheduler import SchedulerRuntime
 from ally.service import (
     ProactiveServiceCycle,
     ProactiveServiceRunner,
-    SQLiteServiceLeaseStore,
     ServiceRunConflictError,
+    SQLiteServiceLeaseStore,
     service_lease,
 )
 from ally.storage.sqlite import (
