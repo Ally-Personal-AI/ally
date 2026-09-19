@@ -25,6 +25,13 @@ from ally.commands.memory import (
     run_show_memory,
     run_supersede_memory,
 )
+from ally.commands.tasks import (
+    run_create_task,
+    run_list_tasks,
+    run_retry_task_step,
+    run_show_task,
+    run_task,
+)
 from ally.commands.tools import run_list_tools, run_tool, run_tool_audit
 from ally.memory import MEMORY_KINDS, MEMORY_PRIVACY_LEVELS, MemoryKind, MemoryPrivacy
 
@@ -188,6 +195,44 @@ def build_parser() -> argparse.ArgumentParser:
     tool_audit = tool_commands.add_parser("audit", help="Show recent tool audit records.")
     tool_audit.add_argument("--limit", type=int, default=20)
 
+    tasks = subcommands.add_parser(
+        "tasks",
+        help="Create, inspect, and advance persistent Ally tasks.",
+    )
+    task_commands = tasks.add_subparsers(dest="tasks_command")
+
+    task_create = task_commands.add_parser(
+        "create",
+        help="Create a task from a JSON TaskPlan file.",
+    )
+    task_create.add_argument("plan_path")
+
+    task_list = task_commands.add_parser("list", help="List recent tasks.")
+    task_list.add_argument("--limit", type=int, default=20)
+
+    task_show = task_commands.add_parser("show", help="Show one task and its steps.")
+    task_show.add_argument("task_id")
+
+    task_run = task_commands.add_parser(
+        "run",
+        help="Advance a task until completion, failure, or required approval.",
+    )
+    task_run.add_argument("task_id")
+    task_run.add_argument(
+        "--approve-step",
+        action="append",
+        default=[],
+        dest="approved_steps",
+        help="Explicitly approve a waiting step UUID; may be repeated.",
+    )
+
+    task_retry = task_commands.add_parser(
+        "retry",
+        help="Reset one failed step to pending.",
+    )
+    task_retry.add_argument("task_id")
+    task_retry.add_argument("step_id")
+
     return parser
 
 
@@ -288,6 +333,24 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         if args.tools_command == "audit":
             return run_tool_audit(limit=cast(int, args.limit))
+
+    if args.command == "tasks":
+        if args.tasks_command == "create":
+            return run_create_task(plan_path=cast(str, args.plan_path))
+        if args.tasks_command == "list":
+            return run_list_tasks(limit=cast(int, args.limit))
+        if args.tasks_command == "show":
+            return run_show_task(task_id=cast(str, args.task_id))
+        if args.tasks_command == "run":
+            return run_task(
+                task_id=cast(str, args.task_id),
+                approved_steps=tuple(cast(list[str], args.approved_steps)),
+            )
+        if args.tasks_command == "retry":
+            return run_retry_task_step(
+                task_id=cast(str, args.task_id),
+                step_id=cast(str, args.step_id),
+            )
 
     parser.print_help()
     return 0
