@@ -1,9 +1,5 @@
 """Composable runtime service operations."""
 
-from ally.service.health import (
-    DEFAULT_STALE_HEALTH_AFTER,
-    build_service_health,
-)
 from ally.service.models import (
     ServiceCycleRunRecord,
     ServiceCycleRunStatus,
@@ -25,7 +21,6 @@ from ally.service.store import (
 )
 
 __all__ = [
-    "DEFAULT_STALE_HEALTH_AFTER",
     "DEFAULT_STALE_RUN_AFTER",
     "ProactiveCycleReport",
     "ProactiveServiceCycle",
@@ -37,5 +32,4 @@ __all__ = [
     "ServiceHealthStatus",
     "ServiceRunConflictError",
     "SinkDeliverySummary",
-    "build_service_health",
 ]
