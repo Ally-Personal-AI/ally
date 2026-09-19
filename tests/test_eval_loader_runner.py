@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic import JsonValue
 
 from ally.evals import EvalCase, EvaluationOutcome, EvaluationRunner, EvaluatorRegistry
 from ally.evals.loader import load_eval_cases
@@ -34,15 +35,21 @@ class ErrorEvaluator:
 
 
 def test_loader_reads_jsonl_and_rejects_duplicate_ids(tmp_path: Path) -> None:
-    case = {
+    case1: dict[str, JsonValue] = {
         "id": "case-1",
+        "category": "synthetic",
+        "input": {},
+        "expected": {},
+    }
+    case2: dict[str, JsonValue] = {
+        "id": "case-2",
         "category": "synthetic",
         "input": {},
         "expected": {},
     }
     path = tmp_path / "cases.jsonl"
     path.write_text(
-        json.dumps(case) + "\n" + json.dumps({**case, "id": "case-2"}) + "\n",
+        json.dumps(case1) + "\n" + json.dumps(case2) + "\n",
         encoding="utf-8",
     )
 
@@ -50,7 +57,10 @@ def test_loader_reads_jsonl_and_rejects_duplicate_ids(tmp_path: Path) -> None:
 
     assert [item.id for item in loaded] == ["case-1", "case-2"]
 
-    path.write_text(json.dumps(case) + "\n" + json.dumps(case) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(case1) + "\n" + json.dumps(case1) + "\n",
+        encoding="utf-8",
+    )
     with pytest.raises(ValueError, match="Duplicate"):
         load_eval_cases(path)
 
