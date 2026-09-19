@@ -42,7 +42,7 @@ class EventSourcePollResult(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     observations: tuple[EventSourceObservation, ...] = ()
-    next_cursor: str | None = Field(default=None, max_length=4096)
+    next_cursor: str | None = Field(default=None, min_length=1, max_length=4096)
 
 
 class EventSourceCheckpoint(BaseModel):
@@ -54,7 +54,7 @@ class EventSourceCheckpoint(BaseModel):
         min_length=1,
         pattern=r"^[a-z0-9][a-z0-9_.-]*$",
     )
-    cursor: str | None = Field(default=None, max_length=4096)
+    cursor: str | None = Field(default=None, min_length=1, max_length=4096)
     successful_polls: int = Field(ge=1)
     observations_published: int = Field(ge=0)
     last_polled_at: datetime
