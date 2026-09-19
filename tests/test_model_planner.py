@@ -73,7 +73,7 @@ def test_planner_rejects_undeclared_tool() -> None:
         '{"goal":"Inspect runtime","steps":[{"tool_name":"shell.exec","arguments":{}}]}'
     )
 
-    with pytest.raises(PlanProposalError, match="undeclared tools: shell.exec"):
+    with pytest.raises(PlanProposalError, match=r"undeclared tools: shell\.exec"):
         ModelTaskPlanner(provider).propose(
             goal="Inspect runtime",
             tools=(tool(),),
