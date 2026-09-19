@@ -60,3 +60,33 @@ def test_event_store_rejects_non_positive_limit(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="positive"):
         store.list(limit=0)
+
+
+def test_event_store_dedupe_key_returns_existing_record(tmp_path: Path) -> None:
+    store = build_store(tmp_path / "ally.sqlite3")
+
+    first = store.create(
+        NewEvent(
+            type="schedule.synthetic",
+            source="schedule:test",
+            payload={"value": 1},
+            dedupe_key="schedule:test:2026-01-01T00:00:00+00:00",
+        ),
+        attention="remember",
+    )
+    second = store.create(
+        NewEvent(
+            type="schedule.synthetic",
+            source="schedule:test",
+            payload={"value": 999},
+            dedupe_key="schedule:test:2026-01-01T00:00:00+00:00",
+        ),
+        attention="notify",
+    )
+
+    assert second == first
+    records = store.list()
+    assert len(records) == 1
+    assert records[0].payload == {"value": 1}
+    assert records[0].attention == "remember"
+    assert records[0].dedupe_key == "schedule:test:2026-01-01T00:00:00+00:00"
