@@ -461,7 +461,8 @@ Health verifies SQLite `quick_check`, compares applied migrations with the
 schema expected by the running code, and inspects the latest cycle lifecycle.
 A valid database with no service-cycle history is reported as
 `uninitialized`; failed, degraded, interrupted, stale-running, corrupt, or
-outdated state is reported as `degraded`.
+outdated state is reported as `degraded`. The health command returns exit
+code `0` for healthy, `1` for uninitialized, and `2` for degraded.
 
 Only one fresh service cycle may be recorded as `running`. A later cycle
 recovers a running lease older than one hour as `interrupted`; a newer running
