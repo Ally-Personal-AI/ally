@@ -65,9 +65,11 @@ from ally.commands.service import (
 from ally.commands.skills import (
     run_disable_skill,
     run_enable_skill,
+    run_execute_skill,
     run_inspect_skill,
     run_install_skill,
     run_list_installed_skills,
+    run_skill_execution_audit,
     run_uninstall_skill,
     run_validate_skill,
 )
@@ -701,6 +703,29 @@ def build_parser() -> argparse.ArgumentParser:
     skill_uninstall.add_argument("skill_id")
     skill_uninstall.add_argument("version")
 
+    skill_run = skill_commands.add_parser(
+        "run",
+        help="Execute one enabled skill in a bounded child process.",
+    )
+    skill_run.add_argument("skill_id")
+    skill_run.add_argument("version")
+    skill_run.add_argument(
+        "--input",
+        default="{}",
+        help="Explicit skill input as a JSON object.",
+    )
+    skill_run.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=5,
+    )
+
+    skill_audit = skill_commands.add_parser(
+        "audit",
+        help="Inspect payload-free skill execution audit records.",
+    )
+    skill_audit.add_argument("--limit", type=int, default=50)
+
     validate = subcommands.add_parser(
         "validate",
         help="Run reproducible machine and local-model validation.",
@@ -1046,6 +1071,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 skill_id=cast(str, args.skill_id),
                 version=cast(str, args.version),
             )
+        if args.skills_command == "run":
+            return run_execute_skill(
+                skill_id=cast(str, args.skill_id),
+                version=cast(str, args.version),
+                input_json=cast(str, args.input),
+                timeout_seconds=cast(int, args.timeout_seconds),
+            )
+        if args.skills_command == "audit":
+            return run_skill_execution_audit(limit=cast(int, args.limit))
 
     if args.command == "validate":
         if args.validate_command == "hardware":
