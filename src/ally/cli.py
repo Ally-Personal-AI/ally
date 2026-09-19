@@ -49,7 +49,6 @@ from ally.commands.memory_proposals import (
     run_propose_memories,
 )
 from ally.commands.planning import run_propose_plan
-from ally.commands.service import run_proactive_cycle
 from ally.commands.schedules import (
     run_create_schedule,
     run_list_schedules,
@@ -57,6 +56,7 @@ from ally.commands.schedules import (
     run_show_schedule,
     run_tick_schedules,
 )
+from ally.commands.service import run_proactive_cycle
 from ally.commands.skills import (
     run_disable_skill,
     run_enable_skill,
