@@ -109,7 +109,9 @@ def test_one_shot_tick_emits_once_and_completes(tmp_path: Path) -> None:
     assert event.type == "synthetic.once"
     assert event.attention == "mention_later"
     assert event.payload["data"] == {"message": "synthetic"}
-    assert event.payload["schedule"]["coalesced_occurrences"] == 1
+    schedule_payload = event.payload["schedule"]
+    assert isinstance(schedule_payload, dict)
+    assert schedule_payload["coalesced_occurrences"] == 1
 
 
 def test_interval_tick_coalesces_missed_occurrences(tmp_path: Path) -> None:
@@ -140,7 +142,9 @@ def test_interval_tick_coalesces_missed_occurrences(tmp_path: Path) -> None:
 
     event = events.get(results[0].event_id)
     assert event is not None
-    assert event.payload["schedule"]["coalesced_occurrences"] == 6
+    schedule_payload = event.payload["schedule"]
+    assert isinstance(schedule_payload, dict)
+    assert schedule_payload["coalesced_occurrences"] == 6
 
 
 def test_retry_reuses_event_if_schedule_was_not_advanced(
