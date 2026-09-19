@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class NewKnowledgeSource(BaseModel):
@@ -24,6 +25,12 @@ class NewKnowledgeChunk(BaseModel):
     start_char: int = Field(ge=0)
     end_char: int = Field(gt=0)
     sha256: str = Field(min_length=64, max_length=64)
+
+    @model_validator(mode="after")
+    def validate_offsets(self) -> Self:
+        if self.end_char <= self.start_char:
+            raise ValueError("end_char must be greater than start_char")
+        return self
 
 
 class KnowledgeSource(BaseModel):
@@ -61,3 +68,9 @@ class KnowledgeChunk(BaseModel):
     end_char: int = Field(gt=0)
     sha256: str = Field(min_length=64, max_length=64)
     created_at: datetime
+
+    @model_validator(mode="after")
+    def validate_offsets(self) -> Self:
+        if self.end_char <= self.start_char:
+            raise ValueError("end_char must be greater than start_char")
+        return self
