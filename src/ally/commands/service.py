@@ -17,6 +17,7 @@ from ally.commands._storage import (
     build_service_cycle_run_store,
     build_service_lease_store,
 )
+from ally.configuration import default_config_path
 from ally.diagnostics import build_service_health
 from ally.events import EventRuntime
 from ally.scheduler import ScheduleConflictError, SchedulerRuntime
@@ -28,7 +29,6 @@ from ally.service import (
     service_lease,
 )
 from ally.storage import default_database_path, default_runtime_database_path
-from ally.configuration import default_config_path
 
 
 def _parse_timestamp(value: str) -> datetime:
