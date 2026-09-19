@@ -51,10 +51,30 @@ class ScheduleRecord(BaseModel):
     starts_at: datetime
     interval_seconds: int | None
     next_run_at: datetime | None
+
+    @field_validator("scheduled_for", "next_run_at")
+    @classmethod
+    def validate_timestamps(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        return _require_aware(value)
     last_run_at: datetime | None = None
     enabled: bool
     created_at: datetime
     updated_at: datetime
+
+    @field_validator(
+        "starts_at",
+        "next_run_at",
+        "last_run_at",
+        "created_at",
+        "updated_at",
+    )
+    @classmethod
+    def validate_timestamps(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        return _require_aware(value)
 
 
 class ScheduleTick(BaseModel):
