@@ -192,3 +192,23 @@ def test_skills_validate_parser_collects_available_tools() -> None:
 
     assert args.skills_command == "validate"
     assert args.available_tools == ["system.info", "files.read"]
+
+
+def test_plan_propose_parser_defaults_to_loopback() -> None:
+    args = build_parser().parse_args(
+        [
+            "plan",
+            "propose",
+            "--model",
+            "example",
+            "--goal",
+            "Inspect runtime",
+        ]
+    )
+
+    assert args.command == "plan"
+    assert args.plan_command == "propose"
+    assert args.endpoint == "http://127.0.0.1:8080/v1"
+    assert args.model == "example"
+    assert args.goal == "Inspect runtime"
+    assert args.allow_remote is False
