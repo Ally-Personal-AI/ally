@@ -179,6 +179,53 @@ class SQLiteEventStore:
 
         return tuple(self._from_row(row) for row in rows)
 
+    def pending_attention(
+        self,
+        *,
+        attentions: tuple[AttentionClass, ...],
+        limit: int = 50,
+    ) -> tuple[EventRecord, ...]:
+        if limit < 1:
+            raise ValueError("limit must be positive")
+        if not attentions:
+            return ()
+
+        placeholders = ", ".join("?" for _ in attentions)
+        query = f"""
+            SELECT
+                id,
+                type,
+                source,
+                importance,
+                attention,
+                payload_json,
+                dedupe_key,
+                created_at,
+                handled_at
+            FROM event_records
+            WHERE handled_at IS NULL
+              AND attention IN ({placeholders})
+            ORDER BY
+                CASE attention
+                    WHEN 'interrupt' THEN 0
+                    WHEN 'notify' THEN 1
+                    WHEN 'mention_later' THEN 2
+                    ELSE 3
+                END,
+                created_at ASC,
+                id ASC
+            LIMIT ?
+        """
+        params: tuple[object, ...] = (*attentions, limit)
+
+        with self._database.connect() as connection:
+            rows = cast(
+                list[EventRow],
+                connection.execute(query, params).fetchall(),
+            )
+
+        return tuple(self._from_row(row) for row in rows)
+
     def mark_handled(self, event_id: UUID) -> EventRecord:
         handled_at = datetime.now(UTC)
         with self._database.connect() as connection:
