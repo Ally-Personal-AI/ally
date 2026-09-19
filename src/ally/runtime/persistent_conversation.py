@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from ally.context import ContextProvider
 from ally.conversations import ConversationStore, NewConversationMessage
 from ally.models import ChatMessage, ChatResponse, ModelProvider
 from ally.runtime.conversation import DEFAULT_SYSTEM_PROMPT, ConversationRuntime
+from ally.runtime.grounded_conversation import GroundedConversationRuntime
 
 
 class PersistentConversationRuntime:
@@ -19,13 +21,23 @@ class PersistentConversationRuntime:
         conversation_id: UUID,
         *,
         system_prompt: str = DEFAULT_SYSTEM_PROMPT,
+        context_provider: ContextProvider | None = None,
     ) -> None:
         if store.get(conversation_id) is None:
             raise KeyError(f"Unknown conversation: {conversation_id}")
 
         self._store = store
         self._conversation_id = conversation_id
-        self._runtime = ConversationRuntime(provider, system_prompt=system_prompt)
+        if context_provider is None:
+            self._runtime: ConversationRuntime | GroundedConversationRuntime = (
+                ConversationRuntime(provider, system_prompt=system_prompt)
+            )
+        else:
+            self._runtime = GroundedConversationRuntime(
+                provider,
+                context_provider,
+                system_prompt=system_prompt,
+            )
 
     @property
     def conversation_id(self) -> UUID:
