@@ -17,7 +17,7 @@ implementation of an earlier one.
 | Model plan proposals | Implemented boundary | strict TaskPlan proposals; no persistence or execution authority |
 | Model memory proposals | Implemented boundary | reviewable extraction bundles; explicit selected acceptance only |
 | Dedicated-hardware validation | Ready to run | reproducible machine/provider validation and runbook |
-| Proactivity | Implemented substrate | persisted events, deterministic attention, scheduling, delivery, restart-safe sources, lease-protected cycle, portable lifecycle/health |
+| Proactivity | Implemented substrate | persisted events, deterministic attention, scheduling, delivery, restart-safe sources, lease-protected cycle, portable lifecycle, structured read-only readiness |
 | Voice | Not started | local ASR/TTS and conversational voice |
 | Multi-user households | Not started | identities, shared/private state, permissions |
 | Extension ecosystem | Implemented local foundation | local install/enable/disable/uninstall; signing and registry deferred |
