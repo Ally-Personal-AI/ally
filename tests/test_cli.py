@@ -312,3 +312,28 @@ def test_data_restore_parser_defaults_destination() -> None:
     assert args.data_command == "restore"
     assert args.archive == "backup.ally-backup"
     assert args.destination is None
+
+
+def test_config_path_parser() -> None:
+    args = build_parser().parse_args(["config", "path"])
+
+    assert args.command == "config"
+    assert args.config_command == "path"
+
+
+def test_config_init_parser() -> None:
+    args = build_parser().parse_args(["config", "init"])
+
+    assert args.config_command == "init"
+
+
+def test_config_show_parser() -> None:
+    args = build_parser().parse_args(["config", "show"])
+
+    assert args.config_command == "show"
+
+
+def test_config_validate_parser() -> None:
+    args = build_parser().parse_args(["config", "validate"])
+
+    assert args.config_command == "validate"
