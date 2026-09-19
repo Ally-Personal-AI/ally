@@ -7,6 +7,7 @@ from pathlib import Path
 from ally.evals import EvalSummary, EvaluationRunner, EvaluatorRegistry
 from ally.evals.builtin import register_builtin_evaluators
 from ally.evals.loader import load_eval_cases
+from ally.evals.planning import TaskPlanProposalEvaluator
 from ally.evals.provider import ProviderResponseEvaluator
 from ally.evals.reporting import render_json_summary, render_text_summary
 from ally.models.errors import ModelProviderError
@@ -53,6 +54,7 @@ def run_provider_evals(
             allow_remote=allow_remote,
         ) as provider:
             registry.register(ProviderResponseEvaluator(provider))
+            registry.register(TaskPlanProposalEvaluator(provider))
             summary = EvaluationRunner(registry).run(cases)
     except (ModelProviderError, ValueError) as exc:
         print(f"Evaluation error: {exc}")
