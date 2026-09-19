@@ -251,3 +251,41 @@ def test_memory_accept_parser_collects_selected_indices() -> None:
     assert args.memory_command == "accept"
     assert args.proposal_path == "proposal.json"
     assert args.indices == [0, 2]
+
+
+def test_events_emit_parser_has_conservative_defaults() -> None:
+    args = build_parser().parse_args(["events", "emit", "calendar.changed"])
+
+    assert args.command == "events"
+    assert args.events_command == "emit"
+    assert args.event_type == "calendar.changed"
+    assert args.source == "cli"
+    assert args.importance == "routine"
+    assert args.payload == "{}"
+
+
+def test_events_list_parser_can_filter_pending_notifications() -> None:
+    args = build_parser().parse_args(
+        [
+            "events",
+            "list",
+            "--attention",
+            "notify",
+            "--pending",
+        ]
+    )
+
+    assert args.events_command == "list"
+    assert args.attention == "notify"
+    assert args.handled is False
+    assert args.limit == 50
+
+
+def test_events_show_and_handle_accept_identifiers() -> None:
+    show = build_parser().parse_args(["events", "show", "event-id"])
+    handle = build_parser().parse_args(["events", "handle", "event-id"])
+
+    assert show.events_command == "show"
+    assert show.event_id == "event-id"
+    assert handle.events_command == "handle"
+    assert handle.event_id == "event-id"
