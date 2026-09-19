@@ -9,7 +9,7 @@ from uuid import UUID
 from pydantic import JsonValue
 
 from ally.commands._storage import build_event_store
-from ally.events import AttentionClass, EventRuntime, EventImportance, NewEvent
+from ally.events import AttentionClass, EventImportance, EventRuntime, NewEvent
 
 
 def run_emit_event(
@@ -89,7 +89,8 @@ def run_show_event(*, event_id: str) -> int:
     print(f"Importance: {record.importance}")
     print(f"Attention: {record.attention}")
     print(f"Created: {record.created_at.isoformat()}")
-    print(f"Handled: {record.handled_at.isoformat() if record.handled_at else '(pending)'}")
+    handled = record.handled_at.isoformat() if record.handled_at else "(pending)"
+    print(f"Handled: {handled}")
     print(json.dumps(record.payload, indent=2, sort_keys=True))
     return 0
 
