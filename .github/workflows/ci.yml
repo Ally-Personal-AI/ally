@@ -34,7 +34,7 @@ jobs:
       - name: Type check
         run: uv run pyright
       - name: Test
-        run: uv run pytest --cov=ally --cov-report=term-missing --cov-fail-under=70
+        run: uv run pytest --cov=ally --cov-report=term-missing --cov-fail-under=80
       - name: Core behavioral evaluations
         run: uv run ally eval run evals/cases/core.jsonl
 
