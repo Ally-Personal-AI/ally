@@ -210,10 +210,10 @@ def test_failed_sink_delivery_is_reported_and_persisted(tmp_path: Path) -> None:
     assert deliveries.get(record.event_id, sink.id) == record
 
 
-def test_duplicate_sink_ids_are_rejected_before_second_delivery(
+def test_duplicate_sink_ids_are_rejected_before_any_side_effect(
     tmp_path: Path,
 ) -> None:
-    schedules, _, _, cycle = build_cycle(tmp_path / "ally.sqlite3")
+    schedules, events, _, cycle = build_cycle(tmp_path / "ally.sqlite3")
     observed_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
     schedules.create(
         NewSchedule(
@@ -232,8 +232,9 @@ def test_duplicate_sink_ids_are_rejected_before_second_delivery(
             sinks=(first, second),
         )
 
-    assert len(first.events) == 1
+    assert first.events == []
     assert second.events == []
+    assert events.list() == ()
 
 
 def test_cycle_rejects_naive_timestamp_and_non_positive_limits(
