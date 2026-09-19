@@ -88,6 +88,7 @@ def run_show_event(*, event_id: str) -> int:
     print(f"Source: {record.source}")
     print(f"Importance: {record.importance}")
     print(f"Attention: {record.attention}")
+    print(f"Dedupe key: {record.dedupe_key or '(none)'}")
     print(f"Created: {record.created_at.isoformat()}")
     handled = record.handled_at.isoformat() if record.handled_at else "(pending)"
     print(f"Handled: {handled}")
