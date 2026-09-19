@@ -1,7 +1,8 @@
 from pydantic import JsonValue
 
 from ally.security.tool_policy import DefaultToolPolicy
-from ally.tools import ToolExecutor, ToolRegistry, ToolRisk, ToolSpec
+from ally.tools import ToolRegistry, ToolRisk, ToolSpec
+from ally.tools.executor import ToolExecutor
 from ally.tools.audit import ToolAuditRecord
 
 
