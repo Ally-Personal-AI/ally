@@ -18,6 +18,7 @@ from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
     SQLiteConversationStore,
     SQLiteDatabase,
+    SQLiteEventSourceCheckpointStore,
     SQLiteEventStore,
     SQLiteScheduleStore,
 )
@@ -53,6 +54,15 @@ def seed_database(path: Path) -> tuple[str, str, str]:
         succeeded=True,
     )
 
+    source_checkpoints = SQLiteEventSourceCheckpointStore(database)
+    source_checkpoints.advance(
+        source_id="backup.source",
+        expected_cursor=None,
+        next_cursor="cursor-1",
+        published=1,
+        polled_at=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+    )
+
     schedules = SQLiteScheduleStore(database)
     schedule = schedules.create(
         NewSchedule(
@@ -74,7 +84,7 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
     validated = validate_backup(archive)
 
     assert validated == manifest
-    assert manifest.database.schema_versions == (1, 2, 3, 4, 5, 6, 7, 8)
+    assert manifest.database.schema_versions == (1, 2, 3, 4, 5, 6, 7, 8, 9)
 
     with ZipFile(archive, mode="r") as bundle:
         assert set(bundle.namelist()) == {"manifest.json", "ally.sqlite3"}
@@ -84,6 +94,9 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
 
     conversation_store = SQLiteConversationStore(SQLiteDatabase(restored))
     event_store = SQLiteEventStore(SQLiteDatabase(restored))
+    source_checkpoint_store = SQLiteEventSourceCheckpointStore(
+        SQLiteDatabase(restored)
+    )
     delivery_store = SQLiteAttentionDeliveryStore(SQLiteDatabase(restored))
     schedule_store = SQLiteScheduleStore(SQLiteDatabase(restored))
 
@@ -104,6 +117,10 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
     assert delivery is not None
     assert delivery.status == "succeeded"
     assert delivery.attempts == 1
+    source_checkpoint = source_checkpoint_store.get("backup.source")
+    assert source_checkpoint is not None
+    assert source_checkpoint.cursor == "cursor-1"
+    assert source_checkpoint.observations_published == 1
     assert schedule is not None
     assert schedule.name == "Synthetic schedule"
     assert schedule.interval_seconds == 300
