@@ -198,3 +198,13 @@ class SkillExecutionAuditRecord(BaseModel):
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError("skill audit timestamps must include a timezone offset")
         return value
+
+    @model_validator(mode="after")
+    def validate_audit_outcome(self) -> SkillExecutionAuditRecord:
+        if self.finished_at < self.started_at:
+            raise ValueError("skill audit cannot finish before it starts")
+        if self.status == "succeeded" and self.error_class is not None:
+            raise ValueError("successful skill audit cannot have error_class")
+        if self.status != "succeeded" and self.error_class is None:
+            raise ValueError("failed skill audit requires error_class")
+        return self
