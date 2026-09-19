@@ -94,29 +94,32 @@ def _run(root: Path, entrypoint: str, input_value: dict[str, Any]) -> Any:
     declared_path = _declared_module_path(root, module_name)
     sys.path.insert(0, str(root))
 
-    with open(os.devnull, "w", encoding="utf-8") as sink:
-        with redirect_stdout(sink), redirect_stderr(sink):
-            module = importlib.import_module(module_name)
-            module_file = getattr(module, "__file__", None)
-            if module_file is None:
-                raise SkillEntrypointOutsidePackage(
-                    "entrypoint module has no package file"
-                )
-            resolved_module = Path(module_file).resolve()
-            if (
-                resolved_module != declared_path
-                or not resolved_module.is_relative_to(root)
-            ):
-                raise SkillEntrypointOutsidePackage(
-                    "entrypoint module resolved outside skill package"
-                )
+    with (
+        open(os.devnull, "w", encoding="utf-8") as sink,
+        redirect_stdout(sink),
+        redirect_stderr(sink),
+    ):
+        module = importlib.import_module(module_name)
+        module_file = getattr(module, "__file__", None)
+        if module_file is None:
+            raise SkillEntrypointOutsidePackage(
+                "entrypoint module has no package file"
+            )
+        resolved_module = Path(module_file).resolve()
+        if (
+            resolved_module != declared_path
+            or not resolved_module.is_relative_to(root)
+        ):
+            raise SkillEntrypointOutsidePackage(
+                "entrypoint module resolved outside skill package"
+            )
 
-            function = getattr(module, function_name, None)
-            if not callable(function):
-                raise SkillEntrypointNotCallable(
-                    "entrypoint attribute is not callable"
-                )
-            return function(input_value)
+        function = getattr(module, function_name, None)
+        if not callable(function):
+            raise SkillEntrypointNotCallable(
+                "entrypoint attribute is not callable"
+            )
+        return function(input_value)
 
 
 def main() -> int:
