@@ -2,18 +2,12 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    TypeAdapter,
-    field_validator,
-    model_validator,
-)
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 AttentionDeliveryStatus = Literal["succeeded", "failed"]
 AttentionSinkId = Annotated[
@@ -23,13 +17,15 @@ AttentionSinkId = Annotated[
         pattern=r"^[a-z0-9][a-z0-9_.-]*$",
     ),
 ]
-_SINK_ID_ADAPTER = TypeAdapter(AttentionSinkId)
+_SINK_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_.-]*$")
 
 
 def validate_sink_id(value: str) -> str:
     """Validate a stable sink ID before it is used as persistent identity."""
 
-    return _SINK_ID_ADAPTER.validate_python(value)
+    if _SINK_ID_PATTERN.fullmatch(value) is None:
+        raise ValueError(f"invalid attention sink ID: {value}")
+    return value
 
 
 def _require_aware(value: datetime) -> datetime:
