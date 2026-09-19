@@ -477,6 +477,7 @@ def test_service_cycle_parser_has_bounded_defaults() -> None:
     assert args.schedule_limit == 100
     assert args.delivery_limit == 50
     assert args.sink == "console"
+    assert args.lease_seconds == 300
     assert args.json_output is False
 
 
@@ -491,6 +492,8 @@ def test_service_cycle_parser_accepts_explicit_time_and_json() -> None:
             "10",
             "--delivery-limit",
             "5",
+            "--lease-seconds",
+            "60",
             "--json",
         ]
     )
@@ -498,6 +501,7 @@ def test_service_cycle_parser_accepts_explicit_time_and_json() -> None:
     assert args.at == "2026-01-01T12:00:00+00:00"
     assert args.schedule_limit == 10
     assert args.delivery_limit == 5
+    assert args.lease_seconds == 60
     assert args.json_output is True
 
 
@@ -552,3 +556,10 @@ def test_sources_checkpoint_parsers() -> None:
     assert listing.limit == 50
     assert show.sources_command == "checkpoint"
     assert show.source_id == "synthetic.source"
+
+
+def test_service_leases_parser() -> None:
+    args = build_parser().parse_args(["service", "leases"])
+
+    assert args.command == "service"
+    assert args.service_command == "leases"
