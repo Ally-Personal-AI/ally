@@ -17,7 +17,7 @@ implementation of an earlier one.
 | Model plan proposals | Implemented boundary | strict TaskPlan proposals; no persistence or execution authority |
 | Model memory proposals | Implemented boundary | reviewable extraction bundles; explicit selected acceptance only |
 | Dedicated-hardware validation | Ready to run | reproducible machine/provider validation and runbook |
-| Proactivity | Implemented substrate | persisted events, deterministic attention policy, explicit dispatch boundary |
+| Proactivity | Implemented substrate | persisted events, deterministic attention, idempotent one-shot/interval scheduling |
 | Voice | Not started | local ASR/TTS and conversational voice |
 | Multi-user households | Not started | identities, shared/private state, permissions |
 | Extension ecosystem | Implemented local foundation | local install/enable/disable/uninstall; signing and registry deferred |
@@ -65,7 +65,7 @@ After hardware/runtime validation:
 2. decide whether direct MLX or other hardware-specific adapters are justified;
 3. calibrate planning and memory proposal quality thresholds;
 4. upgrade retrieval/embeddings only where measured need justifies it;
-5. add event sources, scheduling, and attention delivery on the persisted event substrate;
+5. add external event sources, an OS scheduler service, and attention delivery on the persisted event substrate;
 6. add voice;
 7. add multi-user household boundaries;
 8. add skill signing and remote registry on top of the local installation boundary;
