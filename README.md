@@ -253,6 +253,23 @@ uv run ally skills validate ./path/to/skill \
 
 A skill may declare required tools, optional tools, and typed configuration fields, but the manifest cannot grant permission to execute anything.
 
+Install a validated local package into Ally-owned storage:
+
+```bash
+uv run ally skills install ./path/to/skill
+uv run ally skills installed
+```
+
+Newly installed skills are disabled by default. Enable, disable, or remove one explicit version:
+
+```bash
+uv run ally skills enable example.skill 1.0.0
+uv run ally skills disable example.skill 1.0.0
+uv run ally skills uninstall example.skill 1.0.0
+```
+
+Installation never imports the declared entrypoint, rejects symlinks and undeclared manifest fields, validates required tools against the real runtime registry, and copies the source into Ally-owned application data.
+
 ## Model plan proposals
 
 A model may propose a typed `TaskPlan`, but proposal is deliberately separate from persistence and execution.
