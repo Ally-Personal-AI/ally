@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from ally.context import ContextBlock
 from ally.models import ChatRequest, ChatResponse
 from ally.runtime import PersistentConversationRuntime
 from ally.storage.sqlite import SQLiteConversationStore, SQLiteDatabase
@@ -19,6 +20,16 @@ class RecordingProvider:
             content=f"answer-{len(self.requests)}",
             model="synthetic",
             provider=self.name,
+        )
+
+
+class ContextStub:
+    def retrieve(self, query: str) -> tuple[ContextBlock, ...]:
+        return (
+            ContextBlock(
+                source="memory:synthetic",
+                content=f"Relevant context for: {query}",
+            ),
         )
 
 
@@ -46,3 +57,21 @@ def test_runtime_reloads_history_and_persists_successful_exchanges(
         "second",
         "answer-2",
     ]
+
+
+def test_persistent_runtime_can_ground_each_turn(tmp_path: Path) -> None:
+    store = SQLiteConversationStore(SQLiteDatabase(tmp_path / "ally.sqlite3"))
+    conversation = store.create()
+    provider = RecordingProvider()
+    runtime = PersistentConversationRuntime(
+        provider,
+        store,
+        conversation.id,
+        context_provider=ContextStub(),
+    )
+
+    runtime.respond("question")
+
+    request = provider.requests[0]
+    assert any("REFERENCE CONTEXT" in message.content for message in request.messages)
+    assert request.messages[-1].content == "question"

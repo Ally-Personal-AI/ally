@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from ally.commands._storage import build_conversation_store
+from ally.commands._storage import build_conversation_store, build_memory_store
+from ally.memory.retrieval import LexicalMemoryRetriever, MemoryContextProvider
 from ally.models.errors import ModelProviderError
 from ally.models.providers import OpenAICompatibleProvider
 from ally.runtime import PersistentConversationRuntime
@@ -37,13 +38,17 @@ def run_chat(
     conversation_id: str | None,
 ) -> int:
     try:
-        store = build_conversation_store()
+        conversation_store = build_conversation_store()
+        memory_store = build_memory_store()
+        context_provider = MemoryContextProvider(
+            LexicalMemoryRetriever(memory_store)
+        )
         identifier = _parse_conversation_id(conversation_id)
 
         if identifier is None:
-            conversation = store.create(title=_title_for_prompt(prompt))
+            conversation = conversation_store.create(title=_title_for_prompt(prompt))
         else:
-            conversation = store.get(identifier)
+            conversation = conversation_store.get(identifier)
             if conversation is None:
                 raise ValueError(f"Conversation not found: {identifier}")
 
@@ -54,8 +59,9 @@ def run_chat(
         ) as provider:
             runtime = PersistentConversationRuntime(
                 provider,
-                store,
+                conversation_store,
                 conversation.id,
+                context_provider=context_provider,
             )
 
             if prompt is not None:
