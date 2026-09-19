@@ -1,5 +1,10 @@
 """Composable runtime service operations."""
 
+from ally.service.health import (
+    HealthCheckResult,
+    ServiceHealthReport,
+    collect_service_health,
+)
 from ally.service.leases import (
     ServiceLeaseRecord,
     ServiceLeaseUnavailableError,
@@ -13,11 +18,14 @@ from ally.service.proactive import (
 )
 
 __all__ = [
+    "HealthCheckResult",
     "ProactiveCycleReport",
     "ProactiveServiceCycle",
     "SQLiteServiceLeaseStore",
+    "ServiceHealthReport",
     "ServiceLeaseRecord",
     "ServiceLeaseUnavailableError",
     "SinkDeliverySummary",
+    "collect_service_health",
     "service_lease",
 ]
