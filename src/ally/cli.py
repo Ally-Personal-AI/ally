@@ -25,6 +25,7 @@ from ally.commands.memory import (
     run_show_memory,
     run_supersede_memory,
 )
+from ally.commands.tools import run_list_tools, run_tool, run_tool_audit
 from ally.memory import MEMORY_KINDS, MEMORY_PRIVACY_LEVELS, MemoryKind, MemoryPrivacy
 
 
@@ -163,6 +164,30 @@ def build_parser() -> argparse.ArgumentParser:
     eval_provider.add_argument("--allow-remote", action="store_true")
     eval_provider.add_argument("--json", action="store_true", dest="json_output")
 
+    tools = subcommands.add_parser(
+        "tools",
+        help="Inspect and invoke permissioned Ally tools.",
+    )
+    tool_commands = tools.add_subparsers(dest="tools_command")
+
+    tool_commands.add_parser("list", help="List registered tools.")
+
+    tool_run = tool_commands.add_parser("run", help="Invoke a registered tool.")
+    tool_run.add_argument("name")
+    tool_run.add_argument(
+        "--arguments",
+        default="{}",
+        help="Tool arguments as a JSON object.",
+    )
+    tool_run.add_argument(
+        "--approved",
+        action="store_true",
+        help="Record explicit approval for tools whose policy requires it.",
+    )
+
+    tool_audit = tool_commands.add_parser("audit", help="Show recent tool audit records.")
+    tool_audit.add_argument("--limit", type=int, default=20)
+
     return parser
 
 
@@ -251,6 +276,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 allow_remote=cast(bool, args.allow_remote),
                 json_output=cast(bool, args.json_output),
             )
+
+    if args.command == "tools":
+        if args.tools_command == "list":
+            return run_list_tools()
+        if args.tools_command == "run":
+            return run_tool(
+                name=cast(str, args.name),
+                arguments_json=cast(str, args.arguments),
+                approved=cast(bool, args.approved),
+            )
+        if args.tools_command == "audit":
+            return run_tool_audit(limit=cast(int, args.limit))
 
     parser.print_help()
     return 0
