@@ -93,14 +93,14 @@ def run_accept_memory_proposals(
         print(f"Memory proposal error: {exc}")
         return 2
 
-    store = build_memory_store()
-    created = []
     try:
-        for index in indices:
-            created.append(store.create(bundle.accepted_memory(index)))
+        selected = tuple(bundle.accepted_memory(index) for index in indices)
     except ValueError as exc:
         print(f"Memory proposal error: {exc}")
         return 2
+
+    store = build_memory_store()
+    created = tuple(store.create(memory) for memory in selected)
 
     for record in created:
         print(record.id)
