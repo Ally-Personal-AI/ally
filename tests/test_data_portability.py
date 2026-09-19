@@ -21,6 +21,7 @@ from ally.storage.sqlite import (
     SQLiteEventSourceCheckpointStore,
     SQLiteEventStore,
     SQLiteScheduleStore,
+    SQLiteServiceCycleRunStore,
 )
 
 
@@ -63,6 +64,18 @@ def seed_database(path: Path) -> tuple[str, str, str]:
         polled_at=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
     )
 
+    service_runs = SQLiteServiceCycleRunStore(database)
+    run_started = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    service_run = service_runs.start(
+        observed_at=run_started,
+        started_at=run_started,
+    )
+    service_runs.finish(
+        service_run.id,
+        status="succeeded",
+        finished_at=run_started,
+    )
+
     schedules = SQLiteScheduleStore(database)
     schedule = schedules.create(
         NewSchedule(
@@ -84,7 +97,7 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
     validated = validate_backup(archive)
 
     assert validated == manifest
-    assert manifest.database.schema_versions == (1, 2, 3, 4, 5, 6, 7, 8, 9)
+    assert manifest.database.schema_versions == (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 
     with ZipFile(archive, mode="r") as bundle:
         assert set(bundle.namelist()) == {"manifest.json", "ally.sqlite3"}
@@ -99,6 +112,7 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
     )
     delivery_store = SQLiteAttentionDeliveryStore(SQLiteDatabase(restored))
     schedule_store = SQLiteScheduleStore(SQLiteDatabase(restored))
+    service_run_store = SQLiteServiceCycleRunStore(SQLiteDatabase(restored))
 
     conversation = conversation_store.get(UUID(conversation_id))
     event = event_store.get(UUID(event_id))
@@ -121,6 +135,9 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
     assert source_checkpoint is not None
     assert source_checkpoint.cursor == "cursor-1"
     assert source_checkpoint.observations_published == 1
+    restored_service_run = service_run_store.latest()
+    assert restored_service_run is not None
+    assert restored_service_run.status == "succeeded"
     assert schedule is not None
     assert schedule.name == "Synthetic schedule"
     assert schedule.interval_seconds == 300

@@ -299,6 +299,11 @@ def test_proactive_command_stops_before_side_effects_when_lease_is_held(
         "build_event_store",
         fail_if_called,
     )
+    monkeypatch.setattr(
+        service_commands,
+        "build_service_cycle_run_store",
+        fail_if_called,
+    )
 
     result = service_commands.run_proactive_cycle(
         at=None,
