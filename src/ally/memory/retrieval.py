@@ -2,50 +2,11 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 
 from ally.context import ContextBlock
+from ally.context.lexical import lexical_tokens
 from ally.memory import MemoryRecord, MemoryStore
-
-_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9]+")
-_STOP_WORDS = frozenset(
-    {
-        "a",
-        "an",
-        "and",
-        "are",
-        "as",
-        "at",
-        "be",
-        "by",
-        "for",
-        "from",
-        "i",
-        "in",
-        "is",
-        "it",
-        "of",
-        "on",
-        "or",
-        "that",
-        "the",
-        "this",
-        "to",
-        "was",
-        "what",
-        "with",
-        "you",
-    }
-)
-
-
-def _tokens(value: str) -> frozenset[str]:
-    return frozenset(
-        token
-        for token in (match.group(0).lower() for match in _TOKEN_PATTERN.finditer(value))
-        if token not in _STOP_WORDS
-    )
 
 
 @dataclass(frozen=True)
@@ -71,13 +32,13 @@ class LexicalMemoryRetriever:
         self._candidate_limit = candidate_limit
 
     def retrieve(self, query: str) -> tuple[MemoryHit, ...]:
-        query_tokens = _tokens(query)
+        query_tokens = lexical_tokens(query)
         if not query_tokens:
             return ()
 
         hits: list[MemoryHit] = []
         for memory in self._store.list(limit=self._candidate_limit):
-            memory_tokens = _tokens(memory.content)
+            memory_tokens = lexical_tokens(memory.content)
             overlap = len(query_tokens & memory_tokens)
             if overlap == 0:
                 continue
