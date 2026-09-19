@@ -12,7 +12,7 @@ from ally.attention import (
     AttentionSink,
 )
 from ally.attention.models import validate_sink_id
-from ally.scheduler import ScheduleTick, SchedulerRuntime
+from ally.scheduler import SchedulerRuntime, ScheduleTick
 
 
 def _require_aware(value: datetime) -> datetime:
