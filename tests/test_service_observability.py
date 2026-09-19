@@ -13,6 +13,7 @@ from ally.service import (
     ProactiveServiceRunner,
     SQLiteServiceLeaseStore,
     ServiceRunConflictError,
+    service_lease,
 )
 from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
@@ -172,10 +173,16 @@ def test_new_lease_protected_run_repairs_abandoned_history(
         started_at=old_started,
     )
 
-    _, current = runner.run(
-        as_of=old_started + timedelta(hours=1),
-        sinks=(),
-    )
+    with service_lease(
+        SQLiteServiceLeaseStore(tmp_path / "runtime.sqlite3"),
+        name="proactive-cycle",
+        ttl_seconds=300,
+        owner_id=OWNER,
+    ):
+        _, current = runner.run(
+            as_of=old_started + timedelta(hours=1),
+            sinks=(),
+        )
 
     repaired = runs.get(old.id)
     assert repaired is not None
