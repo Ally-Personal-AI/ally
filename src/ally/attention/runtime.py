@@ -8,7 +8,7 @@ from ally.attention.sinks import (
     AttentionSink,
 )
 from ally.attention.store import AttentionDeliveryStore
-from ally.events import EventStore
+from ally.events import AttentionClass, EventStore
 
 
 def delivery_key(*, sink_id: str, event_id: str) -> str:
@@ -44,11 +44,11 @@ class AttentionDeliveryRuntime:
             raise ValueError("limit must be positive")
 
         sink_id = validate_sink_id(sink.id)
-        accepted = tuple(
-            attention
-            for attention in sink.accepted_attention
-            if attention in DELIVERABLE_ATTENTION_CLASSES
-        )
+        accepted_items: list[AttentionClass] = []
+        for attention in sink.accepted_attention:
+            if attention in DELIVERABLE_ATTENTION_CLASSES:
+                accepted_items.append(attention)
+        accepted = tuple(accepted_items)
         if not accepted:
             return ()
 
