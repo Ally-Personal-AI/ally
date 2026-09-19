@@ -36,7 +36,13 @@ class KnowledgeStore(Protocol):
     def list_sources(self, *, limit: int = 100) -> tuple[KnowledgeSource, ...]:
         ...
 
+    def list_revisions(self, source_id: UUID) -> tuple[KnowledgeRevision, ...]:
+        ...
+
     def list_current_chunks(self, source_id: UUID) -> tuple[KnowledgeChunk, ...]:
+        ...
+
+    def list_revision_chunks(self, revision_id: UUID) -> tuple[KnowledgeChunk, ...]:
         ...
 
     def list_search_candidates(self, *, limit: int = 1000) -> tuple[KnowledgeChunk, ...]:
