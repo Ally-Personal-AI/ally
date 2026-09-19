@@ -31,8 +31,20 @@ class SkillEntrypointNotCallable(RuntimeError):
 
 
 def _safe_error_class(exc: BaseException) -> str:
-    name = type(exc).__name__
-    return name if _ERROR_CLASS.fullmatch(name) is not None else "SkillError"
+    exception_type = type(exc)
+    name = exception_type.__name__
+    if _ERROR_CLASS.fullmatch(name) is None:
+        return "SkillError"
+
+    if exception_type.__module__ == "builtins":
+        return name
+
+    worker_errors = {
+        "SkillWorkerProtocolError",
+        "SkillEntrypointOutsidePackage",
+        "SkillEntrypointNotCallable",
+    }
+    return name if name in worker_errors else "SkillError"
 
 
 def _emit(payload: dict[str, Any]) -> None:
