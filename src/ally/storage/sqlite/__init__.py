@@ -25,5 +25,4 @@ __all__ = [
     "SQLiteServiceCycleRunStore",
     "SQLiteTaskStore",
     "SQLiteToolAuditStore",
-    "build_sqlite_service_health",
 ]
