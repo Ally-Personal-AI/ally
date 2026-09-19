@@ -10,6 +10,7 @@ from uuid import UUID
 
 from ally.configuration import ConfigFileError, FileConfigStore
 from ally.service import (
+    HealthCheckSeverity,
     ServiceCycleRunRecord,
     ServiceCycleRunStatus,
     ServiceHealthCheck,
@@ -42,12 +43,12 @@ def _readonly_connection(path: Path) -> sqlite3.Connection:
 
 def _check(
     check_id: str,
-    severity: str,
+    severity: HealthCheckSeverity,
     summary: str,
 ) -> ServiceHealthCheck:
     return ServiceHealthCheck(
         id=check_id,
-        severity=cast("HealthCheckSeverity", severity),
+        severity=severity,
         summary=summary,
     )
 
