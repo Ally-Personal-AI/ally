@@ -25,6 +25,7 @@ from ally.commands.memory import (
     run_show_memory,
     run_supersede_memory,
 )
+from ally.commands.planning import run_propose_plan
 from ally.commands.skills import run_inspect_skill, run_validate_skill
 from ally.commands.tasks import (
     run_create_task,
@@ -301,6 +302,27 @@ def build_parser() -> argparse.ArgumentParser:
         default="validation/ally-local-model.json",
     )
 
+    plan = subcommands.add_parser(
+        "plan",
+        help="Ask a model to propose TaskPlan data without executing it.",
+    )
+    plan_commands = plan.add_subparsers(dest="plan_command")
+    plan_propose = plan_commands.add_parser(
+        "propose",
+        help="Print a validated non-executing task-plan proposal.",
+    )
+    plan_propose.add_argument("--goal", required=True)
+    plan_propose.add_argument(
+        "--endpoint",
+        default="http://127.0.0.1:8080/v1",
+    )
+    plan_propose.add_argument("--model", required=True)
+    plan_propose.add_argument(
+        "--allow-remote",
+        action="store_true",
+        help="Explicitly allow a non-loopback inference endpoint.",
+    )
+
     return parser
 
 
@@ -439,6 +461,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 core_case_file=cast(str, args.core_cases),
                 provider_case_file=cast(str, args.provider_cases),
                 output=cast(str, args.output),
+            )
+
+    if args.command == "plan":
+        if args.plan_command == "propose":
+            return run_propose_plan(
+                endpoint=cast(str, args.endpoint),
+                model=cast(str, args.model),
+                goal=cast(str, args.goal),
+                allow_remote=cast(bool, args.allow_remote),
             )
 
     parser.print_help()
