@@ -563,3 +563,18 @@ def test_service_leases_parser() -> None:
 
     assert args.command == "service"
     assert args.service_command == "leases"
+
+
+def test_service_health_parser_defaults_to_text() -> None:
+    args = build_parser().parse_args(["service", "health"])
+
+    assert args.command == "service"
+    assert args.service_command == "health"
+    assert args.json_output is False
+
+
+def test_service_health_parser_accepts_json() -> None:
+    args = build_parser().parse_args(["service", "health", "--json"])
+
+    assert args.service_command == "health"
+    assert args.json_output is True
