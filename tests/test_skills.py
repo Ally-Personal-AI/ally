@@ -4,7 +4,7 @@ import pytest
 
 from ally.skills import SkillCatalog, load_skill_package
 from ally.skills.loader import SkillManifestError
-from ally.skills.models import SkillManifest
+from ally.skills.models import SkillConfigField, SkillManifest
 
 
 def write_skill(root: Path, manifest: str) -> Path:
@@ -155,10 +155,10 @@ def test_subprocess_execution_v1_exposes_no_tools_or_config() -> None:
             entrypoint="sample:run",
             execution="python_subprocess_v1",
             config={
-                "mode": {
-                    "type": "string",
-                    "description": "Synthetic mode.",
-                }
+                "mode": SkillConfigField(
+                    type="string",
+                    description="Synthetic mode.",
+                )
             },
         )
 
