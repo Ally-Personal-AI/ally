@@ -238,8 +238,7 @@ def build_sqlite_service_health(
         status = "uninitialized"
     elif (
         latest.status in ("failed", "degraded", "interrupted")
-        or latest.status == "running"
-        and not lease_active
+        or (latest.status == "running" and not lease_active)
     ):
         status = "degraded"
     else:
