@@ -32,22 +32,25 @@ class ProactiveServiceRunner:
         delivery_limit: int = 50,
         stale_after: timedelta = DEFAULT_STALE_RUN_AFTER,
     ) -> tuple[ProactiveCycleReport, ServiceCycleRunRecord]:
-        started_at = datetime.now(UTC)
+        if as_of.tzinfo is None or as_of.utcoffset() is None:
+            raise ValueError("service cycle timestamp must include a timezone offset")
+        observed_at = as_of.astimezone(UTC)
         if stale_after <= timedelta(0):
             raise ValueError("stale_after must be positive")
+        started_at = datetime.now(UTC)
 
         self._runs.recover_stale(
             before=started_at - stale_after,
             finished_at=started_at,
         )
         run = self._runs.start(
-            observed_at=as_of,
+            observed_at=observed_at,
             started_at=started_at,
         )
 
         try:
             report = self._cycle.run(
-                as_of=as_of,
+                as_of=observed_at,
                 sinks=sinks,
                 schedule_limit=schedule_limit,
                 delivery_limit=delivery_limit,
