@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from uuid import UUID
 
 from ally.commands._storage import (
@@ -9,12 +10,13 @@ from ally.commands._storage import (
     build_knowledge_store,
     build_memory_store,
 )
-from ally.context import CompositeContextProvider
+from ally.context import CompositeContextProvider, ContextProvider
 from ally.knowledge.retrieval import KnowledgeContextProvider, LexicalKnowledgeRetriever
 from ally.memory.retrieval import LexicalMemoryRetriever, MemoryContextProvider
 from ally.models.errors import ModelProviderError
 from ally.models.providers import OpenAICompatibleProvider
 from ally.runtime import PersistentConversationRuntime
+from ally.security.network import is_loopback_http_url
 
 
 def _parse_conversation_id(value: str | None) -> UUID | None:
@@ -35,25 +37,39 @@ def _title_for_prompt(prompt: str | None) -> str | None:
     return compact[:80]
 
 
+def _build_private_context_provider() -> ContextProvider:
+    return CompositeContextProvider(
+        (
+            MemoryContextProvider(LexicalMemoryRetriever(build_memory_store())),
+            KnowledgeContextProvider(LexicalKnowledgeRetriever(build_knowledge_store())),
+        ),
+        limit=12,
+    )
+
+
 def run_chat(
     *,
     endpoint: str,
     model: str,
     prompt: str | None,
     allow_remote: bool,
+    allow_private_context_remote: bool,
     conversation_id: str | None,
 ) -> int:
     try:
         conversation_store = build_conversation_store()
-        memory_store = build_memory_store()
-        knowledge_store = build_knowledge_store()
-        context_provider = CompositeContextProvider(
-            (
-                MemoryContextProvider(LexicalMemoryRetriever(memory_store)),
-                KnowledgeContextProvider(LexicalKnowledgeRetriever(knowledge_store)),
-            ),
-            limit=12,
-        )
+        is_remote = not is_loopback_http_url(endpoint)
+
+        context_provider: ContextProvider | None = None
+        if not is_remote or allow_private_context_remote:
+            context_provider = _build_private_context_provider()
+        elif allow_remote:
+            print(
+                "Private memory/document grounding is disabled for remote inference. "
+                "Use --allow-private-context-remote to opt in.",
+                file=sys.stderr,
+            )
+
         identifier = _parse_conversation_id(conversation_id)
 
         if identifier is None:
