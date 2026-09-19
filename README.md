@@ -236,6 +236,20 @@ uv run ally skills validate ./path/to/skill \
 
 A skill may declare required tools, optional tools, and typed configuration fields, but the manifest cannot grant permission to execute anything.
 
+## Model plan proposals
+
+A model may propose a typed `TaskPlan`, but proposal is deliberately separate from persistence and execution.
+
+```bash
+uv run ally plan propose \
+  --model <model-id> \
+  --goal "Inspect the local runtime"
+```
+
+The planner receives only the explicitly registered tool specifications, must return strict JSON, must preserve the requested goal exactly, and is rejected if it invents an undeclared tool. The proposal is printed for inspection; it is not automatically saved or executed.
+
+Provider smoke validation includes a planning case so local models can be compared on their ability to produce bounded Ally plans.
+
 ## First-machine validation
 
 The repository includes a reproducible handoff for dedicated local-AI hardware.
