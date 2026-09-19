@@ -34,6 +34,7 @@ class EventStore(Protocol):
         *,
         attentions: tuple[AttentionClass, ...],
         limit: int = 50,
+        offset: int = 0,
     ) -> tuple[EventRecord, ...]:
         ...
 
