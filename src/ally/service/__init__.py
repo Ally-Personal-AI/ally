@@ -1,9 +1,9 @@
 """Composable runtime service operations."""
 
 from ally.service.leases import (
-    SQLiteServiceLeaseStore,
     ServiceLeaseRecord,
     ServiceLeaseUnavailableError,
+    SQLiteServiceLeaseStore,
     service_lease,
 )
 from ally.service.proactive import (
