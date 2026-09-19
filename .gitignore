@@ -16,6 +16,8 @@ build/
 
 # Ally local runtime data — never commit personal data
 .ally/
+backups/
+*.ally-backup
 data/
 models/
 runtime/
