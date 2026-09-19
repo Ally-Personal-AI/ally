@@ -11,7 +11,6 @@ from ally.attention import (
 )
 from ally.commands._storage import (
     build_attention_delivery_store,
-    build_database,
     build_event_store,
     build_schedule_store,
     build_service_cycle_run_store,
