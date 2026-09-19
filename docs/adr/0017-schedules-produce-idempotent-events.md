@@ -25,7 +25,7 @@ The scheduler is only an event source. A due schedule is converted into a
 `NewEvent` and published through the existing `EventRuntime`.
 
 There is no background daemon in this phase. An explicit deterministic
-`scheduler tick` operation evaluates due schedules.
+`schedules tick` operation evaluates due schedules.
 
 ### Missed intervals
 
