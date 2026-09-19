@@ -133,6 +133,7 @@ class SkillProcessExecutor:
         command = [
             sys.executable,
             "-I",
+            "-S",
             str(worker),
             str(package_root.resolve()),
             entrypoint,
