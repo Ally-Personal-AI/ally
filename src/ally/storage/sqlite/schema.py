@@ -513,4 +513,52 @@ MIGRATIONS: tuple[Migration, ...] = (
             """,
         ),
     ),
+    Migration(
+        version=11,
+        name="skill_execution_audit_v1",
+        statements=(
+            """
+            CREATE TABLE skill_execution_audit (
+                id TEXT PRIMARY KEY,
+                installation_id TEXT NOT NULL,
+                skill_id TEXT NOT NULL,
+                version TEXT NOT NULL,
+                status TEXT NOT NULL
+                    CHECK (
+                        status IN (
+                            'succeeded',
+                            'failed',
+                            'timed_out',
+                            'output_limit',
+                            'protocol_error'
+                        )
+                    ),
+                started_at TEXT NOT NULL,
+                finished_at TEXT NOT NULL,
+                duration_ms INTEGER NOT NULL CHECK (duration_ms >= 0),
+                exit_code INTEGER,
+                error_class TEXT
+                    CHECK (
+                        error_class IS NULL
+                        OR (
+                            length(error_class) >= 1
+                            AND length(error_class) <= 128
+                        )
+                    ),
+                CHECK (
+                    (status = 'succeeded' AND error_class IS NULL)
+                    OR (status != 'succeeded' AND error_class IS NOT NULL)
+                )
+            )
+            """,
+            """
+            CREATE INDEX idx_skill_execution_audit_skill
+            ON skill_execution_audit(skill_id, version, started_at DESC)
+            """,
+            """
+            CREATE INDEX idx_skill_execution_audit_status
+            ON skill_execution_audit(status, started_at DESC)
+            """,
+        ),
+    ),
 )
