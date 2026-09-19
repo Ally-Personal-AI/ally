@@ -12,6 +12,8 @@ implementation of an earlier one.
 | Tools | Implemented V1 | typed capabilities, risk policy, local audit |
 | Skills | Implemented V1 | declarative manifests and dependency validation |
 | Reliable agency | Implemented core | persisted tasks, approval pauses, verification, retries |
+| Model plan proposals | Implemented boundary | strict TaskPlan proposals; no persistence or execution authority |
+| Model memory proposals | Implemented boundary | reviewable extraction bundles; explicit selected acceptance only |
 | Dedicated-hardware validation | Ready to run | reproducible machine/provider validation and runbook |
 | Proactivity | Not started | event/attention system |
 | Voice | Not started | local ASR/TTS and conversational voice |
@@ -42,8 +44,12 @@ local models on the dedicated machine.
 ## Hardware handoff
 
 Before selecting hardware-specific adapters, default models, context budgets,
-or model-driven planning/memory extraction behavior, run the first-machine
-procedure in [hardware/apple-silicon-validation.md](hardware/apple-silicon-validation.md).
+or enabling any automatic model-driven planning or memory behavior, run the
+first-machine procedure in [hardware/apple-silicon-validation.md](hardware/apple-silicon-validation.md).
+
+The safe proposal boundaries for planning and memory formation are already in
+place; the hardware session now measures whether candidate local models are good
+enough to use those boundaries reliably.
 
 The initial hardware session should compare real local runtime/model pairs using
 the frozen evaluation and validation tooling already in the repository.
@@ -52,16 +58,17 @@ the frozen evaluation and validation tooling already in the repository.
 
 After hardware/runtime validation:
 
-1. model-planning quality and plan proposal;
-2. memory extraction proposals with human inspection;
-3. retrieval/embedding upgrades based on measured need;
-4. proactive event and attention system;
-5. voice;
-6. multi-user household boundaries;
-7. extension installation/signing/registry;
-8. computer control;
-9. physical-world integration;
-10. distributed Ally.
+1. choose the first supported runtime/model profile from measured results;
+2. decide whether direct MLX or other hardware-specific adapters are justified;
+3. calibrate planning and memory proposal quality thresholds;
+4. upgrade retrieval/embeddings only where measured need justifies it;
+5. build the proactive event and attention system;
+6. add voice;
+7. add multi-user household boundaries;
+8. add extension installation/signing/registry;
+9. add computer control;
+10. add physical-world integration;
+11. add distributed Ally.
 
 The first engineering priority remains reliability and compounding usefulness,
 not autonomy for its own sake.
