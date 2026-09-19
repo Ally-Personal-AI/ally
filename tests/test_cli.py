@@ -212,3 +212,42 @@ def test_plan_propose_parser_defaults_to_loopback() -> None:
     assert args.model == "example"
     assert args.goal == "Inspect runtime"
     assert args.allow_remote is False
+
+
+def test_memory_propose_parser_has_local_safe_defaults() -> None:
+    args = build_parser().parse_args(
+        [
+            "memory",
+            "propose",
+            "I prefer tea.",
+            "--model",
+            "example",
+        ]
+    )
+
+    assert args.memory_command == "propose"
+    assert args.endpoint == "http://127.0.0.1:8080/v1"
+    assert args.model == "example"
+    assert args.text == "I prefer tea."
+    assert args.allow_remote is False
+    assert args.source_type == "user"
+    assert args.privacy == "private"
+    assert args.output is None
+
+
+def test_memory_accept_parser_collects_selected_indices() -> None:
+    args = build_parser().parse_args(
+        [
+            "memory",
+            "accept",
+            "proposal.json",
+            "--index",
+            "0",
+            "--index",
+            "2",
+        ]
+    )
+
+    assert args.memory_command == "accept"
+    assert args.proposal_path == "proposal.json"
+    assert args.indices == [0, 2]
