@@ -112,3 +112,28 @@ def test_eval_provider_parser_defaults_to_loopback() -> None:
     assert args.endpoint == "http://127.0.0.1:8080/v1"
     assert args.model == "example"
     assert args.allow_remote is False
+
+
+def test_skills_inspect_parser_accepts_package_path() -> None:
+    args = build_parser().parse_args(["skills", "inspect", "./skill"])
+
+    assert args.command == "skills"
+    assert args.skills_command == "inspect"
+    assert args.path == "./skill"
+
+
+def test_skills_validate_parser_collects_available_tools() -> None:
+    args = build_parser().parse_args(
+        [
+            "skills",
+            "validate",
+            "./skill",
+            "--available-tool",
+            "system.info",
+            "--available-tool",
+            "files.read",
+        ]
+    )
+
+    assert args.skills_command == "validate"
+    assert args.available_tools == ["system.info", "files.read"]
