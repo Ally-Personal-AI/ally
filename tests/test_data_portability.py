@@ -14,6 +14,7 @@ from ally.portability import (
     validate_backup,
 )
 from ally.scheduler import NewSchedule
+from ally.skills import SkillExecutionResult
 from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
     SQLiteConversationStore,
@@ -22,6 +23,7 @@ from ally.storage.sqlite import (
     SQLiteEventStore,
     SQLiteScheduleStore,
     SQLiteServiceCycleRunStore,
+    SQLiteSkillExecutionAuditStore,
 )
 
 
@@ -76,6 +78,22 @@ def seed_database(path: Path) -> tuple[str, str, str]:
         finished_at=run_started,
     )
 
+    skill_audit = SQLiteSkillExecutionAuditStore(database)
+    audit_time = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    skill_audit.record(
+        installation_id=UUID("00000000-0000-0000-0000-000000000123"),
+        result=SkillExecutionResult(
+            skill_id="backup.skill",
+            version="1.0.0",
+            status="succeeded",
+            result={"synthetic": "result-not-audited"},
+            exit_code=0,
+            started_at=audit_time,
+            finished_at=audit_time,
+            duration_ms=0,
+        ),
+    )
+
     schedules = SQLiteScheduleStore(database)
     schedule = schedules.create(
         NewSchedule(
@@ -97,7 +115,7 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
     validated = validate_backup(archive)
 
     assert validated == manifest
-    assert manifest.database.schema_versions == (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+    assert manifest.database.schema_versions == (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
 
     with ZipFile(archive, mode="r") as bundle:
         assert set(bundle.namelist()) == {"manifest.json", "ally.sqlite3"}
@@ -113,6 +131,7 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
     delivery_store = SQLiteAttentionDeliveryStore(SQLiteDatabase(restored))
     schedule_store = SQLiteScheduleStore(SQLiteDatabase(restored))
     service_run_store = SQLiteServiceCycleRunStore(SQLiteDatabase(restored))
+    skill_audit_store = SQLiteSkillExecutionAuditStore(SQLiteDatabase(restored))
 
     conversation = conversation_store.get(UUID(conversation_id))
     event = event_store.get(UUID(event_id))
@@ -138,6 +157,11 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
     restored_service_run = service_run_store.latest()
     assert restored_service_run is not None
     assert restored_service_run.status == "succeeded"
+    restored_audit = skill_audit_store.list()
+    assert len(restored_audit) == 1
+    assert restored_audit[0].skill_id == "backup.skill"
+    assert restored_audit[0].status == "succeeded"
+    assert not hasattr(restored_audit[0], "result")
     assert schedule is not None
     assert schedule.name == "Synthetic schedule"
     assert schedule.interval_seconds == 300

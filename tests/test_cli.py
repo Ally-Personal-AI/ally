@@ -580,3 +580,41 @@ def test_service_health_parser_supports_json() -> None:
     assert args.command == "service"
     assert args.service_command == "health"
     assert args.json_output is True
+
+
+def test_skills_run_parser_has_bounded_defaults() -> None:
+    args = build_parser().parse_args(
+        ["skills", "run", "sample.skill", "1.0.0"]
+    )
+
+    assert args.command == "skills"
+    assert args.skills_command == "run"
+    assert args.skill_id == "sample.skill"
+    assert args.version == "1.0.0"
+    assert args.input == "{}"
+    assert args.timeout_seconds == 5
+
+
+def test_skills_run_parser_accepts_explicit_input_and_timeout() -> None:
+    args = build_parser().parse_args(
+        [
+            "skills",
+            "run",
+            "sample.skill",
+            "1.0.0",
+            "--input",
+            '{"value":1}',
+            "--timeout-seconds",
+            "10",
+        ]
+    )
+
+    assert args.input == '{"value":1}'
+    assert args.timeout_seconds == 10
+
+
+def test_skills_audit_parser_has_bounded_default() -> None:
+    args = build_parser().parse_args(["skills", "audit"])
+
+    assert args.skills_command == "audit"
+    assert args.limit == 50

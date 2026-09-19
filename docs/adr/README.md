@@ -30,6 +30,7 @@ supersede previous ADRs rather than silently rewriting project history.
 21. [Service coordination leases are ephemeral runtime state](0021-service-leases-are-ephemeral.md)
 22. [Service lifecycle history is portable and payload-free](0022-service-lifecycle-is-portable-and-payload-free.md)
 23. [Service health is structured read-only readiness](0023-service-health-is-read-only-readiness.md)
+24. [Executable skills run outside Ally Core](0024-executable-skills-run-outside-core.md)
 
 ## Adding an ADR
 

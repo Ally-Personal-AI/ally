@@ -12,7 +12,7 @@ implementation of an earlier one.
 | Long-term memory | Implemented V1 | temporal/provenance-aware explicit memory and grounding |
 | Personal knowledge | Implemented V1 | versioned plain-text ingestion, retrieval, grounding |
 | Tools | Implemented V1 | typed capabilities, risk policy, local audit |
-| Skills | Implemented V1 | declarative manifests, dependency validation, safe local install lifecycle |
+| Skills | Implemented V1 | declarative manifests, safe install lifecycle, explicit process-isolated Python execution |
 | Reliable agency | Implemented core | persisted tasks, approval pauses, verification, retries |
 | Model plan proposals | Implemented boundary | strict TaskPlan proposals; no persistence or execution authority |
 | Model memory proposals | Implemented boundary | reviewable extraction bundles; explicit selected acceptance only |
@@ -20,7 +20,7 @@ implementation of an earlier one.
 | Proactivity | Implemented substrate | persisted events, deterministic attention, scheduling, delivery, restart-safe sources, lease-protected cycle, portable lifecycle, structured read-only readiness |
 | Voice | Not started | local ASR/TTS and conversational voice |
 | Multi-user households | Not started | identities, shared/private state, permissions |
-| Extension ecosystem | Implemented local foundation | local install/enable/disable/uninstall; signing and registry deferred |
+| Extension ecosystem | Implemented local foundation | local lifecycle + isolated execution; signing, mediated tool requests, and registry deferred |
 | Computer control | Not started | GUI perception/action behind tool policy |
 | Physical-world integration | Not started | devices, sensors, automation |
 | Distributed Ally | Not started | coordinated compute/storage nodes |
