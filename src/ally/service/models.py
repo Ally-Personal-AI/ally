@@ -66,6 +66,12 @@ class ServiceCycleRunRecord(BaseModel):
                 f"{self.status} service cycle cannot retain error_class"
             )
 
+        if (
+            self.finished_at is not None
+            and self.finished_at < self.started_at
+        ):
+            raise ValueError("service cycle cannot finish before it started")
+
         if self.delivery_failures > self.delivery_attempts:
             raise ValueError(
                 "delivery_failures cannot exceed delivery_attempts"
