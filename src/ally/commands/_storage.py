@@ -6,6 +6,7 @@ from ally.storage.sqlite import (
     SQLiteDatabase,
     SQLiteKnowledgeStore,
     SQLiteMemoryStore,
+    SQLiteTaskStore,
     SQLiteToolAuditStore,
 )
 
@@ -38,3 +39,9 @@ def build_tool_audit_store() -> SQLiteToolAuditStore:
     """Create the default local tool audit store."""
 
     return SQLiteToolAuditStore(build_database())
+
+
+def build_task_store() -> SQLiteTaskStore:
+    """Create the default local task store."""
+
+    return SQLiteTaskStore(build_database())
