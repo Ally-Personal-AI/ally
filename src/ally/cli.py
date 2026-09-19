@@ -34,6 +34,10 @@ from ally.commands.tasks import (
     run_task,
 )
 from ally.commands.tools import run_list_tools, run_tool, run_tool_audit
+from ally.commands.validate import (
+    run_hardware_report,
+    run_local_model_validation_command,
+)
 from ally.memory import MEMORY_KINDS, MEMORY_PRIVACY_LEVELS, MemoryKind, MemoryPrivacy
 
 
@@ -259,6 +263,44 @@ def build_parser() -> argparse.ArgumentParser:
         help="Tool name available to the target runtime; may be repeated.",
     )
 
+    validate = subcommands.add_parser(
+        "validate",
+        help="Run reproducible machine and local-model validation.",
+    )
+    validate_commands = validate.add_subparsers(dest="validate_command")
+
+    validate_hardware = validate_commands.add_parser(
+        "hardware",
+        help="Print the non-sensitive local hardware profile.",
+    )
+    validate_hardware.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
+    validate_model = validate_commands.add_parser(
+        "local-model",
+        help="Run frozen Ally checks against a loopback model server.",
+    )
+    validate_model.add_argument(
+        "--endpoint",
+        default="http://127.0.0.1:8080/v1",
+    )
+    validate_model.add_argument("--model", required=True)
+    validate_model.add_argument(
+        "--core-cases",
+        default="evals/cases/core.jsonl",
+    )
+    validate_model.add_argument(
+        "--provider-cases",
+        default="evals/cases/provider-smoke.jsonl",
+    )
+    validate_model.add_argument(
+        "--output",
+        default="validation/ally-local-model.json",
+    )
+
     return parser
 
 
@@ -385,6 +427,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             return run_validate_skill(
                 path=cast(str, args.path),
                 available_tools=tuple(cast(list[str], args.available_tools)),
+            )
+
+    if args.command == "validate":
+        if args.validate_command == "hardware":
+            return run_hardware_report(json_output=cast(bool, args.json_output))
+        if args.validate_command == "local-model":
+            return run_local_model_validation_command(
+                endpoint=cast(str, args.endpoint),
+                model=cast(str, args.model),
+                core_case_file=cast(str, args.core_cases),
+                provider_case_file=cast(str, args.provider_cases),
+                output=cast(str, args.output),
             )
 
     parser.print_help()
