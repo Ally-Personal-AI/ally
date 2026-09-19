@@ -57,8 +57,8 @@ floated between runs.
 
 Validation artifacts also fingerprint the frozen evaluation inputs and record
 the exact runtime/model configuration plus optional runtime-native performance
-observations. The comparison command reports hardware or suite mismatches and
-does not choose a default on the user's behalf.
+observations. The comparison command reports Ally-version, hardware, or suite
+mismatches and does not choose a default on the user's behalf.
 
 ## Hardware handoff
 

@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from time import perf_counter
 from typing import Literal
+from urllib.parse import urlparse
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -23,6 +24,7 @@ from ally.evals.memory_proposal import MemoryProposalEvaluator
 from ally.evals.planning import TaskPlanProposalEvaluator
 from ally.evals.provider import ProviderResponseEvaluator
 from ally.models import ModelProvider
+from ally.security.network import is_loopback_http_url
 
 _MAX_REPORT_BYTES = 16 * 1024 * 1024
 _SENSITIVE_PARAMETER_FRAGMENTS = (
@@ -56,12 +58,14 @@ class RuntimeParameter(BaseModel):
     value: str = Field(min_length=1, max_length=200)
 
     @model_validator(mode="after")
-    def reject_sensitive_or_multiline_values(self) -> RuntimeParameter:
+    def reject_sensitive_or_nonprintable_values(self) -> RuntimeParameter:
         normalized = self.name.lower().replace("-", "_").replace(".", "_")
         if any(fragment in normalized for fragment in _SENSITIVE_PARAMETER_FRAGMENTS):
             raise ValueError("runtime parameter names must not identify secret material")
-        if any(character in self.value for character in ("\n", "\r", "\x00")):
-            raise ValueError("runtime parameter values must be single-line text")
+        if not self.value.strip() or any(
+            ord(character) < 32 or ord(character) == 127 for character in self.value
+        ):
+            raise ValueError("runtime parameter values must be non-empty printable text")
         return self
 
 
@@ -81,7 +85,30 @@ class RuntimeProfile(BaseModel):
 
     @model_validator(mode="after")
     def require_unique_parameter_names(self) -> RuntimeProfile:
-        names = [parameter.name for parameter in self.parameters]
+        text_values = (
+            self.name,
+            self.version,
+            self.model_source,
+            self.quantization,
+            self.precision,
+        )
+        if any(
+            value is not None
+            and (value != value.strip() or any(ord(character) < 32 for character in value))
+            for value in text_values
+        ):
+            raise ValueError("runtime metadata must be trimmed printable text")
+        if self.model_source is not None and "://" in self.model_source:
+            parsed_source = urlparse(self.model_source)
+            if (
+                parsed_source.username is not None
+                or parsed_source.password is not None
+                or parsed_source.query
+                or parsed_source.fragment
+            ):
+                raise ValueError("model source URLs must not contain access material")
+
+        names = [parameter.name.lower() for parameter in self.parameters]
         if len(names) != len(set(names)):
             raise ValueError("runtime parameter names must be unique")
         return self
@@ -133,7 +160,18 @@ class LocalModelValidationReport(BaseModel):
     def validate_evidence_invariants(self) -> LocalModelValidationReport:
         if self.generated_at.tzinfo is None or self.generated_at.utcoffset() is None:
             raise ValueError("validation report timestamp must include a timezone offset")
+        parsed_endpoint = urlparse(self.endpoint)
+        if (
+            not is_loopback_http_url(self.endpoint)
+            or parsed_endpoint.username is not None
+            or parsed_endpoint.password is not None
+            or parsed_endpoint.query
+            or parsed_endpoint.fragment
+        ):
+            raise ValueError("validation endpoint must be a credential-free loopback URL")
         for name, summary in (("core", self.core), ("provider", self.provider)):
+            if summary.total < 1:
+                raise ValueError(f"{name} evaluation must contain at least one result")
             if summary.total != summary.passed + summary.failed + summary.errors:
                 raise ValueError(f"{name} evaluation counts must add up to total")
             if summary.total != len(summary.results):
@@ -180,6 +218,7 @@ class ValidationComparison(BaseModel):
     schema_version: Literal[1] = 1
     same_hardware: bool
     same_evaluation_suite: bool
+    same_ally_version: bool
     warnings: tuple[str, ...]
     candidates: tuple[ValidationComparisonCandidate, ...]
 
@@ -302,6 +341,9 @@ def compare_validation_reports(
     same_suite = all(
         report.evaluation_suite == first.evaluation_suite for _, report in reports[1:]
     )
+    same_ally_version = all(
+        report.ally_version == first.ally_version for _, report in reports[1:]
+    )
     warnings: list[str] = []
     if not same_hardware:
         warnings.append(
@@ -310,6 +352,10 @@ def compare_validation_reports(
     if not same_suite:
         warnings.append(
             "Evaluation fingerprints differ; pass counts are not directly comparable."
+        )
+    if not same_ally_version:
+        warnings.append(
+            "Ally versions differ; behavior and results are not directly comparable."
         )
 
     candidates = tuple(
@@ -344,6 +390,7 @@ def compare_validation_reports(
     return ValidationComparison(
         same_hardware=same_hardware,
         same_evaluation_suite=same_suite,
+        same_ally_version=same_ally_version,
         warnings=tuple(warnings),
         candidates=candidates,
     )

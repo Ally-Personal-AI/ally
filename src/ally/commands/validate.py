@@ -9,6 +9,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from ally.diagnostics import (
+    LocalModelValidationReport,
     PerformanceObservations,
     RuntimeParameter,
     RuntimeProfile,
@@ -113,13 +114,10 @@ def run_local_model_validation_command(
                 provider_case_file=Path(provider_case_file),
             )
         destination = write_validation_report(report, Path(output))
-    except (
-        FileExistsError,
-        ModelProviderError,
-        OSError,
-        ValidationError,
-        ValueError,
-    ) as exc:
+    except ValidationError:
+        print("Validation error: runtime or observation metadata is invalid.")
+        return 2
+    except (FileExistsError, ModelProviderError, OSError, ValueError) as exc:
         print(f"Validation error: {exc}")
         return 2
 
@@ -144,10 +142,13 @@ def run_compare_validation_reports(
         labels = tuple(Path(value).name for value in report_paths)
         if len(labels) != len(set(labels)):
             raise ValueError("validation report filenames must be unique")
-        reports = tuple(
-            (label, load_validation_report(Path(path)))
-            for label, path in zip(labels, report_paths, strict=True)
-        )
+        loaded: list[tuple[str, LocalModelValidationReport]] = []
+        for label, path in zip(labels, report_paths, strict=True):
+            try:
+                loaded.append((label, load_validation_report(Path(path))))
+            except ValidationReportError as exc:
+                raise ValidationReportError(f"{label}: {exc}") from exc
+        reports = tuple(loaded)
         comparison = compare_validation_reports(reports)
     except (ValidationReportError, ValueError) as exc:
         print(f"Validation comparison error: {exc}")
@@ -168,6 +169,7 @@ def run_compare_validation_reports(
         "Same evaluation suite: "
         f"{'yes' if comparison.same_evaluation_suite else 'no'}"
     )
+    print(f"Same Ally version: {'yes' if comparison.same_ally_version else 'no'}")
     for warning in comparison.warnings:
         print(f"Warning: {warning}")
     for candidate in comparison.candidates:

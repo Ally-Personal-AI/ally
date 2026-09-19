@@ -26,9 +26,10 @@ Runtime parameters are explicit name/value records rather than a raw command
 line. Common credential-bearing names and multiline values are rejected. The
 operator remains responsible for supplying only public, non-personal metadata.
 
-Comparison verifies whether reports share hardware and evaluation fingerprints,
-surfaces mismatches, and presents the constituent evidence. It does not compute
-a composite score, rank candidates, or select Ally's default runtime or model.
+Comparison verifies whether reports share an Ally version, hardware, and
+evaluation fingerprints, surfaces mismatches, and presents the constituent
+evidence. It does not compute a composite score, rank candidates, or select
+Ally's default runtime or model.
 
 ## Consequences
 

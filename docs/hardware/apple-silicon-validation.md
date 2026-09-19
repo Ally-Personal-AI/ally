@@ -224,8 +224,8 @@ uv run ally validate compare \
   validation/<candidate-b>.json
 ```
 
-The command warns when hardware or evaluation fingerprints differ and never
-selects a default automatically. See
+The command warns when the Ally version, hardware, or evaluation fingerprints
+differ and never selects a default automatically. See
 [Local-model Validation Evidence](../model-validation.md) for the complete
 artifact contract.
 

@@ -72,8 +72,8 @@ uv run ally validate compare \
 ```
 
 Use `--json` for another machine-readable artifact. Comparison warns when the
-hardware profile or evaluation fingerprints differ, because performance or
-pass counts then are not directly comparable.
+Ally version, hardware profile, or evaluation fingerprints differ, because
+behavior, performance, or pass counts then are not directly comparable.
 
 The comparison preserves input order and never computes a composite score,
 ranks candidates, or selects a default. Raw throughput cannot safely outweigh
