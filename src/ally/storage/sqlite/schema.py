@@ -278,4 +278,53 @@ MIGRATIONS: tuple[Migration, ...] = (
             """,
         ),
     ),
+    Migration(
+        version=6,
+        name="events_v1",
+        statements=(
+            """
+            CREATE TABLE event_records (
+                id TEXT PRIMARY KEY,
+                type TEXT NOT NULL,
+                source TEXT NOT NULL,
+                importance TEXT NOT NULL
+                    CHECK (
+                        importance IN (
+                            'noise',
+                            'routine',
+                            'important',
+                            'urgent',
+                            'critical'
+                        )
+                    ),
+                attention TEXT NOT NULL
+                    CHECK (
+                        attention IN (
+                            'ignore',
+                            'remember',
+                            'mention_later',
+                            'notify',
+                            'interrupt',
+                            'act'
+                        )
+                    ),
+                payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                handled_at TEXT
+            )
+            """,
+            """
+            CREATE INDEX idx_events_created
+            ON event_records(created_at DESC)
+            """,
+            """
+            CREATE INDEX idx_events_attention_handled
+            ON event_records(attention, handled_at, created_at DESC)
+            """,
+            """
+            CREATE INDEX idx_events_type_created
+            ON event_records(type, created_at DESC)
+            """,
+        ),
+    ),
 )

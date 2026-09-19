@@ -11,10 +11,44 @@ from ally.context import ContextBlock
 from ally.context.render import render_context
 from ally.evals.models import EvalCase, EvaluationOutcome
 from ally.evals.registry import EvaluatorRegistry
+from ally.events import AttentionClass, DefaultAttentionPolicy, EventImportance, NewEvent
 from ally.knowledge.chunking import chunk_text
 from ally.memory import MemoryKind, MemoryRecord, MemorySource, NewMemory
 from ally.memory.retrieval import LexicalMemoryRetriever
 from ally.security.network import private_grounding_allowed
+
+
+class _EventAttentionInput(BaseModel):
+    importance: EventImportance
+
+
+class _EventAttentionExpected(BaseModel):
+    attention: AttentionClass
+
+
+class EventAttentionEvaluator:
+    @property
+    def name(self) -> str:
+        return "event-attention-policy"
+
+    @property
+    def category(self) -> str:
+        return "event_attention"
+
+    def evaluate(self, case: EvalCase) -> EvaluationOutcome:
+        payload = _EventAttentionInput.model_validate(case.input)
+        expected = _EventAttentionExpected.model_validate(case.expected)
+        actual = DefaultAttentionPolicy().classify(
+            NewEvent(
+                type="eval.synthetic",
+                source="eval",
+                importance=payload.importance,
+            )
+        )
+        return EvaluationOutcome(
+            passed=actual == expected.attention,
+            message=f"expected attention={expected.attention!r}, got {actual!r}",
+        )
 
 
 class _PrivateGroundingInput(BaseModel):
@@ -213,6 +247,7 @@ class MemoryRetrievalEvaluator:
 def register_builtin_evaluators(registry: EvaluatorRegistry) -> None:
     """Register deterministic evaluators that require no model or external service."""
 
+    registry.register(EventAttentionEvaluator())
     registry.register(PrivateGroundingPolicyEvaluator())
     registry.register(ContextBoundaryEvaluator())
     registry.register(KnowledgeChunkingEvaluator())

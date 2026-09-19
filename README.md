@@ -289,6 +289,39 @@ This runs the same deterministic core evaluations used by CI plus provider smoke
 
 See [Apple Silicon First-Machine Validation](docs/hardware/apple-silicon-validation.md) for the full procedure and exit criteria.
 
+## Proactive events
+
+Ally now has a deterministic event and attention substrate. Events are persisted before any handler runs, and explicit importance maps to conservative attention classes:
+
+```text
+noise     -> ignore
+routine   -> remember
+important -> mention_later
+urgent    -> notify
+critical  -> interrupt
+```
+
+The default policy never produces `act`.
+
+Emit a synthetic event:
+
+```bash
+uv run ally events emit calendar.changed \
+  --source synthetic \
+  --importance important \
+  --payload '{"calendar":"example"}'
+```
+
+Inspect and mark events handled:
+
+```bash
+uv run ally events list --pending
+uv run ally events show <event-uuid>
+uv run ally events handle <event-uuid>
+```
+
+There is not yet a background event daemon or model-based attention classifier. Those future layers must build on this persisted boundary.
+
 ## Personal data boundary
 
 Personal runtime data, memory databases, secrets, downloaded model weights, generated indexes, and private logs are deliberately kept outside the repository.
