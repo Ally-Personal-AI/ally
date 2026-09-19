@@ -1,6 +1,7 @@
 import math
 import os
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -484,3 +485,43 @@ def test_post_install_manifest_identity_mutation_is_rejected(
         )
 
     assert audit.list() == ()
+
+
+@pytest.mark.skipif(
+    os.name != "posix" or not hasattr(os, "fork"),
+    reason="process-group descendant test requires POSIX fork",
+)
+def test_forked_skill_descendant_cannot_outlive_execution(
+    tmp_path: Path,
+) -> None:
+    marker = tmp_path / "descendant-survived.txt"
+    source = write_executable_skill(
+        tmp_path / "source",
+        code="""
+import os
+import time
+
+def run(data):
+    child = os.fork()
+    if child == 0:
+        time.sleep(0.5)
+        with open(data["marker"], "w", encoding="utf-8") as handle:
+            handle.write("survived")
+        os._exit(0)
+    return {"forked": True}
+""".strip()
+        + "\n",
+    )
+    _, audit, runtime = build_runtime(tmp_path, source)
+
+    result = runtime.execute(
+        "sample.skill",
+        "1.0.0",
+        input_data={"marker": str(marker)},
+    )
+    time.sleep(0.75)
+
+    assert result.status == "succeeded"
+    assert result.result == {"forked": True}
+    assert not marker.exists()
+    assert audit.list()[0].status == "succeeded"
