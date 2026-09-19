@@ -195,6 +195,11 @@ def run_service_health(*, json_output: bool) -> int:
         )
     else:
         print(f"Status: {report.status}")
+        for check in report.checks:
+            print(
+                f"[{check.severity.upper()}] "
+                f"{check.id}: {check.summary}"
+            )
         print(f"Database exists: {report.database_exists}")
         print(f"Database integrity: {report.database_integrity_ok}")
         print(f"Schema current: {report.schema_current}")
@@ -210,6 +215,6 @@ def run_service_health(*, json_output: bool) -> int:
 
     if report.status == "healthy":
         return 0
-    if report.status == "uninitialized":
+    if report.status == "degraded":
         return 1
     return 2
