@@ -454,3 +454,33 @@ def test_nonfinite_skill_input_is_rejected_before_process_and_audit(
         )
 
     assert audit.list() == ()
+
+
+def test_post_install_manifest_identity_mutation_is_rejected(
+    tmp_path: Path,
+) -> None:
+    source = write_executable_skill(
+        tmp_path / "source",
+        code="def run(data):\n    return data\n",
+    )
+    manager, audit, runtime = build_runtime(tmp_path, source)
+    installed_manifest = (
+        manager.root / "sample.skill" / "1.0.0" / "skill.toml"
+    )
+    rendered = installed_manifest.read_text(encoding="utf-8")
+    installed_manifest.write_text(
+        rendered.replace(
+            'id = "sample.skill"',
+            'id = "different.skill"',
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SkillExecutionError, match="identity does not match"):
+        runtime.execute(
+            "sample.skill",
+            "1.0.0",
+            input_data={},
+        )
+
+    assert audit.list() == ()
