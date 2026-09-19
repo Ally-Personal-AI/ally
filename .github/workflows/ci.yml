@@ -8,6 +8,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.12.15"
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -16,18 +23,18 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
-          enable-cache: false
-          version: latest-known
+          enable-cache: true
+          version: ${{ env.UV_VERSION }}
       - name: Install Python
         run: uv python install 3.12
-      - name: Install project
-        run: uv sync --extra dev
+      - name: Install locked project
+        run: uv sync --locked --extra dev
       - name: Lint
         run: uv run ruff check .
       - name: Type check
         run: uv run pyright
       - name: Test
-        run: uv run pytest --cov=ally --cov-report=term-missing
+        run: uv run pytest --cov=ally --cov-report=term-missing --cov-fail-under=70
       - name: Core behavioral evaluations
         run: uv run ally eval run evals/cases/core.jsonl
 
@@ -39,12 +46,12 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
-          enable-cache: false
-          version: latest-known
+          enable-cache: true
+          version: ${{ env.UV_VERSION }}
       - name: Install Python
         run: uv python install 3.12
-      - name: Install project
-        run: uv sync --extra dev
+      - name: Install locked project
+        run: uv sync --locked --extra dev
       - name: Test macOS portability
         run: uv run pytest
       - name: Core behavioral evaluations

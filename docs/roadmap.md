@@ -5,7 +5,7 @@ implementation of an earlier one.
 
 | Phase | Status | Current implementation |
 | --- | --- | --- |
-| Foundation | Implemented | local-first architecture, tested dependency boundaries, contributor map, Linux quality CI + macOS portability smoke, security/data boundaries, ADRs |
+| Foundation | Implemented | local-first architecture, tested dependency boundaries, contributor map, locked dependencies, Linux quality CI + macOS portability smoke, coverage regression gate, automated dependency maintenance, security/data boundaries, ADRs |
 | Data portability | Implemented V1 | versioned integrity-checked SQLite backup/restore archives |
 | Configuration / secrets | Implemented boundary | strict non-secret config, secret references, backend abstraction |
 | Local conversation | Implemented | provider-neutral chat with local OpenAI-compatible adapter |
@@ -43,6 +43,17 @@ personal AI with:
 The repository now contains the deterministic substrate for that target. The
 next important engineering evidence comes from running the system against real
 local models on the dedicated machine.
+
+## Pre-hardware hardening
+
+The repository pins the complete Python dependency graph in `uv.lock`. CI
+installs only that locked graph on Linux and macOS, enforces a project-wide
+coverage regression floor, and groups weekly Python and GitHub Actions updates
+for review.
+
+These controls keep the first-machine evidence comparable over time: a model or
+runtime comparison should not silently change because unrelated dependencies
+floated between runs.
 
 ## Hardware handoff
 
