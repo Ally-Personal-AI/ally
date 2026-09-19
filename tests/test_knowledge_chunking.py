@@ -1,3 +1,5 @@
+import pytest
+
 from ally.knowledge.chunking import chunk_text
 
 
@@ -18,8 +20,6 @@ def test_chunk_text_returns_empty_for_whitespace() -> None:
 
 
 def test_chunk_text_validates_configuration() -> None:
-    import pytest
-
     with pytest.raises(ValueError, match="at least 200"):
         chunk_text("content", max_chars=100)
 
