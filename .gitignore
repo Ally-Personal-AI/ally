@@ -28,6 +28,7 @@ secrets/
 
 # Logs / generated artifacts
 logs/
+validation/
 *.log
 coverage.xml
 htmlcov/
