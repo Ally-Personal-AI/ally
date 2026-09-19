@@ -6,6 +6,7 @@ implementation of an earlier one.
 | Phase | Status | Current implementation |
 | --- | --- | --- |
 | Foundation | Implemented | local-first architecture, security/data boundaries, CI, ADRs |
+| Data portability | Implemented V1 | versioned integrity-checked SQLite backup/restore archives |
 | Local conversation | Implemented | provider-neutral chat with local OpenAI-compatible adapter |
 | Long-term memory | Implemented V1 | temporal/provenance-aware explicit memory and grounding |
 | Personal knowledge | Implemented V1 | versioned plain-text ingestion, retrieval, grounding |
@@ -35,6 +36,7 @@ personal AI with:
 - permissioned tool execution;
 - restart-safe task execution;
 - behavioral evaluations;
+- user-owned portable backups;
 - a reproducible local-model validation path.
 
 The repository now contains the deterministic substrate for that target. The

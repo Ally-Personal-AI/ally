@@ -9,6 +9,7 @@ from typing import cast
 from ally import __version__
 from ally.commands.chat import run_chat
 from ally.commands.conversations import run_list_conversations, run_show_conversation
+from ally.commands.data import run_data_backup, run_restore_backup, run_validate_backup
 from ally.commands.doctor import run_doctor
 from ally.commands.evals import run_core_evals, run_provider_evals
 from ally.commands.events import (
@@ -215,6 +216,34 @@ def build_parser() -> argparse.ArgumentParser:
     )
     knowledge_search.add_argument("query")
     knowledge_search.add_argument("--limit", type=int, default=8)
+
+    data = subcommands.add_parser(
+        "data",
+        help="Back up, validate, and restore user-owned Ally state.",
+    )
+    data_commands = data.add_subparsers(dest="data_command")
+
+    data_backup = data_commands.add_parser(
+        "backup",
+        help="Create a versioned Ally database archive.",
+    )
+    data_backup.add_argument("output")
+
+    data_validate = data_commands.add_parser(
+        "validate",
+        help="Validate an Ally backup archive.",
+    )
+    data_validate.add_argument("archive")
+
+    data_restore = data_commands.add_parser(
+        "restore",
+        help="Restore into a database path that does not already exist.",
+    )
+    data_restore.add_argument("archive")
+    data_restore.add_argument(
+        "--destination",
+        help="Optional database path; defaults to Ally's normal local database.",
+    )
 
     eval_command = subcommands.add_parser(
         "eval",
@@ -526,6 +555,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             return run_search_knowledge(
                 query=cast(str, args.query),
                 limit=cast(int, args.limit),
+            )
+
+    if args.command == "data":
+        if args.data_command == "backup":
+            return run_data_backup(output=cast(str, args.output))
+        if args.data_command == "validate":
+            return run_validate_backup(archive=cast(str, args.archive))
+        if args.data_command == "restore":
+            return run_restore_backup(
+                archive=cast(str, args.archive),
+                destination=cast(str | None, args.destination),
             )
 
     if args.command == "eval":
