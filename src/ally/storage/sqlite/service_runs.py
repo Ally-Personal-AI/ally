@@ -121,11 +121,19 @@ class SQLiteServiceCycleRunStore:
             raise ValueError("cannot finish a service cycle as running")
         finished = _as_utc(finished_at)
 
+        current = self.get(run_id)
+        if current is None:
+            raise KeyError(f"Unknown service cycle run: {run_id}")
+        if current.status != "running":
+            raise ServiceRunConflictError(
+                f"service cycle is no longer running: {run_id}"
+            )
+
         candidate = ServiceCycleRunRecord(
-            id=run_id,
+            id=current.id,
             status=status,
-            observed_at=finished,
-            started_at=finished,
+            observed_at=current.observed_at,
+            started_at=current.started_at,
             finished_at=finished,
             scheduled_events=scheduled_events,
             delivery_attempts=delivery_attempts,
@@ -158,12 +166,6 @@ class SQLiteServiceCycleRunStore:
                 ),
             )
             if cursor.rowcount != 1:
-                existing = connection.execute(
-                    "SELECT 1 FROM service_cycle_runs WHERE id = ?",
-                    (str(run_id),),
-                ).fetchone()
-                if existing is None:
-                    raise KeyError(f"Unknown service cycle run: {run_id}")
                 raise ServiceRunConflictError(
                     f"service cycle is no longer running: {run_id}"
                 )
