@@ -219,7 +219,12 @@ class LocalSkillManager:
                     )
 
         updated = current.model_copy(update={"enabled": enabled})
-        _write_metadata(metadata, updated)
+        try:
+            _write_metadata(metadata, updated)
+        except OSError as exc:
+            raise SkillInstallationError(
+                f"could not update skill installation metadata: {exc}"
+            ) from exc
         return updated
 
     def uninstall(self, skill_id: str, version: str) -> SkillInstallation:
