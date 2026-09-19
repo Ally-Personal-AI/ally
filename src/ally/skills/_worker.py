@@ -59,8 +59,27 @@ def _load_request() -> dict[str, Any]:
     return input_value
 
 
+def _declared_module_path(root: Path, module_name: str) -> Path:
+    parts = module_name.split(".")
+    module_file = root.joinpath(*parts).with_suffix(".py")
+    package_file = root.joinpath(*parts, "__init__.py")
+
+    for candidate in (module_file, package_file):
+        resolved = candidate.resolve()
+        if resolved.is_relative_to(root) and resolved.is_file():
+            return resolved
+
+    raise SkillEntrypointOutsidePackage(
+        "entrypoint module is not declared inside the installed skill package"
+    )
+
+
 def _run(root: Path, entrypoint: str, input_value: dict[str, Any]) -> Any:
     module_name, function_name = entrypoint.split(":", maxsplit=1)
+
+    # Fail closed before import. Importing an arbitrary module can execute code,
+    # so the declared module must first map to an installed skill file.
+    declared_path = _declared_module_path(root, module_name)
     sys.path.insert(0, str(root))
 
     with open(os.devnull, "w", encoding="utf-8") as sink:
@@ -72,9 +91,12 @@ def _run(root: Path, entrypoint: str, input_value: dict[str, Any]) -> Any:
                     "entrypoint module has no package file"
                 )
             resolved_module = Path(module_file).resolve()
-            if not resolved_module.is_relative_to(root):
+            if (
+                resolved_module != declared_path
+                or not resolved_module.is_relative_to(root)
+            ):
                 raise SkillEntrypointOutsidePackage(
-                    "entrypoint module is outside skill package"
+                    "entrypoint module resolved outside skill package"
                 )
 
             function = getattr(module, function_name, None)
