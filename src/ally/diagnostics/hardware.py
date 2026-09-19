@@ -32,9 +32,8 @@ def _total_memory_bytes() -> int | None:
             page_count = os.sysconf("SC_PHYS_PAGES")
         except (OSError, ValueError):
             return None
-        if isinstance(page_size, int) and isinstance(page_count, int):
-            total = page_size * page_count
-            return total if total > 0 else None
+        total = page_size * page_count
+        return total if total > 0 else None
     return None
 
 
