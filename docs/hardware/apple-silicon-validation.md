@@ -115,9 +115,12 @@ After provider smoke evaluation passes, use synthetic data to exercise:
 4. private-context safeguards;
 5. `system.info` through the permissioned tool runtime;
 6. a persisted read-only task using `system.info`;
-7. task restart/resume behavior.
+7. task restart/resume behavior;
+8. synthetic model plan proposal quality;
+9. synthetic memory proposal quality and explicit review, without accepting
+   personal data.
 
-Do not enable automatic memory extraction or consequential tools during the
+Do not enable automatic memory writes or consequential tools during the
 first-machine session.
 
 ## 6. Compare runtimes/models
@@ -131,7 +134,7 @@ tokens/second. Compare:
 - latency
 - memory headroom
 - runtime stability
-- model quality on Ally's later planning evaluations
+- model quality on Ally's planning and memory-formation evaluations
 - ease of reproducible installation
 - compatibility with the model-provider boundary
 

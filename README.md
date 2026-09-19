@@ -106,7 +106,7 @@ SQLite is behind an Ally-owned storage interface and versioned migrations; highe
 
 ## Long-term memory
 
-Memory V1 is structured, temporal, provenance-aware, and directly inspectable. Automatic LLM memory extraction is intentionally not enabled yet.
+Memory V1 is structured, temporal, provenance-aware, and directly inspectable. Automatic model writes are intentionally not enabled; models can only produce reviewable memory proposals.
 
 Store an explicit memory:
 
@@ -130,6 +130,23 @@ uv run ally memory retract <memory-uuid>
 ```
 
 Superseded and retracted records remain available for audit/history but are excluded from active-memory queries.
+
+Ask a local model for reviewable candidates without writing them:
+
+```bash
+uv run ally memory propose "I prefer tea over coffee." \
+  --model <model-id> \
+  --source-type user \
+  --output proposal.json
+```
+
+Inspect the JSON, then explicitly accept only selected indices:
+
+```bash
+uv run ally memory accept proposal.json --index 0
+```
+
+The model cannot choose source provenance or privacy, and proposal generation never touches the durable memory store.
 
 ## Personal knowledge
 

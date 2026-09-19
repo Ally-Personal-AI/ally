@@ -26,6 +26,13 @@ MEMORY_KINDS: tuple[MemoryKind, ...] = (
     "relational",
 )
 MEMORY_PRIVACY_LEVELS: tuple[MemoryPrivacy, ...] = ("private", "shared", "public")
+MEMORY_SOURCE_TYPES: tuple[MemorySourceType, ...] = (
+    "user",
+    "conversation",
+    "document",
+    "tool",
+    "system",
+)
 
 
 class MemorySource(BaseModel):
