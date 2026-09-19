@@ -270,6 +270,18 @@ uv run ally skills uninstall example.skill 1.0.0
 
 Installation never imports the declared entrypoint, rejects symlinks and undeclared manifest fields, validates required tools against the real runtime registry, and copies the source into Ally-owned application data.
 
+Executable Python skills must opt in separately with `execution = "python_subprocess_v1"`. Ally Core never imports their code. After explicit enablement, run one with bounded JSON input:
+
+```bash
+uv run ally skills run example.skill 1.0.0 \
+  --input '{"value":"hello"}'
+uv run ally skills audit
+```
+
+The initial execution mode launches a separate `python -I -S` process with a minimal environment, bounded stdin/stdout/stderr, a timeout, no Ally tools/config/secrets/private-state objects, and payload-free audit history. It is **process isolation, not a hardened OS sandbox**; the child still has the operating-system permissions of the user running Ally.
+
+See [Isolated Skill Execution](docs/skill-execution.md) for the exact security boundary and contributor rules.
+
 ## Model plan proposals
 
 A model may propose a typed `TaskPlan`, but proposal is deliberately separate from persistence and execution.
@@ -479,10 +491,19 @@ first acquires the ephemeral lease and only then repairs that abandoned history
 as `interrupted`. The portable single-running constraint is a consistency
 guard, not an overlap lock.
 
-Health combines read-only checks of the user-owned database with the separate
-runtime lease signal. A `running` lifecycle record is healthy only while the
-`proactive-cycle` lease is active. Health returns exit code `0` for healthy,
-`1` for uninitialized, and `2` for degraded.
+Health is a structured read-only readiness report. It validates an existing
+non-secret config, checks both SQLite databases without writing or migrating
+them, verifies that core migration history is an exact supported prefix, counts
+active/expired runtime leases, and cross-checks a portable `running` lifecycle
+record against the `proactive-cycle` lease.
+
+Each check is `ok`, `warning`, or `error`. Overall status is `healthy`,
+`degraded`, or `unhealthy`, with exit codes `0`, `1`, and `2`
+respectively. Missing uninitialized state is a warning; corrupt or unsupported
+state is an error.
+
+See [Service Health and Readiness](docs/service-health.md) for the stable check
+IDs and contributor rules.
 
 ## External event sources
 
