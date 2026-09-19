@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from ally.attention import AttentionDeliveryRuntime
-from ally.events import EventRuntime
+from ally.events import AttentionClass, EventRecord, EventRuntime, NewEvent
 from ally.scheduler import SchedulerRuntime
 from ally.service import (
     ProactiveServiceCycle,
@@ -28,10 +28,15 @@ class FailingSink:
         return "failing"
 
     @property
-    def accepted_attention(self):
+    def accepted_attention(self) -> tuple[AttentionClass, ...]:
         return ("notify",)
 
-    def deliver(self, event, *, delivery_key: str) -> None:
+    def deliver(
+        self,
+        event: EventRecord,
+        *,
+        delivery_key: str,
+    ) -> None:
         raise RuntimeError("synthetic private detail")
 
 
@@ -81,7 +86,7 @@ def test_delivery_failure_records_degraded_cycle(tmp_path: Path) -> None:
     database = SQLiteDatabase(path)
     events = SQLiteEventStore(database)
     event = events.create(
-        __import__("ally.events", fromlist=["NewEvent"]).NewEvent(
+        NewEvent(
             type="synthetic.notify",
             source="test",
             importance="urgent",
@@ -128,10 +133,15 @@ def test_cycle_exception_records_safe_error_class(tmp_path: Path) -> None:
             return "Invalid Sink"
 
         @property
-        def accepted_attention(self):
+        def accepted_attention(self) -> tuple[AttentionClass, ...]:
             return ("notify",)
 
-        def deliver(self, event, *, delivery_key: str) -> None:
+        def deliver(
+            self,
+            event: EventRecord,
+            *,
+            delivery_key: str,
+        ) -> None:
             raise AssertionError("must not deliver")
 
     with pytest.raises(ValueError, match="invalid attention sink ID"):
