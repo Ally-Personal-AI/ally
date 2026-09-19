@@ -377,6 +377,38 @@ failure does not duplicate an already-created event.
 There is intentionally no scheduler daemon yet. A future OS service will call
 this same persisted boundary.
 
+## Attention delivery
+
+User-facing delivery is separate from event acknowledgement. Ally currently
+delivers only `mention_later`, `notify`, and `interrupt` events through
+explicit sinks; `act` is not a notification path.
+
+Inspect pending attention:
+
+```bash
+uv run ally attention pending
+```
+
+Deliver through the development console sink:
+
+```bash
+uv run ally attention deliver --sink console
+```
+
+Inspect durable delivery history:
+
+```bash
+uv run ally attention history
+uv run ally attention history --status failed
+```
+
+A successful delivery is terminal for that event/sink pair but does not mark
+the event handled. Failed attempts remain retryable. Sinks receive a stable
+delivery key so future external interfaces can implement idempotent retries.
+
+The console sink is for development only. Desktop notifications, mobile, and
+voice delivery are not implemented yet and must use this same boundary.
+
 ## Data portability
 
 Ally V1 backups are user-owned, versioned ZIP archives containing exactly:

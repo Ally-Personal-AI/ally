@@ -7,6 +7,12 @@ from collections.abc import Sequence
 from typing import cast
 
 from ally import __version__
+from ally.attention import AttentionDeliveryStatus
+from ally.commands.attention import (
+    run_deliver_attention,
+    run_list_attention_history,
+    run_list_pending_attention,
+)
 from ally.commands.chat import run_chat
 from ally.commands.configuration import (
     run_config_init,
@@ -372,6 +378,39 @@ def build_parser() -> argparse.ArgumentParser:
     )
     task_retry.add_argument("task_id")
     task_retry.add_argument("step_id")
+
+    attention = subcommands.add_parser(
+        "attention",
+        help="Inspect and deliver pending proactive attention.",
+    )
+    attention_commands = attention.add_subparsers(dest="attention_command")
+
+    attention_pending = attention_commands.add_parser(
+        "pending",
+        help="List unhandled user-facing attention events.",
+    )
+    attention_pending.add_argument("--limit", type=int, default=50)
+
+    attention_deliver = attention_commands.add_parser(
+        "deliver",
+        help="Deliver pending attention through an explicit sink.",
+    )
+    attention_deliver.add_argument(
+        "--sink",
+        choices=("console",),
+        default="console",
+    )
+    attention_deliver.add_argument("--limit", type=int, default=50)
+
+    attention_history = attention_commands.add_parser(
+        "history",
+        help="List durable attention delivery attempts.",
+    )
+    attention_history.add_argument("--limit", type=int, default=50)
+    attention_history.add_argument(
+        "--status",
+        choices=("succeeded", "failed"),
+    )
 
     events = subcommands.add_parser(
         "events",
@@ -765,6 +804,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             return run_retry_task_step(
                 task_id=cast(str, args.task_id),
                 step_id=cast(str, args.step_id),
+            )
+
+    if args.command == "attention":
+        if args.attention_command == "pending":
+            return run_list_pending_attention(limit=cast(int, args.limit))
+        if args.attention_command == "deliver":
+            return run_deliver_attention(
+                sink_name=cast(str, args.sink),
+                limit=cast(int, args.limit),
+            )
+        if args.attention_command == "history":
+            return run_list_attention_history(
+                limit=cast(int, args.limit),
+                status=cast(AttentionDeliveryStatus | None, args.status),
             )
 
     if args.command == "events":

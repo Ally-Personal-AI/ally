@@ -29,5 +29,14 @@ class EventStore(Protocol):
     ) -> tuple[EventRecord, ...]:
         ...
 
+    def pending_attention(
+        self,
+        *,
+        attentions: tuple[AttentionClass, ...],
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[EventRecord, ...]:
+        ...
+
     def mark_handled(self, event_id: UUID) -> EventRecord:
         ...
