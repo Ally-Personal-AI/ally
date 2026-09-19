@@ -128,6 +128,30 @@ uv run ally memory retract <memory-uuid>
 
 Superseded and retracted records remain available for audit/history but are excluded from active-memory queries.
 
+## Personal knowledge
+
+Knowledge V1 supports deterministic ingestion of UTF-8 plain-text files with immutable revision history.
+
+Ingest a file:
+
+```bash
+uv run ally knowledge ingest ./notes.txt
+```
+
+Inspect and search:
+
+```bash
+uv run ally knowledge list
+uv run ally knowledge show <source-uuid>
+uv run ally knowledge search "greenhouse irrigation"
+```
+
+Re-ingesting unchanged content reuses the existing revision. Re-ingesting changed content creates a new revision while preserving prior chunks for audit and historical provenance.
+
+Current knowledge and active memories can both ground local chat through the same provider-neutral context boundary.
+
+For remote inference, `--allow-remote` permits the prompt/conversation to leave the machine, but private memory/document grounding remains disabled unless the separate `--allow-private-context-remote` flag is also supplied.
+
 ## Personal data boundary
 
 Personal runtime data, memory databases, secrets, downloaded model weights, generated indexes, and private logs are deliberately kept outside the repository.

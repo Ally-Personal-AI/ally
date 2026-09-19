@@ -8,6 +8,7 @@ def test_chat_parser_defaults_to_loopback_endpoint() -> None:
     assert args.endpoint == "http://127.0.0.1:8080/v1"
     assert args.model == "example"
     assert args.allow_remote is False
+    assert args.allow_private_context_remote is False
     assert args.conversation is None
 
 
@@ -17,6 +18,21 @@ def test_chat_parser_accepts_conversation_resume_id() -> None:
     )
 
     assert args.conversation == "abc"
+
+
+def test_chat_parser_requires_separate_private_context_remote_flag() -> None:
+    args = build_parser().parse_args(
+        [
+            "chat",
+            "--model",
+            "example",
+            "--allow-remote",
+            "--allow-private-context-remote",
+        ]
+    )
+
+    assert args.allow_remote is True
+    assert args.allow_private_context_remote is True
 
 
 def test_conversations_list_parser_defaults_limit() -> None:
@@ -60,3 +76,19 @@ def test_memory_supersede_parser_accepts_replacement_content() -> None:
 
     assert args.memory_id == "synthetic-id"
     assert args.content == "Replacement fact"
+
+
+def test_knowledge_ingest_parser_accepts_path() -> None:
+    args = build_parser().parse_args(["knowledge", "ingest", "notes.txt"])
+
+    assert args.command == "knowledge"
+    assert args.knowledge_command == "ingest"
+    assert args.path == "notes.txt"
+
+
+def test_knowledge_search_parser_has_bounded_default() -> None:
+    args = build_parser().parse_args(["knowledge", "search", "greenhouse"])
+
+    assert args.knowledge_command == "search"
+    assert args.query == "greenhouse"
+    assert args.limit == 8

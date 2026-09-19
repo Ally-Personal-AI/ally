@@ -108,5 +108,61 @@ MIGRATIONS: tuple[Migration, ...] = (
             ON memory_records(valid_from, valid_until)
             """,
         ),
+    ),    Migration(
+        version=3,
+        name="knowledge_v1",
+        statements=(
+            """
+            CREATE TABLE knowledge_sources (
+                id TEXT PRIMARY KEY,
+                uri TEXT NOT NULL UNIQUE,
+                title TEXT NOT NULL,
+                media_type TEXT NOT NULL,
+                current_revision INTEGER NOT NULL CHECK (current_revision >= 1),
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE knowledge_revisions (
+                id TEXT PRIMARY KEY,
+                source_id TEXT NOT NULL
+                    REFERENCES knowledge_sources(id) ON DELETE CASCADE,
+                revision INTEGER NOT NULL CHECK (revision >= 1),
+                sha256 TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE (source_id, revision)
+            )
+            """,
+            """
+            CREATE TABLE knowledge_chunks (
+                id TEXT PRIMARY KEY,
+                source_id TEXT NOT NULL
+                    REFERENCES knowledge_sources(id) ON DELETE CASCADE,
+                revision_id TEXT NOT NULL
+                    REFERENCES knowledge_revisions(id) ON DELETE CASCADE,
+                revision INTEGER NOT NULL CHECK (revision >= 1),
+                ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+                content TEXT NOT NULL,
+                start_char INTEGER NOT NULL CHECK (start_char >= 0),
+                end_char INTEGER NOT NULL CHECK (end_char > start_char),
+                sha256 TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE (revision_id, ordinal)
+            )
+            """,
+            """
+            CREATE INDEX idx_knowledge_revisions_source
+            ON knowledge_revisions(source_id, revision DESC)
+            """,
+            """
+            CREATE INDEX idx_knowledge_chunks_revision
+            ON knowledge_chunks(revision_id, ordinal)
+            """,
+            """
+            CREATE INDEX idx_knowledge_sources_updated
+            ON knowledge_sources(updated_at DESC)
+            """,
+        ),
     ),
 )
