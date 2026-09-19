@@ -1,6 +1,7 @@
 """CLI dependency construction for local persistence."""
 
-from ally.storage import default_database_path
+from ally.service.leases import SQLiteServiceLeaseStore
+from ally.storage import default_database_path, default_runtime_database_path
 from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
     SQLiteConversationStore,
@@ -19,6 +20,12 @@ def build_database() -> SQLiteDatabase:
     """Create the default local database handle."""
 
     return SQLiteDatabase(default_database_path())
+
+
+def build_service_lease_store() -> SQLiteServiceLeaseStore:
+    """Create the disposable runtime service lease store."""
+
+    return SQLiteServiceLeaseStore(default_runtime_database_path())
 
 
 def build_attention_delivery_store() -> SQLiteAttentionDeliveryStore:
