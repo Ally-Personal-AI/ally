@@ -289,3 +289,26 @@ def test_events_show_and_handle_accept_identifiers() -> None:
     assert show.event_id == "event-id"
     assert handle.events_command == "handle"
     assert handle.event_id == "event-id"
+
+
+def test_data_backup_parser_accepts_archive_path() -> None:
+    args = build_parser().parse_args(["data", "backup", "backup.ally-backup"])
+
+    assert args.command == "data"
+    assert args.data_command == "backup"
+    assert args.output == "backup.ally-backup"
+
+
+def test_data_validate_parser_accepts_archive_path() -> None:
+    args = build_parser().parse_args(["data", "validate", "backup.ally-backup"])
+
+    assert args.data_command == "validate"
+    assert args.archive == "backup.ally-backup"
+
+
+def test_data_restore_parser_defaults_destination() -> None:
+    args = build_parser().parse_args(["data", "restore", "backup.ally-backup"])
+
+    assert args.data_command == "restore"
+    assert args.archive == "backup.ally-backup"
+    assert args.destination is None
