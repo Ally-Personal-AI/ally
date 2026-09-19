@@ -8,6 +8,7 @@ import sys
 from pydantic import JsonValue
 
 from ally.tools.models import ToolSpec
+from ally.tools.registry import ToolRegistry
 
 
 class SystemInfoTool:
@@ -32,9 +33,7 @@ class SystemInfoTool:
         }
 
 
-def build_default_tool_registry():
-    from ally.tools.registry import ToolRegistry
-
+def build_default_tool_registry() -> ToolRegistry:
     registry = ToolRegistry()
     registry.register(SystemInfoTool())
     return registry
