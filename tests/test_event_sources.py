@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from ally.events import EventRuntime
+from ally.events import EventRuntime, NewEvent
 from ally.sources import (
     EventSourceConflictError,
     EventSourceObservation,
@@ -163,7 +163,7 @@ def test_replay_reuses_event_after_partial_progress(tmp_path: Path) -> None:
     )
 
     existing = EventRuntime(events).publish(
-        __import__("ally.events", fromlist=["NewEvent"]).NewEvent(
+        NewEvent(
             type="synthetic.replayed",
             source="source:synthetic.replay",
             importance="urgent",
