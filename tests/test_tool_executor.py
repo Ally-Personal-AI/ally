@@ -1,7 +1,7 @@
 from pydantic import JsonValue
 
 from ally.security.tool_policy import DefaultToolPolicy
-from ally.tools import ToolExecutor, ToolRegistry, ToolSpec
+from ally.tools import ToolExecutor, ToolRegistry, ToolRisk, ToolSpec
 from ally.tools.audit import ToolAuditRecord
 
 
@@ -17,12 +17,12 @@ class InMemoryAuditStore:
 
 
 class RecordingTool:
-    def __init__(self, *, name: str, risk: str) -> None:
+    def __init__(self, *, name: str, risk: ToolRisk) -> None:
         self.calls = 0
         self._spec = ToolSpec(
             name=name,
             description="Synthetic test tool.",
-            risk=risk,  # type: ignore[arg-type]
+            risk=risk,
         )
 
     @property
