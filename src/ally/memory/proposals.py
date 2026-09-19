@@ -22,7 +22,7 @@ class MemoryProposalError(ValueError):
 
 
 class MemoryCandidate(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     kind: MemoryKind
     content: str = Field(min_length=1)
@@ -68,6 +68,8 @@ class MemoryProposalBundle(BaseModel):
 
 
 class _ModelProposalPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     memories: tuple[MemoryCandidate, ...] = Field(max_length=20)
 
 
