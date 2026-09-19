@@ -10,7 +10,6 @@ from pydantic import JsonValue
 
 from ally.commands._storage import build_skill_execution_audit_store
 from ally.skills import (
-    DEFAULT_SKILL_TIMEOUT_SECONDS,
     InstalledSkillRuntime,
     LocalSkillManager,
     SkillCatalog,
