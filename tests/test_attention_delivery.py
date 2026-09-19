@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from ally.attention import AttentionDeliveryRuntime
-from ally.events import AttentionClass, NewEvent
+from ally.attention import AttentionDeliveryRuntime, delivery_key
+from ally.events import AttentionClass, EventRecord, NewEvent
 from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
     SQLiteDatabase,
@@ -34,7 +34,15 @@ class RecordingSink:
     def accepted_attention(self) -> tuple[AttentionClass, ...]:
         return self._accepted
 
-    def deliver(self, event) -> None:
+    def deliver(
+        self,
+        event: EventRecord,
+        *,
+        delivery_key: str,
+    ) -> None:
+        assert delivery_key == (
+            f"attention:{self.id}:{event.id}"
+        )
         self.event_ids.append(str(event.id))
 
 
@@ -43,11 +51,16 @@ class FlakySink(RecordingSink):
         super().__init__(sink_id="flaky", accepted=("notify",))
         self.calls = 0
 
-    def deliver(self, event) -> None:
+    def deliver(
+        self,
+        event: EventRecord,
+        *,
+        delivery_key: str,
+    ) -> None:
         self.calls += 1
         if self.calls == 1:
-            raise RuntimeError("synthetic delivery failure")
-        super().deliver(event)
+            raise RuntimeError("synthetic delivery failure: secret=must-not-persist")
+        super().deliver(event, delivery_key=delivery_key)
 
 
 def build_runtime(
@@ -138,7 +151,7 @@ def test_failed_delivery_retries_and_can_transition_to_success(
     assert len(first) == 1
     assert first[0].status == "failed"
     assert first[0].attempts == 1
-    assert first[0].last_error == "RuntimeError: synthetic delivery failure"
+    assert first[0].last_error == "RuntimeError"
 
     assert len(second) == 1
     assert second[0].status == "succeeded"
@@ -235,3 +248,26 @@ def test_delivery_history_survives_restart(tmp_path: Path) -> None:
 
     assert reopened.get(event.id, "recording") == created
     assert reopened.list(status="failed") == (created,)
+
+
+def test_act_attention_cannot_be_delivered_by_user_attention_runtime(
+    tmp_path: Path,
+) -> None:
+    events, _, runtime = build_runtime(tmp_path / "ally.sqlite3")
+    create_event(events, name="act", attention="act")
+    sink = RecordingSink(accepted=("act",))
+
+    attempts = runtime.deliver_pending(sink)
+
+    assert attempts == ()
+    assert sink.event_ids == []
+
+
+def test_delivery_key_is_stable() -> None:
+    assert delivery_key(
+        sink_id="console",
+        event_id="00000000-0000-0000-0000-000000000001",
+    ) == (
+        "attention:console:"
+        "00000000-0000-0000-0000-000000000001"
+    )
