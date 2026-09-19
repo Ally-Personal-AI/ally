@@ -66,6 +66,11 @@ from ally.commands.skills import (
     run_uninstall_skill,
     run_validate_skill,
 )
+from ally.commands.sources import (
+    run_list_source_checkpoints,
+    run_poll_jsonl_source,
+    run_show_source_checkpoint,
+)
 from ally.commands.tasks import (
     run_create_task,
     run_list_tasks,
@@ -568,6 +573,41 @@ def build_parser() -> argparse.ArgumentParser:
     )
     schedule_tick.add_argument("--limit", type=int, default=100)
 
+    sources = subcommands.add_parser(
+        "sources",
+        help="Poll and inspect external event-source checkpoints.",
+    )
+    source_commands = sources.add_subparsers(dest="sources_command")
+
+    source_poll_jsonl = source_commands.add_parser(
+        "poll-jsonl",
+        help="Poll an explicit local JSONL reference event source.",
+    )
+    source_poll_jsonl.add_argument("--source-id", required=True)
+    source_poll_jsonl.add_argument("path")
+    source_poll_jsonl.add_argument("--limit", type=int, default=100)
+    source_poll_jsonl.add_argument(
+        "--at",
+        help="Optional timezone-aware ISO-8601 poll timestamp.",
+    )
+    source_poll_jsonl.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
+    source_checkpoints = source_commands.add_parser(
+        "checkpoints",
+        help="List successful event-source checkpoints.",
+    )
+    source_checkpoints.add_argument("--limit", type=int, default=50)
+
+    source_checkpoint = source_commands.add_parser(
+        "checkpoint",
+        help="Show one event-source checkpoint.",
+    )
+    source_checkpoint.add_argument("source_id")
+
     skills = subcommands.add_parser(
         "skills",
         help="Inspect and validate Ally skill packages.",
@@ -912,6 +952,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             return run_tick_schedules(
                 at=cast(str | None, args.at),
                 limit=cast(int, args.limit),
+            )
+
+    if args.command == "sources":
+        if args.sources_command == "poll-jsonl":
+            return run_poll_jsonl_source(
+                source_id=cast(str, args.source_id),
+                path=cast(str, args.path),
+                limit=cast(int, args.limit),
+                at=cast(str | None, args.at),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.sources_command == "checkpoints":
+            return run_list_source_checkpoints(limit=cast(int, args.limit))
+        if args.sources_command == "checkpoint":
+            return run_show_source_checkpoint(
+                source_id=cast(str, args.source_id)
             )
 
     if args.command == "skills":
