@@ -13,7 +13,7 @@ import re
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 _ERROR_CLASS = re.compile(r"^[A-Za-z_][A-Za-z0-9_.-]{0,127}$")
 
@@ -60,15 +60,16 @@ def _emit(payload: dict[str, Any]) -> None:
 
 
 def _load_request() -> dict[str, Any]:
-    raw = json.load(sys.stdin)
+    raw: object = json.load(sys.stdin)
     if not isinstance(raw, dict):
         raise SkillWorkerProtocolError("request must be an object")
-    if raw.get("protocol_version") != 1:
+    request = cast(dict[str, object], raw)
+    if request.get("protocol_version") != 1:
         raise SkillWorkerProtocolError("unsupported protocol version")
-    input_value = raw.get("input")
+    input_value = request.get("input")
     if not isinstance(input_value, dict):
         raise SkillWorkerProtocolError("input must be an object")
-    return input_value
+    return cast(dict[str, Any], input_value)
 
 
 def _declared_module_path(root: Path, module_name: str) -> Path:
