@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from time import perf_counter
 
-from ally.evals.models import EvalCase, EvalResult, EvalSummary
+from ally.evals.models import EvalCase, EvalResult, EvalStatus, EvalSummary
 from ally.evals.registry import EvaluatorRegistry
 
 
@@ -19,6 +19,7 @@ class EvaluationRunner:
 
         for case in cases:
             started = perf_counter()
+            status: EvalStatus
             try:
                 evaluator = self._registry.get(case.category)
                 outcome = evaluator.evaluate(case)
