@@ -1,5 +1,6 @@
 """Restart-safe external event source boundary."""
 
+from ally.sources.filesystem import FilesystemEventSource
 from ally.sources.jsonl import JsonlEventSource
 from ally.sources.models import (
     EventSourceCheckpoint,
@@ -23,5 +24,6 @@ __all__ = [
     "EventSourcePollReport",
     "EventSourcePollResult",
     "EventSourceRuntime",
+    "FilesystemEventSource",
     "JsonlEventSource",
 ]
