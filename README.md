@@ -322,6 +322,33 @@ uv run ally events handle <event-uuid>
 
 There is not yet a background event daemon or model-based attention classifier. Those future layers must build on this persisted boundary.
 
+## Data portability
+
+Ally V1 backups are user-owned, versioned ZIP archives containing exactly:
+
+```text
+manifest.json
+ally.sqlite3
+```
+
+Create and validate a backup:
+
+```bash
+uv run ally data backup backups/ally-2026-09-19.ally-backup
+uv run ally data validate backups/ally-2026-09-19.ally-backup
+```
+
+Restore into a clean database path:
+
+```bash
+uv run ally data restore backups/ally-2026-09-19.ally-backup \
+  --destination ./restored-ally.sqlite3
+```
+
+Archives record the Ally version, database schema history, byte size, and SHA-256 digest. Validation also runs SQLite integrity checks. Backup and restore refuse to overwrite existing files.
+
+Backup V1 includes core SQLite state only. It deliberately excludes model weights, caches, configuration, logs, and secrets.
+
 ## Personal data boundary
 
 Personal runtime data, memory databases, secrets, downloaded model weights, generated indexes, and private logs are deliberately kept outside the repository.
