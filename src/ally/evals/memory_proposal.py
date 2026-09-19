@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from ally.evals.models import EvalCase, EvaluationOutcome
 from ally.memory import MemorySource
-from ally.memory.proposals import ModelMemoryProposer, MemoryProposalError
+from ally.memory.proposals import MemoryProposalError, ModelMemoryProposer
 from ally.models import ModelProvider
 
 
