@@ -51,21 +51,19 @@ class SyntheticTool:
 def build_runner(
     tmp_path: Path,
     tool: SyntheticTool,
-) -> tuple[SQLiteTaskStore, TaskRunner, InMemoryAuditStore]:
+) -> tuple[SQLiteTaskStore, TaskRunner, ToolExecutor, InMemoryAuditStore]:
     store = SQLiteTaskStore(SQLiteDatabase(tmp_path / "ally.sqlite3"))
     registry = ToolRegistry()
     registry.register(tool)
     audit = InMemoryAuditStore()
-    runner = TaskRunner(
-        store,
-        ToolExecutor(registry, DefaultToolPolicy(), audit),
-    )
-    return store, runner, audit
+    executor = ToolExecutor(registry, DefaultToolPolicy(), audit)
+    runner = TaskRunner(store, executor)
+    return store, runner, executor, audit
 
 
 def test_read_only_task_runs_to_verified_success(tmp_path: Path) -> None:
     tool = SyntheticTool(name="test.read", risk="read_only")
-    store, runner, audit = build_runner(tmp_path, tool)
+    store, runner, _, audit = build_runner(tmp_path, tool)
     task, steps = store.create(
         TaskPlan(
             goal="Run safe synthetic tool",
@@ -88,7 +86,7 @@ def test_reversible_step_pauses_then_resumes_with_explicit_approval(
     tmp_path: Path,
 ) -> None:
     tool = SyntheticTool(name="test.write", risk="reversible")
-    store, runner, _ = build_runner(tmp_path, tool)
+    store, runner, executor, _ = build_runner(tmp_path, tool)
     task, steps = store.create(
         TaskPlan(
             goal="Synthetic write",
@@ -103,10 +101,7 @@ def test_reversible_step_pauses_then_resumes_with_explicit_approval(
     assert paused_step.status == "approval_required"
     assert tool.calls == 0
 
-    resumed_runner = TaskRunner(
-        store,
-        runner._tool_executor,  # type: ignore[attr-defined]
-    )
+    resumed_runner = TaskRunner(store, executor)
     completed = resumed_runner.run(
         task.id,
         approved_steps=(steps[0].id,),
@@ -121,7 +116,7 @@ def test_reversible_step_pauses_then_resumes_with_explicit_approval(
 
 def test_high_consequence_step_fails_without_calling_tool(tmp_path: Path) -> None:
     tool = SyntheticTool(name="test.danger", risk="high_consequence")
-    store, runner, _ = build_runner(tmp_path, tool)
+    store, runner, _, _ = build_runner(tmp_path, tool)
     task, _ = store.create(
         TaskPlan(
             goal="Synthetic denied action",
@@ -139,7 +134,7 @@ def test_high_consequence_step_fails_without_calling_tool(tmp_path: Path) -> Non
 
 def test_failed_step_requires_deliberate_retry(tmp_path: Path) -> None:
     tool = SyntheticTool(name="test.flaky", risk="read_only", fail_first=True)
-    store, runner, _ = build_runner(tmp_path, tool)
+    store, runner, _, _ = build_runner(tmp_path, tool)
     task, steps = store.create(
         TaskPlan(
             goal="Synthetic retry",
