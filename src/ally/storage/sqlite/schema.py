@@ -434,4 +434,83 @@ MIGRATIONS: tuple[Migration, ...] = (
             """,
         ),
     ),
+    Migration(
+        version=10,
+        name="service_cycle_runs_v1",
+        statements=(
+            """
+            CREATE TABLE service_cycle_runs (
+                id TEXT PRIMARY KEY,
+                status TEXT NOT NULL
+                    CHECK (
+                        status IN (
+                            'running',
+                            'succeeded',
+                            'degraded',
+                            'failed',
+                            'interrupted'
+                        )
+                    ),
+                observed_at TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                finished_at TEXT,
+                scheduled_events INTEGER NOT NULL DEFAULT 0
+                    CHECK (scheduled_events >= 0),
+                delivery_attempts INTEGER NOT NULL DEFAULT 0
+                    CHECK (delivery_attempts >= 0),
+                delivery_failures INTEGER NOT NULL DEFAULT 0
+                    CHECK (
+                        delivery_failures >= 0
+                        AND delivery_failures <= delivery_attempts
+                    ),
+                error_class TEXT
+                    CHECK (
+                        error_class IS NULL
+                        OR (
+                            length(error_class) >= 1
+                            AND length(error_class) <= 256
+                        )
+                    ),
+                CHECK (
+                    (
+                        status = 'running'
+                        AND finished_at IS NULL
+                        AND error_class IS NULL
+                    )
+                    OR (
+                        status IN ('succeeded', 'degraded')
+                        AND finished_at IS NOT NULL
+                        AND error_class IS NULL
+                    )
+                    OR (
+                        status IN ('failed', 'interrupted')
+                        AND finished_at IS NOT NULL
+                        AND error_class IS NOT NULL
+                    )
+                ),
+                CHECK (
+                    status != 'succeeded'
+                    OR delivery_failures = 0
+                ),
+                CHECK (
+                    status != 'degraded'
+                    OR delivery_failures >= 1
+                )
+            )
+            """,
+            """
+            CREATE UNIQUE INDEX idx_service_cycle_single_running
+            ON service_cycle_runs(status)
+            WHERE status = 'running'
+            """,
+            """
+            CREATE INDEX idx_service_cycle_started
+            ON service_cycle_runs(started_at DESC)
+            """,
+            """
+            CREATE INDEX idx_service_cycle_status_started
+            ON service_cycle_runs(status, started_at DESC)
+            """,
+        ),
+    ),
 )
