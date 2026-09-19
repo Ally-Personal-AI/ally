@@ -273,7 +273,7 @@ def test_proactive_command_stops_before_side_effects_when_lease_is_held(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from ally.commands import service as service_commands
+    import ally.commands.service as service_commands
 
     store = build_store(tmp_path / "runtime.sqlite3")
     acquired = store.acquire(
@@ -290,7 +290,7 @@ def test_proactive_command_stops_before_side_effects_when_lease_is_held(
         lambda: store,
     )
 
-    def fail_if_called():
+    def fail_if_called() -> None:
         raise AssertionError("event storage must not be constructed")
 
     monkeypatch.setattr(
