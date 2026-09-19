@@ -72,7 +72,7 @@ def _kill_process(process: subprocess.Popen[bytes]) -> None:
             os.killpg(process.pid, signal.SIGKILL)
         else:
             process.kill()
-    except (OSError, ProcessLookupError):
+    except OSError:
         pass
 
 
@@ -343,17 +343,16 @@ class InstalledSkillRuntime:
         input_data: dict[str, JsonValue],
         timeout_seconds: int = DEFAULT_SKILL_TIMEOUT_SECONDS,
     ) -> SkillExecutionResult:
-        installation = self._manager.get(skill_id, version)
-        if installation is None:
-            raise SkillExecutionError(
-                f"skill is not installed: {skill_id}@{version}"
-            )
-        if not installation.enabled:
-            raise SkillExecutionError(
-                f"skill is disabled: {skill_id}@{version}"
-            )
-
         try:
+            installation = self._manager.get(skill_id, version)
+            if installation is None:
+                raise SkillExecutionError(
+                    f"skill is not installed: {skill_id}@{version}"
+                )
+            if not installation.enabled:
+                raise SkillExecutionError(
+                    f"skill is disabled: {skill_id}@{version}"
+                )
             package = self._manager.load_package(skill_id, version)
         except SkillInstallationError as exc:
             raise SkillExecutionError(str(exc)) from exc
