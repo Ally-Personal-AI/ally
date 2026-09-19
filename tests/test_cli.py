@@ -440,3 +440,29 @@ def test_schedules_management_parsers_accept_identifier() -> None:
     assert enable.schedules_command == "enable"
     assert disable.schedules_command == "disable"
     assert show.schedule_id == "schedule-id"
+
+
+def test_attention_pending_parser_has_bounded_default() -> None:
+    args = build_parser().parse_args(["attention", "pending"])
+
+    assert args.command == "attention"
+    assert args.attention_command == "pending"
+    assert args.limit == 50
+
+
+def test_attention_deliver_parser_defaults_to_console() -> None:
+    args = build_parser().parse_args(["attention", "deliver"])
+
+    assert args.attention_command == "deliver"
+    assert args.sink == "console"
+    assert args.limit == 50
+
+
+def test_attention_history_parser_accepts_status_filter() -> None:
+    args = build_parser().parse_args(
+        ["attention", "history", "--status", "failed"]
+    )
+
+    assert args.attention_command == "history"
+    assert args.status == "failed"
+    assert args.limit == 50
