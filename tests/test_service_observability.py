@@ -11,7 +11,6 @@ from ally.service import (
     ProactiveServiceCycle,
     ProactiveServiceRunner,
     ServiceRunConflictError,
-    build_service_health,
 )
 from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
@@ -19,6 +18,7 @@ from ally.storage.sqlite import (
     SQLiteEventStore,
     SQLiteScheduleStore,
     SQLiteServiceCycleRunStore,
+    build_sqlite_service_health,
 )
 
 
@@ -210,7 +210,7 @@ def test_nonstale_running_cycle_is_not_recovered(tmp_path: Path) -> None:
 def test_health_is_uninitialized_without_database(tmp_path: Path) -> None:
     path = tmp_path / "missing.sqlite3"
 
-    health = build_service_health(database_path=path)
+    health = build_sqlite_service_health(database_path=path)
 
     assert health.status == "uninitialized"
     assert health.database_exists is False
@@ -225,7 +225,7 @@ def test_health_is_uninitialized_before_first_service_cycle(
     path = tmp_path / "ally.sqlite3"
     SQLiteDatabase(path).migrate()
 
-    health = build_service_health(database_path=path)
+    health = build_sqlite_service_health(database_path=path)
 
     assert health.status == "uninitialized"
     assert health.database_exists is True
@@ -240,7 +240,7 @@ def test_health_is_healthy_after_successful_cycle(tmp_path: Path) -> None:
     observed_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
     _, run = runner.run(as_of=observed_at, sinks=())
 
-    health = build_service_health(
+    health = build_sqlite_service_health(
         database_path=path,
         as_of=run.started_at + timedelta(minutes=1),
     )
@@ -257,7 +257,7 @@ def test_health_is_degraded_for_stale_running_cycle(tmp_path: Path) -> None:
     started = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
     run = store.start(observed_at=started, started_at=started)
 
-    health = build_service_health(
+    health = build_sqlite_service_health(
         database_path=path,
         as_of=started + timedelta(hours=2),
         stale_after=timedelta(hours=1),
@@ -290,7 +290,7 @@ def test_health_is_degraded_for_outdated_schema(tmp_path: Path) -> None:
     finally:
         connection.close()
 
-    health = build_service_health(database_path=path)
+    health = build_sqlite_service_health(database_path=path)
 
     assert health.status == "degraded"
     assert health.database_integrity_ok is True
@@ -305,7 +305,7 @@ def test_health_does_not_mutate_uninitialized_sqlite_file(
     connection = sqlite3.connect(path)
     connection.close()
 
-    health = build_service_health(database_path=path)
+    health = build_sqlite_service_health(database_path=path)
 
     assert health.status == "uninitialized"
     connection = sqlite3.connect(path)
