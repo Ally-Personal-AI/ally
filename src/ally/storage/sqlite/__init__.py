@@ -4,6 +4,10 @@ from ally.storage.sqlite.attention import SQLiteAttentionDeliveryStore
 from ally.storage.sqlite.conversations import SQLiteConversationStore
 from ally.storage.sqlite.database import SQLiteDatabase
 from ally.storage.sqlite.events import SQLiteEventStore
+from ally.storage.sqlite.health import (
+    DEFAULT_STALE_HEALTH_AFTER,
+    build_sqlite_service_health,
+)
 from ally.storage.sqlite.knowledge import SQLiteKnowledgeStore
 from ally.storage.sqlite.memory import SQLiteMemoryStore
 from ally.storage.sqlite.schedules import SQLiteScheduleStore
@@ -13,6 +17,7 @@ from ally.storage.sqlite.tasks import SQLiteTaskStore
 from ally.storage.sqlite.tool_audit import SQLiteToolAuditStore
 
 __all__ = [
+    "DEFAULT_STALE_HEALTH_AFTER",
     "SQLiteAttentionDeliveryStore",
     "SQLiteConversationStore",
     "SQLiteDatabase",
@@ -24,4 +29,5 @@ __all__ = [
     "SQLiteServiceCycleRunStore",
     "SQLiteTaskStore",
     "SQLiteToolAuditStore",
+    "build_sqlite_service_health",
 ]
