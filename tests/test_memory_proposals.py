@@ -97,3 +97,17 @@ def test_memory_bundle_rejects_out_of_range_acceptance() -> None:
 
     with pytest.raises(ValueError, match="out of range"):
         bundle.accepted_memory(0)
+
+
+def test_memory_bundle_rejects_negative_acceptance_index() -> None:
+    provider = StaticProvider(
+        '{"memories":[{"kind":"semantic","content":"Synthetic fact",'
+        '"confidence":0.8,"importance":0.5}]}'
+    )
+    bundle = ModelMemoryProposer(provider).propose(
+        text="Synthetic fact.",
+        source=MemorySource(type="user"),
+    )
+
+    with pytest.raises(ValueError, match="out of range"):
+        bundle.accepted_memory(-1)
