@@ -1,4 +1,12 @@
-from ally.events import EventDispatcher, EventRuntime, NewEvent
+from datetime import UTC, datetime
+from uuid import UUID, uuid4
+
+from ally.events import (
+    AttentionClass,
+    EventDispatcher,
+    EventRuntime,
+    NewEvent,
+)
 from ally.events.models import EventRecord
 
 
@@ -6,29 +14,47 @@ class RecordingStore:
     def __init__(self) -> None:
         self.records: list[EventRecord] = []
 
-    def create(self, event: NewEvent, *, attention: str) -> EventRecord:
-        from datetime import UTC, datetime
-        from uuid import uuid4
-
+    def create(
+        self,
+        event: NewEvent,
+        *,
+        attention: AttentionClass,
+    ) -> EventRecord:
         record = EventRecord(
             id=uuid4(),
             type=event.type,
             source=event.source,
             importance=event.importance,
-            attention=attention,  # type: ignore[arg-type]
+            attention=attention,
             payload=event.payload,
             created_at=datetime.now(UTC),
         )
         self.records.append(record)
         return record
 
-    def get(self, event_id):  # pragma: no cover - unused protocol surface
-        return None
+    def get(self, event_id: UUID) -> EventRecord | None:
+        return next(
+            (record for record in self.records if record.id == event_id),
+            None,
+        )
 
-    def list(self, *, limit=50, attention=None, handled=None):  # pragma: no cover
-        return tuple(self.records[-limit:])
+    def list(
+        self,
+        *,
+        limit: int = 50,
+        attention: AttentionClass | None = None,
+        handled: bool | None = None,
+    ) -> tuple[EventRecord, ...]:
+        records = self.records
+        if attention is not None:
+            records = [record for record in records if record.attention == attention]
+        if handled is True:
+            records = [record for record in records if record.handled_at is not None]
+        elif handled is False:
+            records = [record for record in records if record.handled_at is None]
+        return tuple(records[-limit:])
 
-    def mark_handled(self, event_id):  # pragma: no cover
+    def mark_handled(self, event_id: UUID) -> EventRecord:
         raise NotImplementedError
 
 
