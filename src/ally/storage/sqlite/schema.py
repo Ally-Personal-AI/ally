@@ -165,4 +165,56 @@ MIGRATIONS: tuple[Migration, ...] = (
             """,
         ),
     ),
+    Migration(
+        version=4,
+        name="tool_audit",
+        statements=(
+            """
+            CREATE TABLE tool_audit_records (
+                id TEXT PRIMARY KEY,
+                invocation_id TEXT NOT NULL,
+                tool_name TEXT NOT NULL,
+                risk TEXT
+                    CHECK (
+                        risk IS NULL OR risk IN (
+                            'read_only',
+                            'reversible',
+                            'external_consequence',
+                            'high_consequence'
+                        )
+                    ),
+                decision TEXT
+                    CHECK (
+                        decision IS NULL OR decision IN (
+                            'allow',
+                            'require_approval',
+                            'deny'
+                        )
+                    ),
+                status TEXT NOT NULL
+                    CHECK (
+                        status IN (
+                            'succeeded',
+                            'approval_required',
+                            'denied',
+                            'failed'
+                        )
+                    ),
+                arguments_json TEXT NOT NULL,
+                output_json TEXT,
+                error TEXT,
+                started_at TEXT NOT NULL,
+                finished_at TEXT NOT NULL
+            )
+            """,
+            """
+            CREATE INDEX idx_tool_audit_started
+            ON tool_audit_records(started_at DESC)
+            """,
+            """
+            CREATE INDEX idx_tool_audit_invocation
+            ON tool_audit_records(invocation_id)
+            """,
+        ),
+    ),
 )
