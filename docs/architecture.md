@@ -5,45 +5,128 @@
 The LLM is a component inside Ally. Ally is not an application wrapped around a
 single LLM.
 
-## Logical layers
+Models, databases, operating-system services, and external integrations are
+replaceable implementations behind Ally-owned boundaries.
+
+## Current dependency shape
+
+The repository now separates interface/composition code, reusable domain/runtime
+code, and concrete adapters.
 
 ```text
-Interfaces
-    |
-Agent Runtime
-    |
-+---+---------+-----------+
-|             |           |
-Memory      Models       Tools
-|             |           |
-Knowledge   Inference   Services
-    \          |          /
-       Security / Policy
-              |
-          Local Storage
+CLI / future UI
+      |
+      v
+commands / composition / diagnostics
+      |
+      v
+runtime + service workflows
+      |
+      v
+domain capabilities and Ally-owned protocols
+      |
+      +--------------------+
+      |                    |
+      v                    v
+storage contracts      model contracts
+      |                    |
+      v                    v
+SQLite adapters        provider adapters
 ```
+
+Major domain capabilities include conversations, memory, knowledge, context,
+tools, tasks, events, scheduling, event sources, attention delivery, planning,
+and skills.
+
+See [Codebase Map](codebase-map.md) for package-by-package ownership.
 
 ## Dependency direction
 
-Higher-level Ally components depend on Ally-owned interfaces. Vendor SDKs,
-model runtimes, databases, and integrations sit behind adapters.
+Higher-level interfaces compose lower-level Ally capabilities. Reusable Core
+packages must not depend upward on CLI/command handlers or downward on concrete
+SQLite implementations.
 
 For example:
 
 ```text
-Ally -> ModelProvider -> MLX / llama.cpp / Ollama / future runtime
+Ally runtime -> ModelProvider -> OpenAI-compatible / MLX / llama.cpp / future
+domain store protocol <- SQLite implementation
 ```
 
-The same rule will apply to memory persistence, search, tools, secret storage,
-and external services.
+The concrete dependency direction is protected by
+`tests/test_architecture_boundaries.py`.
 
-## Initial runtime
+The test is intentionally small. It protects durable layer boundaries without
+trying to freeze every internal package relationship.
 
-The first implementation is Python 3.12. A TypeScript user interface will be
-introduced separately from the core runtime. The first executable interface is
-the `ally` CLI.
+## Composition edges
+
+Some packages intentionally sit at the edge of Core:
+
+- `commands/` assembles dependencies for human-facing operations;
+- `diagnostics/` inspects physical runtime state read-only;
+- `portability/` moves/validates the concrete user-owned database;
+- `storage/` contains concrete persistence implementations.
+
+Those edges may know about SQLite. Domain/runtime packages should depend on
+Ally-owned protocols instead.
+
+## Model fabric
+
+Model runtimes sit behind provider abstractions. The current executable provider
+uses an OpenAI-compatible local HTTP endpoint; future MLX, llama.cpp, Ollama,
+CUDA, and other runtimes can be added without changing memory, tasks, tools, or
+identity state.
+
+```text
+Ally Core
+   |
+   v
+ModelProvider
+   |
+   +-- OpenAI-compatible local runtime
+   +-- MLX (future direct adapter)
+   +-- llama.cpp (future direct adapter)
+   +-- other future runtimes
+```
+
+Hardware-specific choices remain evidence-driven and are intentionally deferred
+until first-machine validation.
+
+## Persistence
+
+User-owned durable state is stored locally. Domain packages expose persistence
+contracts; `storage/sqlite/` implements those contracts with versioned
+migrations.
+
+Disposable runtime coordination state is kept separate from portable personal
+state where appropriate.
+
+## Security boundaries
+
+Security decisions are explicit architecture, not implementation detail:
+
+- remote inference requires explicit opt-in;
+- private grounding requires a separate opt-in for remote providers;
+- tool execution passes through deterministic policy;
+- model planning/memory extraction produce proposals, not automatic authority;
+- skill installation is non-executing;
+- executable skills run outside the Ally Core interpreter;
+- credentials remain outside ordinary configuration;
+- service health/readiness is read-only.
+
+See [Security Model](security-model.md) and the ADR log for exact decisions.
+
+## Initial runtime and interfaces
+
+The first implementation is Python 3.12. The primary executable interface is the
+`ally` CLI.
+
+A future web/desktop interface should call the same Core/runtime boundaries
+rather than move domain logic into presentation code.
 
 ## Repository strategy
 
 Ally begins as a monorepo. Components should only be split into independent
-repositories when independent release or ownership requirements justify it.
+repositories when independent release, ownership, or distribution requirements
+justify it.
