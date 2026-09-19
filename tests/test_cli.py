@@ -499,3 +499,56 @@ def test_service_cycle_parser_accepts_explicit_time_and_json() -> None:
     assert args.schedule_limit == 10
     assert args.delivery_limit == 5
     assert args.json_output is True
+
+
+def test_sources_poll_jsonl_parser_has_bounded_defaults() -> None:
+    args = build_parser().parse_args(
+        [
+            "sources",
+            "poll-jsonl",
+            "--source-id",
+            "synthetic.source",
+            "events.jsonl",
+        ]
+    )
+
+    assert args.command == "sources"
+    assert args.sources_command == "poll-jsonl"
+    assert args.source_id == "synthetic.source"
+    assert args.path == "events.jsonl"
+    assert args.limit == 100
+    assert args.at is None
+    assert args.json_output is False
+
+
+def test_sources_poll_jsonl_parser_accepts_explicit_time_and_json() -> None:
+    args = build_parser().parse_args(
+        [
+            "sources",
+            "poll-jsonl",
+            "--source-id",
+            "synthetic.source",
+            "events.jsonl",
+            "--limit",
+            "10",
+            "--at",
+            "2026-01-01T12:00:00+00:00",
+            "--json",
+        ]
+    )
+
+    assert args.limit == 10
+    assert args.at == "2026-01-01T12:00:00+00:00"
+    assert args.json_output is True
+
+
+def test_sources_checkpoint_parsers() -> None:
+    listing = build_parser().parse_args(["sources", "checkpoints"])
+    show = build_parser().parse_args(
+        ["sources", "checkpoint", "synthetic.source"]
+    )
+
+    assert listing.sources_command == "checkpoints"
+    assert listing.limit == 50
+    assert show.sources_command == "checkpoint"
+    assert show.source_id == "synthetic.source"

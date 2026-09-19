@@ -436,6 +436,42 @@ This is intentionally a one-shot operation. It does not sleep, loop,
 daemonize, or install operating-system services. Future `launchd`,
 `systemd`, or Windows service wrappers should invoke this same boundary.
 
+## External event sources
+
+External integrations observe changes and return bounded, validated observations
+through Ally's `EventSource` protocol. Ally owns event persistence, dedupe,
+attention policy, and source checkpoints.
+
+A local JSONL reference adapter is included for deterministic development:
+
+```json
+{"external_id":"obs-1","event_type":"synthetic.changed","importance":"important","payload":{"value":1}}
+```
+
+Poll it:
+
+```bash
+uv run ally sources poll-jsonl \
+  --source-id synthetic.source \
+  ./events.jsonl
+```
+
+Inspect persisted source state:
+
+```bash
+uv run ally sources checkpoints
+uv run ally sources checkpoint synthetic.source
+```
+
+Each observation has a stable external ID. Ally derives an event dedupe key from
+the source ID and external ID, then advances the source's opaque cursor only
+after returned observations have been published. If Ally stops between those
+steps, replay reuses the already-persisted events rather than duplicating them.
+
+The JSONL source is a development/reference adapter only. Future calendar,
+email, filesystem, weather, deployment, and device integrations should implement
+the same source boundary.
+
 ## Data portability
 
 Ally V1 backups are user-owned, versioned ZIP archives containing exactly:
