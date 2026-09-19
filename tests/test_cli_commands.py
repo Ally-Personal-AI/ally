@@ -293,6 +293,38 @@ def test_event_schedule_source_attention_and_service_commands(
         ["sources", "checkpoint", "synthetic.source"],
     )
 
+    watched = tmp_path / "watched"
+    watched.mkdir()
+    assert "Published: 0" in invoke(
+        capsys,
+        [
+            "sources",
+            "poll-filesystem",
+            "--source-id",
+            "files.watched",
+            str(watched),
+            "--importance",
+            "important",
+        ],
+    )
+    (watched / "new.txt").write_text("PRIVATE-CONTENT", encoding="utf-8")
+    filesystem_report = invoke(
+        capsys,
+        [
+            "sources",
+            "poll-filesystem",
+            "--source-id",
+            "files.watched",
+            str(watched),
+            "--importance",
+            "important",
+            "--json",
+        ],
+    )
+    assert '"event_type"' not in filesystem_report
+    assert '"type": "filesystem.created"' in filesystem_report
+    assert "PRIVATE-CONTENT" not in filesystem_report
+
     assert "No service leases." in invoke(capsys, ["service", "leases"])
     assert '"status": "succeeded"' in invoke(
         capsys,
