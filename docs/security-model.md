@@ -24,6 +24,16 @@ Future actions will be classified at minimum as:
 The policy engine, not a model prompt, is the final authority on whether an
 action may execute.
 
+The initial policy is intentionally conservative:
+
+- read-only: allowed
+- reversible: explicit approval required
+- externally consequential: explicit approval required
+- high consequence: denied
+
+Every attempted tool execution is written to a local append-only audit table,
+including unknown, denied, approval-required, failed, and successful attempts.
+
 ## Design requirements
 
 - least privilege

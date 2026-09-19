@@ -155,6 +155,30 @@ Current knowledge and active memories can both ground local chat through the sam
 
 For remote inference, `--allow-remote` permits the prompt/conversation to leave the machine, but private memory/document grounding remains disabled unless the separate `--allow-private-context-remote` flag is also supplied.
 
+## Permissioned tools
+
+Tools are explicit capabilities with a declared risk class. Every invocation goes through Ally's deterministic permission policy and is written to the local audit log.
+
+Inspect the default registry:
+
+```bash
+uv run ally tools list
+```
+
+Invoke the built-in read-only diagnostics tool:
+
+```bash
+uv run ally tools run system.info
+```
+
+Inspect recent attempts:
+
+```bash
+uv run ally tools audit
+```
+
+The initial policy allows read-only tools, requires explicit approval for reversible and externally consequential tools, and denies high-consequence tools. Models and future agents do not bypass this boundary.
+
 ## Personal data boundary
 
 Personal runtime data, memory databases, secrets, downloaded model weights, generated indexes, and private logs are deliberately kept outside the repository.
