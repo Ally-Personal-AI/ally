@@ -6,7 +6,14 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    TypeAdapter,
+    field_validator,
+    model_validator,
+)
 
 AttentionDeliveryStatus = Literal["succeeded", "failed"]
 AttentionSinkId = Annotated[
@@ -52,3 +59,14 @@ class AttentionDeliveryRecord(BaseModel):
         if value is None:
             return None
         return _require_aware(value)
+
+    @model_validator(mode="after")
+    def validate_status_state(self) -> AttentionDeliveryRecord:
+        if self.status == "succeeded":
+            if self.delivered_at is None:
+                raise ValueError("successful delivery requires delivered_at")
+            if self.last_error is not None:
+                raise ValueError("successful delivery cannot retain last_error")
+        elif self.delivered_at is not None:
+            raise ValueError("failed delivery cannot have delivered_at")
+        return self
