@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 
-from ally.memory import MemoryRecord, MemorySource
+from ally.memory import MemoryKind, MemoryRecord, MemorySource, NewMemory
 from ally.memory.retrieval import LexicalMemoryRetriever, MemoryContextProvider
 
 
@@ -9,29 +9,34 @@ class MemoryStoreStub:
     def __init__(self, memories: tuple[MemoryRecord, ...]) -> None:
         self._memories = memories
 
-    def create(self, memory):  # type: ignore[no-untyped-def]
+    def create(self, memory: NewMemory) -> MemoryRecord:
         raise NotImplementedError
 
-    def get(self, memory_id):  # type: ignore[no-untyped-def]
+    def get(self, memory_id: UUID) -> MemoryRecord | None:
         raise NotImplementedError
 
     def list(
         self,
         *,
-        as_of=None,  # type: ignore[no-untyped-def]
-        kind=None,  # type: ignore[no-untyped-def]
-        include_inactive=False,
-        limit=100,
-    ):  # type: ignore[no-untyped-def]
+        as_of: datetime | None = None,
+        kind: MemoryKind | None = None,
+        include_inactive: bool = False,
+        limit: int = 100,
+    ) -> tuple[MemoryRecord, ...]:
+        del as_of, kind, include_inactive
         return self._memories[:limit]
 
-    def search(self, query, *, limit=20):  # type: ignore[no-untyped-def]
+    def search(self, query: str, *, limit: int = 20) -> tuple[MemoryRecord, ...]:
         raise NotImplementedError
 
-    def supersede(self, memory_id, replacement):  # type: ignore[no-untyped-def]
+    def supersede(
+        self,
+        memory_id: UUID,
+        replacement: NewMemory,
+    ) -> tuple[MemoryRecord, MemoryRecord]:
         raise NotImplementedError
 
-    def retract(self, memory_id):  # type: ignore[no-untyped-def]
+    def retract(self, memory_id: UUID) -> MemoryRecord:
         raise NotImplementedError
 
 
