@@ -59,13 +59,14 @@ class RecordingStore:
         *,
         attentions: tuple[AttentionClass, ...],
         limit: int = 50,
+        offset: int = 0,
     ) -> tuple[EventRecord, ...]:
         records = [
             record
             for record in self.records
             if record.handled_at is None and record.attention in attentions
         ]
-        return tuple(records[:limit])
+        return tuple(records[offset : offset + limit])
 
     def mark_handled(self, event_id: UUID) -> EventRecord:
         raise NotImplementedError
