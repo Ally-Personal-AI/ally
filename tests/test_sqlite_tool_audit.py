@@ -1,3 +1,5 @@
+import pytest
+
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
@@ -35,9 +37,5 @@ def test_tool_audit_round_trips_locally(tmp_path: Path) -> None:
 def test_tool_audit_rejects_non_positive_limit(tmp_path: Path) -> None:
     store = SQLiteToolAuditStore(SQLiteDatabase(tmp_path / "ally.sqlite3"))
 
-    try:
+    with pytest.raises(ValueError, match="positive"):
         store.list(limit=0)
-    except ValueError as exc:
-        assert "positive" in str(exc)
-    else:
-        raise AssertionError("Expected ValueError")
