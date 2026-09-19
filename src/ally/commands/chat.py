@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from ally.commands._storage import build_conversation_store, build_memory_store
+from ally.commands._storage import (
+    build_conversation_store,
+    build_knowledge_store,
+    build_memory_store,
+)
+from ally.context import CompositeContextProvider
+from ally.knowledge.retrieval import KnowledgeContextProvider, LexicalKnowledgeRetriever
 from ally.memory.retrieval import LexicalMemoryRetriever, MemoryContextProvider
 from ally.models.errors import ModelProviderError
 from ally.models.providers import OpenAICompatibleProvider
@@ -40,8 +46,13 @@ def run_chat(
     try:
         conversation_store = build_conversation_store()
         memory_store = build_memory_store()
-        context_provider = MemoryContextProvider(
-            LexicalMemoryRetriever(memory_store)
+        knowledge_store = build_knowledge_store()
+        context_provider = CompositeContextProvider(
+            (
+                MemoryContextProvider(LexicalMemoryRetriever(memory_store)),
+                KnowledgeContextProvider(LexicalKnowledgeRetriever(knowledge_store)),
+            ),
+            limit=12,
         )
         identifier = _parse_conversation_id(conversation_id)
 
