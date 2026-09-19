@@ -49,8 +49,9 @@ Source failures do not advance the checkpoint.
 ## Reference implementation
 
 A local JSONL source is provided only as a deterministic development/reference
-adapter. It reads explicit files and uses the consumed physical line count as
-its opaque cursor.
+adapter. It treats the explicit file as append-only test data and uses the
+consumed physical line count as its opaque cursor. It rejects a cursor beyond a
+truncated file but does not attempt to detect edits to already-consumed lines.
 
 It executes no file content.
 
