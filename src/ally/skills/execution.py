@@ -13,8 +13,6 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import BinaryIO
-from uuid import UUID
-
 from pydantic import JsonValue, ValidationError
 
 from ally.skills.audit import SkillExecutionAuditStore
