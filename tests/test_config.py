@@ -20,14 +20,12 @@ def test_colliding_platform_paths_are_namespaced(
     tmp_path: Path,
 ) -> None:
     shared = tmp_path / "Application Support" / "Ally"
-    monkeypatch.setattr(
-        "ally.config.user_config_dir",
-        lambda *_args: str(shared),
-    )
-    monkeypatch.setattr(
-        "ally.config.user_data_dir",
-        lambda *_args: str(shared),
-    )
+
+    def shared_dir(*_args: object, **_kwargs: object) -> str:
+        return str(shared)
+
+    monkeypatch.setattr("ally.config.user_config_dir", shared_dir)
+    monkeypatch.setattr("ally.config.user_data_dir", shared_dir)
 
     paths = default_paths()
 
