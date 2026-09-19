@@ -434,4 +434,51 @@ MIGRATIONS: tuple[Migration, ...] = (
             """,
         ),
     ),
+    Migration(
+        version=10,
+        name="service_cycle_runs_v1",
+        statements=(
+            """
+            CREATE TABLE service_cycle_runs (
+                id TEXT PRIMARY KEY,
+                status TEXT NOT NULL
+                    CHECK (
+                        status IN (
+                            'running',
+                            'succeeded',
+                            'degraded',
+                            'failed',
+                            'interrupted'
+                        )
+                    ),
+                observed_at TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                finished_at TEXT,
+                scheduled_events INTEGER NOT NULL DEFAULT 0
+                    CHECK (scheduled_events >= 0),
+                delivery_attempts INTEGER NOT NULL DEFAULT 0
+                    CHECK (delivery_attempts >= 0),
+                delivery_failures INTEGER NOT NULL DEFAULT 0
+                    CHECK (
+                        delivery_failures >= 0
+                        AND delivery_failures <= delivery_attempts
+                    ),
+                error_class TEXT
+            )
+            """,
+            """
+            CREATE UNIQUE INDEX idx_service_cycle_single_running
+            ON service_cycle_runs(status)
+            WHERE status = 'running'
+            """,
+            """
+            CREATE INDEX idx_service_cycle_started
+            ON service_cycle_runs(started_at DESC)
+            """,
+            """
+            CREATE INDEX idx_service_cycle_status_started
+            ON service_cycle_runs(status, started_at DESC)
+            """,
+        ),
+    ),
 )
