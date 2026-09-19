@@ -184,9 +184,12 @@ class SQLiteEventStore:
         *,
         attentions: tuple[AttentionClass, ...],
         limit: int = 50,
+        offset: int = 0,
     ) -> tuple[EventRecord, ...]:
         if limit < 1:
             raise ValueError("limit must be positive")
+        if offset < 0:
+            raise ValueError("offset cannot be negative")
         if not attentions:
             return ()
 
@@ -214,9 +217,9 @@ class SQLiteEventStore:
                 END,
                 created_at ASC,
                 id ASC
-            LIMIT ?
+            LIMIT ? OFFSET ?
         """
-        params: tuple[object, ...] = (*attentions, limit)
+        params: tuple[object, ...] = (*attentions, limit, offset)
 
         with self._database.connect() as connection:
             rows = cast(
