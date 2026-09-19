@@ -14,6 +14,7 @@ from ally.diagnostics.hardware import HardwareProfile, collect_hardware_profile
 from ally.evals import EvalSummary, EvaluationRunner, EvaluatorRegistry
 from ally.evals.builtin import register_builtin_evaluators
 from ally.evals.loader import load_eval_cases
+from ally.evals.planning import TaskPlanProposalEvaluator
 from ally.evals.provider import ProviderResponseEvaluator
 from ally.models import ModelProvider
 
@@ -50,6 +51,7 @@ def _provider_summary(
     registry = EvaluatorRegistry()
     register_builtin_evaluators(registry)
     registry.register(ProviderResponseEvaluator(provider))
+    registry.register(TaskPlanProposalEvaluator(provider))
     return EvaluationRunner(registry).run(load_eval_cases(case_file))
 
 

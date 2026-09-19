@@ -18,8 +18,13 @@ goal
 
 ## Current implementation
 
-A `TaskPlan` contains a goal and ordered tool steps. Plans can currently be
-created from explicit JSON. Model-based planning is deliberately deferred.
+A `TaskPlan` contains a goal and ordered tool steps. Plans can be created from
+explicit JSON or proposed by a model through `ModelTaskPlanner`.
+
+Model planning is a proposal boundary only. The planner receives an explicit
+goal and explicit tool specifications, returns strict JSON, validates it as a
+`TaskPlan`, requires exact goal preservation, and rejects undeclared tool
+names. It does not persist the plan and does not call any tool.
 
 Task and step state live in SQLite behind the `TaskStore` contract. Tasks can
 therefore survive process restarts.
