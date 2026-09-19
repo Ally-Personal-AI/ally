@@ -68,7 +68,7 @@ def build_runtime(
 
 
 def write_jsonl(path: Path, count: int) -> None:
-    lines = []
+    lines: list[str] = []
     for index in range(count):
         lines.append(
             json.dumps(
