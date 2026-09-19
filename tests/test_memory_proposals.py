@@ -3,7 +3,7 @@ import hashlib
 import pytest
 
 from ally.memory import MemorySource
-from ally.memory.proposals import ModelMemoryProposer, MemoryProposalError
+from ally.memory.proposals import MemoryProposalError, ModelMemoryProposer
 from ally.models import ChatRequest, ChatResponse
 
 
