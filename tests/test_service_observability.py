@@ -316,3 +316,40 @@ def test_health_does_not_mutate_uninitialized_sqlite_file(
     finally:
         connection.close()
     assert tables == []
+
+
+def test_invalid_terminal_metrics_do_not_mutate_running_cycle(
+    tmp_path: Path,
+) -> None:
+    store = SQLiteServiceCycleRunStore(
+        SQLiteDatabase(tmp_path / "ally.sqlite3")
+    )
+    started = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    run = store.start(observed_at=started, started_at=started)
+
+    with pytest.raises(
+        ValueError,
+        match="successful service cycle cannot have delivery failures",
+    ):
+        store.finish(
+            run.id,
+            status="succeeded",
+            finished_at=started + timedelta(seconds=1),
+            delivery_attempts=1,
+            delivery_failures=1,
+        )
+
+    assert store.get(run.id) == run
+
+
+def test_stale_recovery_rejects_inverted_time_window(tmp_path: Path) -> None:
+    store = SQLiteServiceCycleRunStore(
+        SQLiteDatabase(tmp_path / "ally.sqlite3")
+    )
+    cutoff = datetime(2026, 1, 1, 13, 0, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match="cannot precede cutoff"):
+        store.recover_stale(
+            before=cutoff,
+            finished_at=cutoff - timedelta(seconds=1),
+        )
