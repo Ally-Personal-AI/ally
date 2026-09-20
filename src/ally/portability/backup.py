@@ -9,15 +9,15 @@ import sqlite3
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal
 from uuid import uuid4
 from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from ally import __version__
-from ally.storage.sqlite.database import SQLiteDatabase
-from ally.storage.sqlite.schema import MIGRATIONS
+from ally.storage.errors import DatabaseMigrationError
+from ally.storage.sqlite.database import SQLiteDatabase, read_schema_versions
 
 _MANIFEST_NAME = "manifest.json"
 _DATABASE_NAME = "ally.sqlite3"
@@ -58,35 +58,58 @@ def _sha256(path: Path) -> str:
 
 
 def _schema_versions(path: Path) -> tuple[int, ...]:
-    connection = sqlite3.connect(path)
+    connection = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
     try:
-        rows = connection.execute(
-            "SELECT version FROM ally_schema_migrations ORDER BY version"
-        ).fetchall()
-    except sqlite3.DatabaseError as exc:
+        return read_schema_versions(connection)
+    except (sqlite3.DatabaseError, DatabaseMigrationError) as exc:
         raise BackupValidationError(
-            "database is missing valid Ally schema metadata"
+            "database is missing valid or supported Ally schema metadata"
         ) from exc
     finally:
         connection.close()
 
-    return tuple(cast(int, row[0]) for row in rows)
-
 
 def _check_sqlite_integrity(path: Path) -> None:
-    connection = sqlite3.connect(path)
+    connection = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
     try:
         row = connection.execute("PRAGMA integrity_check").fetchone()
+        foreign_key_error = connection.execute("PRAGMA foreign_key_check").fetchone()
     except sqlite3.DatabaseError as exc:
         raise BackupValidationError("SQLite integrity check failed") from exc
     finally:
         connection.close()
 
     if row is None or row[0] != "ok":
-        detail = None if row is None else row[0]
-        raise BackupValidationError(
-            f"SQLite integrity check did not pass: {detail!r}"
-        )
+        raise BackupValidationError("SQLite integrity check did not pass")
+    if foreign_key_error is not None:
+        raise BackupValidationError("SQLite foreign-key integrity check did not pass")
+
+
+def _new_destination(path: Path, kind: str) -> Path:
+    expanded = path.expanduser()
+    # Resolve the parent only: even a dangling destination symlink is occupied.
+    resolved = expanded.parent.resolve() / expanded.name
+    if resolved.exists() or resolved.is_symlink():
+        raise FileExistsError(f"refusing to overwrite existing {kind}: {resolved}")
+    if kind == "database":
+        for suffix in ("-wal", "-shm", "-journal"):
+            sidecar = resolved.with_name(resolved.name + suffix)
+            if sidecar.exists() or sidecar.is_symlink():
+                raise FileExistsError("refusing database destination with existing SQLite sidecars")
+    return resolved
+
+
+def _publish_new_file(staged: Path, destination: Path, kind: str) -> None:
+    """Atomically create a destination name without replacing another writer's file."""
+
+    try:
+        # Both paths have the same parent/filesystem. Unsupported hard links fail
+        # closed; copying or replacing would weaken the no-overwrite guarantee.
+        os.link(staged, destination)
+    except FileExistsError as exc:
+        raise FileExistsError(
+            f"refusing to overwrite existing {kind}: {destination}"
+        ) from exc
 
 
 def _snapshot_database(database: SQLiteDatabase, destination: Path) -> None:
@@ -110,12 +133,10 @@ def create_backup(
 ) -> BackupManifest:
     """Create an atomic versioned archive containing only Ally database state."""
 
-    resolved = destination.expanduser().resolve()
     source_path = database.path.expanduser().resolve()
-    if resolved == source_path:
+    if destination.expanduser().resolve() == source_path:
         raise ValueError("backup destination cannot be the live database path")
-    if resolved.exists():
-        raise FileExistsError(f"refusing to overwrite existing backup: {resolved}")
+    resolved = _new_destination(destination, "backup")
 
     resolved.parent.mkdir(parents=True, exist_ok=True)
 
@@ -155,7 +176,7 @@ def create_backup(
             ) as archive:
                 archive.write(manifest_path, arcname=_MANIFEST_NAME)
                 archive.write(snapshot, arcname=_DATABASE_NAME)
-            os.replace(temporary_archive, resolved)
+            _publish_new_file(temporary_archive, resolved, "backup")
         finally:
             temporary_archive.unlink(missing_ok=True)
 
@@ -200,13 +221,6 @@ def _read_archive(
             "database schema versions do not match manifest"
         )
 
-    supported_versions = tuple(migration.version for migration in MIGRATIONS)
-    expected_prefix = supported_versions[: len(actual_versions)]
-    if actual_versions != expected_prefix:
-        raise BackupValidationError(
-            "backup database schema history is not a supported migration prefix"
-        )
-
     return manifest, snapshot
 
 
@@ -226,12 +240,7 @@ def restore_backup(
     """Restore an archive into a database path that does not already exist."""
 
     resolved_archive = archive_path.expanduser().resolve()
-    resolved_destination = destination.expanduser().resolve()
-
-    if resolved_destination.exists():
-        raise FileExistsError(
-            f"refusing to overwrite existing database: {resolved_destination}"
-        )
+    resolved_destination = _new_destination(destination, "database")
 
     resolved_destination.parent.mkdir(parents=True, exist_ok=True)
 
@@ -247,9 +256,14 @@ def restore_backup(
         try:
             staged.write_bytes(snapshot.read_bytes())
             database = SQLiteDatabase(staged)
-            database.migrate()
+            try:
+                database.migrate()
+            except DatabaseMigrationError as exc:
+                raise BackupValidationError(
+                    "backup database could not be upgraded; destination was not created"
+                ) from exc
             _check_sqlite_integrity(staged)
-            os.replace(staged, resolved_destination)
+            _publish_new_file(staged, resolved_destination, "database")
         finally:
             staged.unlink(missing_ok=True)
 
