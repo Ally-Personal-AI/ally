@@ -9,6 +9,7 @@ HTTP, persistence, policy, and backup code all come from the installed wheel.
 from __future__ import annotations
 
 import json
+import plistlib
 import re
 import subprocess
 import sys
@@ -165,6 +166,13 @@ def run_workflows(root: Path) -> None:
     require(cycle["run"]["status"] == "succeeded", "bounded service cycle")
     health = json.loads(cli("service", "health", "--json"))
     require(health["status"] == "healthy", "service health")
+    launch_agent = plistlib.loads(cli("service", "managed", "inspect").encode())
+    require(
+        launch_agent["ProgramArguments"][2:] == [
+            "ally.cli", "service", "cycle", "--json",
+        ],
+        "managed-service definition",
+    )
 
     # Installed child-worker loading must work without an editable source path.
     skill = root / "skill"
@@ -201,7 +209,7 @@ def run_workflows(root: Path) -> None:
         "restored conversation turns",
     )
     print("Installed workflows passed: evals, chat/resume, memory, knowledge, tasks,")
-    print("service health, skill worker, and backup/restore.")
+    print("service health, managed-service inspection, skill worker, and backup/restore.")
 
 
 def main() -> int:

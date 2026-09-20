@@ -17,7 +17,7 @@ implementation of an earlier one.
 | Model plan proposals | Implemented boundary | strict TaskPlan proposals; no persistence or execution authority |
 | Model memory proposals | Implemented boundary | reviewable extraction bundles; explicit selected acceptance only |
 | Dedicated-hardware validation | Ready to run | versioned runtime/model evidence, neutral comparison, and first-machine runbook |
-| Proactivity | Implemented substrate + first real source | persisted events, deterministic attention, scheduling, delivery, restart-safe sources, bounded metadata-only filesystem observation, lease-protected cycle, portable lifecycle, structured read-only readiness |
+| Proactivity | Implemented substrate + macOS service adapter; machine acceptance pending | persisted events, deterministic attention, scheduling, delivery, restart-safe sources, bounded metadata-only filesystem observation, lease-protected cycle, portable lifecycle, structured read-only readiness, opt-in deterministic launch agent |
 | Voice | Not started | local ASR/TTS and conversational voice |
 | Multi-user households | Not started | identities, shared/private state, permissions |
 | Extension ecosystem | Implemented local foundation | local lifecycle + isolated execution; signing, mediated tool requests, and registry deferred |
@@ -60,6 +60,12 @@ Recovery tests cover every existing schema prefix, atomic rollback, simultaneous
 startup, invalid history, foreign-key corruption, and backup/restore destination
 collisions. These checks protect persistent state before first-machine usage.
 
+The macOS managed-service definition and lifecycle are testable without the
+dedicated machine. Installation remains disabled by default, Linux inspection
+is non-mutating, and mocked launchd tests cover install/start/stop/uninstall,
+idempotency, rollback, races, and definition ownership. Real login and restart
+acceptance remains hardware-gated.
+
 These controls keep the first-machine evidence comparable over time: a model or
 runtime comparison should not silently change because unrelated dependencies
 floated between runs.
@@ -90,7 +96,7 @@ After hardware/runtime validation:
 2. decide whether direct MLX or other hardware-specific adapters are justified;
 3. calibrate planning and memory proposal quality thresholds;
 4. upgrade retrieval/embeddings only where measured need justifies it;
-5. add calendar/email/weather source adapters, thin OS service wrappers, and platform notification sinks on the persisted proactivity substrate;
+5. validate the macOS service wrapper and add calendar/email/weather source adapters plus platform notification sinks on the persisted proactivity substrate;
 6. add voice;
 7. add multi-user household boundaries;
 8. add skill signing and remote registry on top of the local installation boundary;

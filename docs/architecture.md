@@ -66,6 +66,8 @@ Some packages intentionally sit at the edge of Core:
 - `commands/` assembles dependencies for human-facing operations;
 - `diagnostics/` inspects physical runtime state read-only;
 - `portability/` moves/validates the concrete user-owned database;
+- `service/macos_launchd.py` is an opt-in OS composition adapter around the
+  bounded service command;
 - `storage/` contains concrete persistence implementations.
 
 Those edges may know about SQLite. Domain/runtime packages should depend on

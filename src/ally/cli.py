@@ -36,6 +36,7 @@ from ally.commands.knowledge import (
     run_search_knowledge,
     run_show_knowledge_source,
 )
+from ally.commands.managed_service import run_managed_service
 from ally.commands.memory import (
     run_list_memories,
     run_remember,
@@ -578,6 +579,22 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         dest="json_output",
     )
+
+    managed_service = service_commands.add_parser(
+        "managed",
+        help="Inspect or manage the opt-in macOS launch agent.",
+    )
+    managed_commands = managed_service.add_subparsers(dest="managed_service_command")
+    managed_commands.add_parser(
+        "inspect",
+        help="Print the deterministic launch-agent definition without installing it.",
+    )
+    for action in ("status", "install", "start", "stop", "uninstall"):
+        managed_action = managed_commands.add_parser(
+            action,
+            help=f"{action.capitalize()} the macOS launch agent.",
+        )
+        managed_action.add_argument("--json", action="store_true", dest="json_output")
 
     schedules = subcommands.add_parser(
         "schedules",
@@ -1123,6 +1140,11 @@ def _run_command(argv: Sequence[str] | None) -> int:
         if args.service_command == "health":
             return run_service_health(
                 json_output=cast(bool, args.json_output),
+            )
+        if args.service_command == "managed" and args.managed_service_command is not None:
+            return run_managed_service(
+                action=cast(str, args.managed_service_command),
+                json_output=cast(bool, getattr(args, "json_output", False)),
             )
 
     if args.command == "schedules":

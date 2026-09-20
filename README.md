@@ -483,9 +483,40 @@ Lease coordination lives under `<data-dir>/runtime/service.sqlite3`, separate
 from personal state in `ally.sqlite3`, and is intentionally excluded from
 backup V1.
 
-This is still a one-shot operation. It does not sleep, loop, daemonize, or
-install operating-system services. Future `launchd`, `systemd`, or Windows
-service wrappers should invoke this same boundary.
+This is still a one-shot operation. It does not sleep, loop, or daemonize.
+Ally's optional macOS launch agent invokes this same bounded boundary; other OS
+service wrappers are not implemented.
+
+## Opt-in macOS managed service
+
+Inspect the exact launch-agent definition without installing anything (this is
+safe on every platform):
+
+```bash
+uv run ally service managed inspect
+```
+
+On macOS, installation is an explicit user action:
+
+```bash
+uv run ally service managed install
+uv run ally service managed status --json
+```
+
+The agent runs `ally service cycle --json` once per minute and at login. It uses
+the current absolute Python interpreter path, writes only stdout/stderr logs
+under Ally's data directory, and never invokes a shell. Ally will not replace a
+different or modified plist at the same path.
+
+```bash
+uv run ally service managed stop
+uv run ally service managed start
+uv run ally service managed uninstall
+```
+
+Merely installing Ally never installs or enables this agent. Dedicated-machine
+login, restart, failure-recovery, and log-retention acceptance remain part of
+the hardware handoff. See [Managed macOS Service](docs/macos-managed-service.md).
 
 ## Service lifecycle and health
 
