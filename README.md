@@ -606,6 +606,11 @@ uv run ally data restore backups/ally-2026-09-19.ally-backup \
 
 Archives record the Ally version, database schema history, byte size, and SHA-256 digest. Validation also runs SQLite integrity checks. Backup and restore refuse to overwrite existing files.
 
+Upgrades are atomic and reject incompatible migration history. Restore validates
+foreign keys and upgrades a staged copy before creating a new destination, with
+protection against competing writers and symbolic links. See the
+[database recovery runbook](docs/database-recovery.md) before upgrading or restoring.
+
 Backup V1 includes user-owned SQLite state, including portable service lifecycle
 history. It deliberately excludes the disposable runtime lease database, model
 weights, caches, configuration, logs, and secrets.

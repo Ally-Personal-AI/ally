@@ -9,7 +9,26 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
+from ally.storage.errors import DatabaseMigrationError
 from ally.storage.sqlite.schema import MIGRATIONS
+
+
+def read_schema_versions(connection: sqlite3.Connection) -> tuple[int, ...]:
+    """Require recorded versions and names to be a supported migration prefix."""
+
+    rows = cast(
+        list[tuple[int, str]],
+        connection.execute(
+            "SELECT version, name FROM ally_schema_migrations ORDER BY version"
+        ).fetchall(),
+    )
+    expected = tuple((migration.version, migration.name) for migration in MIGRATIONS)
+    if tuple(rows) != expected[: len(rows)]:
+        raise DatabaseMigrationError(
+            "Database migration history is not supported by this Ally version. "
+            "Use a compatible version or restore a validated backup to a new path."
+        )
+    return tuple(row[0] for row in rows)
 
 
 class SQLiteDatabase:
@@ -21,7 +40,11 @@ class SQLiteDatabase:
     @contextmanager
     def connect(self) -> Generator[sqlite3.Connection, None, None]:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        connection = sqlite3.connect(self.path)
+        # CPython accepts this sentinel; the current sqlite3 stub types it as bool only.
+        connection = sqlite3.connect(
+            self.path,
+            autocommit=sqlite3.LEGACY_TRANSACTION_CONTROL,  # pyright: ignore[reportArgumentType]
+        )
         connection.execute("PRAGMA foreign_keys = ON")
         try:
             yield connection
@@ -33,37 +56,50 @@ class SQLiteDatabase:
             connection.close()
 
     def migrate(self) -> None:
-        with self.connect() as connection:
-            connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS ally_schema_migrations (
-                    version INTEGER PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    applied_at TEXT NOT NULL
-                )
-                """
-            )
-            rows = cast(
-                list[tuple[int]],
-                connection.execute(
-                    "SELECT version FROM ally_schema_migrations ORDER BY version"
-                ).fetchall(),
-            )
-            applied = {row[0] for row in rows}
+        """Commit all pending migrations together, after acquiring the writer lock."""
 
-            for migration in MIGRATIONS:
-                if migration.version in applied:
-                    continue
-                for statement in migration.statements:
-                    connection.execute(statement)
+        try:
+            with self.connect() as connection:
+                # DDL is not implicitly transactional in sqlite3's legacy mode.
+                # Lock before reading history so concurrent starters see a fresh prefix.
+                connection.execute("BEGIN IMMEDIATE")
+                has_history = connection.execute(
+                    "SELECT 1 FROM sqlite_schema "
+                    "WHERE type = 'table' AND name = 'ally_schema_migrations'"
+                ).fetchone() is not None
+                if not has_history and connection.execute(
+                    "SELECT 1 FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*' LIMIT 1"
+                ).fetchone() is not None:
+                    raise DatabaseMigrationError(
+                        "Database contains objects without Ally migration history. "
+                        "Preserve the database and restore a validated backup to a new path."
+                    )
                 connection.execute(
                     """
-                    INSERT INTO ally_schema_migrations(version, name, applied_at)
-                    VALUES (?, ?, ?)
-                    """,
-                    (
-                        migration.version,
-                        migration.name,
-                        datetime.now(UTC).isoformat(),
-                    ),
+                    CREATE TABLE IF NOT EXISTS ally_schema_migrations (
+                        version INTEGER PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        applied_at TEXT NOT NULL
+                    )
+                    """
                 )
+                applied = read_schema_versions(connection)
+                for migration in MIGRATIONS[len(applied):]:
+                    for statement in migration.statements:
+                        connection.execute(statement)
+                    connection.execute(
+                        """
+                        INSERT INTO ally_schema_migrations(version, name, applied_at)
+                        VALUES (?, ?, ?)
+                        """,
+                        (
+                            migration.version,
+                            migration.name,
+                            datetime.now(UTC).isoformat(),
+                        ),
+                    )
+        except sqlite3.DatabaseError as exc:
+            raise DatabaseMigrationError(
+                "Database upgrade failed; no migration changes were committed. "
+                "Check database access and other running Ally processes before retrying."
+            ) from exc

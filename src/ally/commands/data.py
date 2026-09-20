@@ -22,7 +22,7 @@ def _print_manifest_summary(path: Path, *, ally_version: str, versions: tuple[in
 
 
 def run_data_backup(*, output: str) -> int:
-    destination = Path(output).expanduser().resolve()
+    destination = Path(output).expanduser().absolute()
     try:
         manifest = create_backup(build_database(), destination)
     except (BackupValidationError, FileExistsError, OSError, ValueError) as exc:
@@ -63,7 +63,7 @@ def run_restore_backup(
     destination_path = (
         default_database_path()
         if destination is None
-        else Path(destination).expanduser().resolve()
+        else Path(destination).expanduser().absolute()
     )
 
     try:

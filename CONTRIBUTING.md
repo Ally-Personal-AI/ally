@@ -121,6 +121,18 @@ The `.gitignore` exceptions for `src/ally/models/`, `src/ally/runtime/`, and
 private-data exclusions; removing the source exceptions silently drops code
 from release archives even when editable development installs work.
 
+## Database changes
+
+Existing migrations in `src/ally/storage/sqlite/schema.py` are append-only. Add the
+next consecutive migration instead of editing one that has already reached main.
+Migration statements must not commit or manage transactions; `SQLiteDatabase`
+owns that boundary.
+`tests/test_database_recovery.py` pins historical definitions and exercises every
+supported prefix, rollback after failed DDL, concurrent startup, and restore
+publication. Do not regenerate historical fingerprints to make a changed migration
+pass. See [database recovery](docs/database-recovery.md) and
+[ADR 0029](docs/adr/0029-atomic-database-recovery.md).
+
 ## Pull requests
 
 - Keep changes focused.

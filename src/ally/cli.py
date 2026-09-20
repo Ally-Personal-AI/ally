@@ -112,6 +112,7 @@ from ally.memory import (
     MemoryPrivacy,
     MemorySourceType,
 )
+from ally.storage.errors import DatabaseMigrationError
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -898,6 +899,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    try:
+        return _run_command(argv)
+    except DatabaseMigrationError as exc:
+        print(f"Database error: {exc}")
+        return 2
+
+
+def _run_command(argv: Sequence[str] | None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 

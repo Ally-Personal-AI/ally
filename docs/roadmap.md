@@ -56,6 +56,10 @@ modules and frozen evaluations, and exercise installed workflows in a fresh
 environment outside the checkout. Synthetic loopback inference, persisted state,
 skill subprocesses, and backup/restore can be verified before hardware arrives.
 
+Recovery tests cover every existing schema prefix, atomic rollback, simultaneous
+startup, invalid history, foreign-key corruption, and backup/restore destination
+collisions. These checks protect persistent state before first-machine usage.
+
 These controls keep the first-machine evidence comparable over time: a model or
 runtime comparison should not silently change because unrelated dependencies
 floated between runs.
