@@ -67,7 +67,7 @@ def test_environment_configuration_evals_and_hardware_commands(
 
     summary = invoke(
         capsys,
-        ["eval", "run", "evals/cases/core.jsonl", "--json"],
+        ["eval", "run", "--json"],
     )
     assert '"failed": 0' in summary
 

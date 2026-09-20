@@ -20,6 +20,7 @@ from ally.diagnostics import (
     run_local_model_validation,
     write_validation_report,
 )
+from ally.evals.resources import evaluation_case_file
 from ally.models.errors import ModelProviderError
 from ally.models.providers import OpenAICompatibleProvider
 
@@ -72,8 +73,8 @@ def run_local_model_validation_command(
     maximum_tested_context_tokens: int | None,
     memory_pressure: str,
     thermal_state: str,
-    core_case_file: str,
-    provider_case_file: str,
+    core_case_file: str | None,
+    provider_case_file: str | None,
     output: str,
 ) -> int:
     try:
@@ -99,19 +100,23 @@ def run_local_model_validation_command(
                 "thermal_state": thermal_state,
             }
         )
-        with OpenAICompatibleProvider(
-            base_url=endpoint,
-            model=model,
-            allow_remote=False,
-        ) as provider:
+        with (
+            evaluation_case_file("core", core_case_file) as core_path,
+            evaluation_case_file("provider-smoke", provider_case_file) as provider_path,
+            OpenAICompatibleProvider(
+                base_url=endpoint,
+                model=model,
+                allow_remote=False,
+            ) as provider,
+        ):
             report = run_local_model_validation(
                 provider=provider,
                 endpoint=endpoint,
                 model=model,
                 runtime=runtime,
                 observations=observations,
-                core_case_file=Path(core_case_file),
-                provider_case_file=Path(provider_case_file),
+                core_case_file=core_path,
+                provider_case_file=provider_path,
             )
         destination = write_validation_report(report, Path(output))
     except ValidationError:

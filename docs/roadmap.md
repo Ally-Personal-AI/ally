@@ -51,6 +51,11 @@ installs only that locked graph on Linux and macOS, enforces a project-wide
 coverage regression floor, and groups weekly Python and GitHub Actions updates
 for review.
 
+Distribution gates on both platforms build an sdist and wheel, check packaged
+modules and frozen evaluations, and exercise installed workflows in a fresh
+environment outside the checkout. Synthetic loopback inference, persisted state,
+skill subprocesses, and backup/restore can be verified before hardware arrives.
+
 These controls keep the first-machine evidence comparable over time: a model or
 runtime comparison should not silently change because unrelated dependencies
 floated between runs.

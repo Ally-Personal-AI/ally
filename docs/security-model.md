@@ -36,6 +36,14 @@ evidence.
 
 Backup V1 excludes both ordinary config and secret material.
 
+## Inference transport
+
+Inference endpoints are loopback-only unless explicitly allowed otherwise.
+The HTTP adapter ignores inherited proxy and certificate environment settings;
+shell configuration cannot silently forward local prompts through a proxy.
+TLS uses the HTTP client's default certificate verification. Installed-package
+CI exercises real loopback requests with proxy variables deliberately present.
+
 ## Validation evidence
 
 Local-model validation artifacts contain only synthetic evaluation results,

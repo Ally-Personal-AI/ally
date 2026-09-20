@@ -63,6 +63,8 @@ class OpenAICompatibleProvider:
             timeout=timeout_seconds,
             headers=headers,
             transport=transport,
+            # Ambient proxies must not route local prompts off the machine.
+            trust_env=False,
         )
 
     @property
