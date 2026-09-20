@@ -23,6 +23,11 @@ Reports reject unknown top-level fields, inconsistent evaluation counts,
 timestamps without a timezone, unsupported schema versions, and malformed
 runtime metadata. Existing artifacts are never overwritten.
 
+The frozen core and provider suites ship inside the installed package, so the
+defaults work outside a source checkout. Use `--core-cases` or `--provider-cases`
+only for explicit custom files. Fingerprints describe the actual files used;
+relocating the bundled fixtures does not change their content or fingerprints.
+
 Runtime parameters use repeated `NAME=VALUE` arguments. Names that identify
 common credential material are rejected. Do not record credentials, private
 paths, personal data, private model repository URLs, or arbitrary command

@@ -24,7 +24,7 @@ uv run ally doctor
 uv run ruff check .
 uv run pyright
 uv run pytest
-uv run ally eval run evals/cases/core.jsonl
+uv run ally eval run
 ```
 
 ## Reproducible dependencies
@@ -36,8 +36,8 @@ CI and first-machine validation.
 - If `pyproject.toml` changes dependencies, run `uv lock` and commit the
   resulting lockfile change in the same pull request.
 - Do not hand-edit `uv.lock`.
-- Dependency update pull requests must pass both Linux quality CI and macOS
-  portability CI before merge.
+- Dependency update pull requests must pass Linux quality, macOS portability,
+  and both distribution jobs before merge.
 
 ## Package placement
 
@@ -60,12 +60,16 @@ and record the reason in an ADR rather than adding a one-off test exception.
 
 The primary Ubuntu job runs lint, strict typing, coverage tests with an 80%
 minimum project-wide coverage gate, and the frozen behavioral evaluation suite.
-Both CI jobs install the exact committed dependency graph with
+All CI jobs install the exact committed dependency graph with
 `uv sync --locked`.
 
 A separate macOS smoke job installs the project, runs the full test suite, and
 runs the same frozen core evaluations. It exists to catch operating-system
 portability regressions without duplicating coverage/lint/type work.
+
+Linux and macOS distribution jobs also build and install the actual package
+and exercise synthetic workflows outside the checkout. See below for the
+same check locally.
 
 Passing macOS CI does not replace the dedicated Apple Silicon validation
 runbook or provide evidence about local-model performance.
@@ -82,6 +86,40 @@ uv run zizmor --offline --strict-collection .github
 ```
 
 See [Security Policy](SECURITY.md) for finding triage and exception rules.
+
+## Clean-install verification
+
+Run this before changing packaging, bundled resources, or installed command
+behavior:
+
+```bash
+uv run --locked --group build python scripts/check_distribution.py
+```
+
+The check builds an sdist, builds a wheel from that sdist, verifies that every
+source module and frozen JSONL fixture is present, and installs the wheel in a
+fresh temporary environment. The build backend comes from the locked `build`
+dependency group. Runtime dependencies are exported from `uv.lock` and installed
+with required hashes; the fresh environment contains no development/build tools.
+
+From a temporary directory outside the checkout, an isolated Python interpreter
+tests the installed console entry point, bundled evaluations, chat/resume over
+real loopback HTTP, persistent memory and knowledge, read-only tasks, service
+health, a skill subprocess, and backup/restore. Proxy environment settings are
+deliberately present to check that local inference stays local. Stateful CLI
+commands run in separate processes; only OS application-directory discovery is
+redirected to temporary synthetic state on both platforms. No real Ally data or
+Keychain entries are read or changed.
+
+Downloads require package-index access; inference uses a synthetic local server.
+Temporary installations, data, and archives are removed when the check exits.
+This verifies distribution and integration behavior, not model quality or
+dedicated-hardware performance.
+
+The `.gitignore` exceptions for `src/ally/models/`, `src/ally/runtime/`, and
+`src/ally/secrets/` are intentional: these are source packages. Keep the broader
+private-data exclusions; removing the source exceptions silently drops code
+from release archives even when editable development installs work.
 
 ## Pull requests
 

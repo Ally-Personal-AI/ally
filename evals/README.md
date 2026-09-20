@@ -7,10 +7,14 @@ Ally treats evaluations as a first-class product subsystem.
 The frozen deterministic suite runs in CI:
 
 ```bash
-uv run ally eval run evals/cases/core.jsonl
+uv run ally eval run
 ```
 
 Use `--json` for machine-readable output.
+
+Frozen cases live in `src/ally/evals/cases/` and ship with the installed package.
+Defaults are independent of the current working directory. Pass an explicit
+JSONL path to run a custom suite: `ally eval run /path/to/custom.jsonl`.
 
 Current core categories cover:
 
@@ -23,14 +27,17 @@ These cases require no model, GPU, network service, or personal data.
 
 ## Provider smoke suite
 
-The provider suite is ready for real local-model validation but is not a CI gate:
+The provider suite is ready for real local-model validation:
 
 ```bash
-uv run ally eval provider evals/cases/provider-smoke.jsonl \
+uv run ally eval provider \
   --model <model-id>
 ```
 
 The default endpoint is `http://127.0.0.1:8080/v1`.
+An optional JSONL path overrides the bundled provider suite. CI exercises its
+installed wiring with synthetic HTTP responses; real model behavior remains a
+manual hardware-validation step.
 
 Provider smoke cases validate basic inference contract behavior such as exact-token instruction following and system-message handling. They are not intended to measure general intelligence.
 

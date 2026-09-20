@@ -351,14 +351,16 @@ def build_parser() -> argparse.ArgumentParser:
         "run",
         help="Run deterministic evaluations that require no model.",
     )
-    eval_run.add_argument("case_file")
+    eval_run.add_argument("case_file", nargs="?", help="Override the bundled core suite.")
     eval_run.add_argument("--json", action="store_true", dest="json_output")
 
     eval_provider = eval_commands.add_parser(
         "provider",
         help="Run model-provider smoke evaluations.",
     )
-    eval_provider.add_argument("case_file")
+    eval_provider.add_argument(
+        "case_file", nargs="?", help="Override the bundled provider smoke suite."
+    )
     eval_provider.add_argument(
         "--endpoint",
         default="http://127.0.0.1:8080/v1",
@@ -853,11 +855,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     validate_model.add_argument(
         "--core-cases",
-        default="evals/cases/core.jsonl",
+        help="Override the bundled core evaluation suite.",
     )
     validate_model.add_argument(
         "--provider-cases",
-        default="evals/cases/provider-smoke.jsonl",
+        help="Override the bundled provider smoke suite.",
     )
     validate_model.add_argument(
         "--output",
@@ -1017,12 +1019,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "eval":
         if args.eval_command == "run":
             return run_core_evals(
-                case_file=cast(str, args.case_file),
+                case_file=cast(str | None, args.case_file),
                 json_output=cast(bool, args.json_output),
             )
         if args.eval_command == "provider":
             return run_provider_evals(
-                case_file=cast(str, args.case_file),
+                case_file=cast(str | None, args.case_file),
                 endpoint=cast(str, args.endpoint),
                 model=cast(str, args.model),
                 allow_remote=cast(bool, args.allow_remote),
@@ -1241,8 +1243,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 memory_pressure=cast(str, args.memory_pressure),
                 thermal_state=cast(str, args.thermal_state),
-                core_case_file=cast(str, args.core_cases),
-                provider_case_file=cast(str, args.provider_cases),
+                core_case_file=cast(str | None, args.core_cases),
+                provider_case_file=cast(str | None, args.provider_cases),
                 output=cast(str, args.output),
             )
         if args.validate_command == "compare":

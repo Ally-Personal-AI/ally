@@ -6,7 +6,6 @@ from collections.abc import Sequence
 
 from ally.models import ChatMessage, ChatRequest, ChatResponse, ModelProvider
 
-
 DEFAULT_SYSTEM_PROMPT = (
     "You are Ally, a local-first personal AI assistant. "
     "Be accurate, useful, concise, and explicit about uncertainty."

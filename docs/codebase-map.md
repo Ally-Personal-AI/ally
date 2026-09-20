@@ -36,7 +36,8 @@ The most important rule is dependency direction:
 | `src/ally/storage/` | Storage paths and concrete persistence adapters. |
 | `src/ally/storage/sqlite/` | SQLite implementations of Ally-owned persistence contracts and migrations. |
 | `src/ally/diagnostics/` | Read-only hardware, validation, and service-readiness diagnostics. |
-| `src/ally/evals/` | Deterministic and provider-backed behavioral evaluation framework. |
+| `src/ally/evals/` | Behavioral evaluation framework and frozen packaged suites under `cases/`. |
+| `scripts/` | Distribution build checks and synthetic workflows for a clean installed package. |
 
 ## Dependency direction
 

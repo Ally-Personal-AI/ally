@@ -22,6 +22,10 @@ data/
 models/
 runtime/
 secrets/
+# These are source packages, not local model assets or credential data.
+!src/ally/models/
+!src/ally/runtime/
+!src/ally/secrets/
 *.db
 *.sqlite
 *.sqlite3

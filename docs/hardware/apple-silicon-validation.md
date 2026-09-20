@@ -40,7 +40,7 @@ uv run ally validate hardware --json
 uv run ruff check .
 uv run pyright
 uv run pytest
-uv run ally eval run evals/cases/core.jsonl
+uv run ally eval run
 ```
 
 All deterministic checks should pass before testing a model.

@@ -49,10 +49,12 @@ Quality checks:
 uv run ruff check .
 uv run pyright
 uv run pytest --cov=ally
-uv run ally eval run evals/cases/core.jsonl
+uv run ally eval run
 ```
 
 Behavioral evaluation cases and contributor guidance live in [evals/README.md](evals/README.md).
+The [clean-install check](CONTRIBUTING.md#clean-install-verification) also tests
+the packaged release on Linux and macOS without a model server or dedicated hardware.
 
 ## Local inference
 
@@ -79,6 +81,9 @@ uv run ally chat \
 ```
 
 Remote endpoints are intentionally rejected unless `--allow-remote` is supplied.
+The inference adapter ignores environment proxy and certificate settings so
+ambient shell configuration cannot redirect local prompts. Connections use the
+HTTP client's default certificate verification.
 
 ## Persistent conversations
 
