@@ -21,11 +21,11 @@ __all__ = [
     "SQLiteEventSourceCheckpointStore",
     "SQLiteEventStore",
     "SQLiteKnowledgeStore",
-    "SQLiteUserInstructionsStore",
     "SQLiteMemoryStore",
     "SQLiteScheduleStore",
     "SQLiteServiceCycleRunStore",
     "SQLiteSkillExecutionAuditStore",
     "SQLiteTaskStore",
     "SQLiteToolAuditStore",
+    "SQLiteUserInstructionsStore",
 ]
