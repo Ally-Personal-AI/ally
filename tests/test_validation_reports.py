@@ -65,6 +65,7 @@ def _report(
     hardware: HardwareProfile | None = None,
     suite: EvaluationSuiteProfile | None = None,
     successful: bool = True,
+    include_behavior: bool = False,
 ) -> LocalModelValidationReport:
     return LocalModelValidationReport(
         generated_at=datetime(2026, 9, 19, tzinfo=UTC),
@@ -91,12 +92,46 @@ def _report(
             thermal_state="nominal",
         ),
         evaluation_suite=suite
-        or EvaluationSuiteProfile(core_sha256="a" * 64, provider_sha256="b" * 64),
+        or EvaluationSuiteProfile(
+            core_sha256="a" * 64,
+            provider_sha256="b" * 64,
+            behavioral_sha256="e" * 64 if include_behavior else None,
+        ),
         hardware=hardware or _hardware(),
         core=_summary(successful=successful),
         provider=_summary(successful=successful),
+        behavior=(
+            _summary(successful=successful)
+            if include_behavior
+            else None
+        ),
         duration_ms=3500.0,
     )
+
+
+def test_behavior_evidence_requires_matching_suite_fingerprint() -> None:
+    raw = _report().model_dump(mode="python")
+    raw["behavior"] = _summary()
+    with pytest.raises(ValidationError, match="must appear together"):
+        LocalModelValidationReport.model_validate(raw)
+
+    raw = _report().model_dump(mode="python")
+    raw["evaluation_suite"]["behavioral_sha256"] = "e" * 64
+    with pytest.raises(ValidationError, match="must appear together"):
+        LocalModelValidationReport.model_validate(raw)
+
+
+def test_behavior_evidence_is_preserved_in_neutral_comparison() -> None:
+    first = _report(model="candidate-a", include_behavior=True)
+    second = _report(model="candidate-b", include_behavior=True)
+
+    comparison = compare_validation_reports(
+        (("a.json", first), ("b.json", second))
+    )
+
+    assert comparison.candidates[0].behavior_passed == 1
+    assert comparison.candidates[0].behavior_total == 1
+    assert comparison.same_evaluation_suite
 
 
 def test_runtime_metadata_rejects_secret_like_and_duplicate_parameters() -> None:
