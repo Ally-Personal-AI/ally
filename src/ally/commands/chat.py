@@ -60,16 +60,17 @@ def run_chat(
     try:
         conversation_store = build_conversation_store()
 
-        context_provider: ContextProvider | None = None
-        if private_grounding_allowed(
+        private_context_allowed = private_grounding_allowed(
             endpoint,
             allow_remote_private_context=allow_private_context_remote,
-        ):
+        )
+        context_provider: ContextProvider | None = None
+        if private_context_allowed:
             context_provider = _build_private_context_provider()
         elif allow_remote:
             print(
-                "Private memory/document grounding is disabled for remote inference. "
-                "Use --allow-private-context-remote to opt in.",
+                "Private instructions, memory, and document grounding are disabled "
+                "for remote inference. Use --allow-private-context-remote to opt in.",
                 file=sys.stderr,
             )
 
@@ -82,7 +83,11 @@ def run_chat(
             if conversation is None:
                 raise ValueError(f"Conversation not found: {identifier}")
 
-        instruction_profile = build_user_instructions_store().get()
+        instruction_profile = (
+            build_user_instructions_store().get()
+            if private_context_allowed
+            else None
+        )
 
         with OpenAICompatibleProvider(
             base_url=endpoint,
