@@ -560,7 +560,7 @@ MIGRATIONS: tuple[Migration, ...] = (
             ON skill_execution_audit(status, started_at DESC)
             """,
         ),
-    ),,
+    ),
     Migration(
         version=12,
         name="user_instructions_v1",
