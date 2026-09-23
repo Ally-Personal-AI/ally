@@ -136,10 +136,11 @@ The generated JSON contains:
 - Ally version
 - timestamp
 - endpoint, model identifier, and non-secret runtime profile
-- content fingerprints for both frozen evaluation files
+- content fingerprints for all three frozen evaluation files
 - machine/OS/Python profile
 - deterministic core evaluation results
 - provider smoke evaluation results
+- behavioral qualification results by evaluation category
 - optional runtime-native performance observations
 - evaluation duration
 
@@ -181,7 +182,7 @@ filename when repeating a run so prior evidence remains intact.
 
 ## 6. Functional Ally checks
 
-After provider smoke evaluation passes, use synthetic data to exercise:
+After provider smoke and behavioral qualification complete, use synthetic data to exercise:
 
 1. persistent multi-turn chat and resume after process restart;
 2. explicit memory creation, retrieval, supersession, and retraction;
@@ -204,6 +205,10 @@ tokens/second. Compare:
 
 - instruction reliability
 - provider smoke pass rate
+- unnecessary-refusal behavior
+- instruction-following behavior
+- calibration and unsolicited-moralizing checks
+- paired viewpoint-symmetry evidence
 - usable context
 - latency
 - memory headroom
@@ -235,6 +240,7 @@ The first-machine phase is complete when at least one local runtime/model pair:
 
 - passes deterministic Ally checks;
 - passes provider smoke checks consistently;
+- completes the frozen behavioral qualification suite with results reviewed by dimension;
 - runs entirely on the local machine;
 - has acceptable interactive latency;
 - leaves enough memory headroom for Ally's database, retrieval, and future voice

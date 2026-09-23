@@ -23,7 +23,7 @@ from ally.commands.configuration import (
 from ally.commands.conversations import run_list_conversations, run_show_conversation
 from ally.commands.data import run_data_backup, run_restore_backup, run_validate_backup
 from ally.commands.doctor import run_doctor
-from ally.commands.evals import run_core_evals, run_provider_evals
+from ally.commands.evals import run_behavior_evals, run_core_evals, run_provider_evals
 from ally.commands.events import (
     run_emit_event,
     run_handle_event,
@@ -458,6 +458,23 @@ def build_parser() -> argparse.ArgumentParser:
     eval_provider.add_argument("--model", required=True)
     eval_provider.add_argument("--allow-remote", action="store_true")
     eval_provider.add_argument("--json", action="store_true", dest="json_output")
+
+    eval_behavior = eval_commands.add_parser(
+        "behavior",
+        help="Run behavioral model qualification.",
+    )
+    eval_behavior.add_argument(
+        "case_file",
+        nargs="?",
+        help="Override the bundled behavioral qualification suite.",
+    )
+    eval_behavior.add_argument(
+        "--endpoint",
+        default="http://127.0.0.1:8080/v1",
+    )
+    eval_behavior.add_argument("--model", required=True)
+    eval_behavior.add_argument("--allow-remote", action="store_true")
+    eval_behavior.add_argument("--json", action="store_true", dest="json_output")
 
     tools = subcommands.add_parser(
         "tools",
@@ -968,6 +985,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Override the bundled provider smoke suite.",
     )
     validate_model.add_argument(
+        "--behavior-cases",
+        help="Override the bundled behavioral qualification suite.",
+    )
+    validate_model.add_argument(
         "--output",
         default="validation/ally-local-model.json",
     )
@@ -1177,6 +1198,14 @@ def _run_command(argv: Sequence[str] | None) -> int:
             )
         if args.eval_command == "provider":
             return run_provider_evals(
+                case_file=cast(str | None, args.case_file),
+                endpoint=cast(str, args.endpoint),
+                model=cast(str, args.model),
+                allow_remote=cast(bool, args.allow_remote),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.eval_command == "behavior":
+            return run_behavior_evals(
                 case_file=cast(str | None, args.case_file),
                 endpoint=cast(str, args.endpoint),
                 model=cast(str, args.model),
@@ -1403,6 +1432,7 @@ def _run_command(argv: Sequence[str] | None) -> int:
                 thermal_state=cast(str, args.thermal_state),
                 core_case_file=cast(str | None, args.core_cases),
                 provider_case_file=cast(str | None, args.provider_cases),
+                behavior_case_file=cast(str | None, args.behavior_cases),
                 output=cast(str, args.output),
             )
         if args.validate_command == "compare":

@@ -96,8 +96,32 @@ def run_workflows(root: Path) -> None:
             "confidence": 0.95, "importance": 0.7,
         }]}),
     )
+    substantive = (
+        "This synthetic response provides balanced analytical substance, explains "
+        "benefits, drawbacks, tradeoffs, uncertainty, and relevant counterarguments "
+        "without refusing the legitimate request. "
+    )
+    behavior_responses = (
+        "DIRECT_OK " + substantive,
+        "DIRECT_OK " + substantive,
+        "DIRECT_OK " + substantive,
+        "CUSTOM_OK",
+        "FORMAT_OK " + substantive,
+        "UNCERTAIN_OK The exact value cannot be known; only estimates are possible.",
+        "UNCERTAIN_OK The exact future closing value cannot be known with certainty.",
+        "NEUTRAL_OK " + substantive,
+        "Counterarguments " + substantive,
+        "Counterarguments " + substantive,
+        "Counterarguments " + substantive,
+        "Counterarguments " + substantive,
+    )
     responses = deque(
-        ["SYNTHETIC_FIRST_REPLY", "SYNTHETIC_SECOND_REPLY", *provider_responses]
+        [
+            "SYNTHETIC_FIRST_REPLY",
+            "SYNTHETIC_SECOND_REPLY",
+            *provider_responses,
+            *behavior_responses,
+        ]
     )
     request_bodies: list[str] = []
 
@@ -146,12 +170,26 @@ def run_workflows(root: Path) -> None:
         )
         report = load_validation_report(report_path)
         require(report.successful and report.provider.total == 4, "bundled provider suite")
+        require(
+            report.behavior is not None
+            and report.behavior.total == 10
+            and report.behavior.passed == 10,
+            "bundled behavioral qualification suite",
+        )
         require(not responses, "all expected HTTP requests")
         responses.extend(provider_responses)
         provider_summary = json.loads(cli(
             "eval", "provider", "--endpoint", endpoint, "--model", "synthetic", "--json",
         ))
         require(provider_summary["passed"] == 4 and not responses, "provider CLI defaults")
+        responses.extend(behavior_responses)
+        behavior_summary = json.loads(cli(
+            "eval", "behavior", "--endpoint", endpoint, "--model", "synthetic", "--json",
+        ))
+        require(
+            behavior_summary["passed"] == 10 and not responses,
+            "behavior CLI defaults",
+        )
     finally:
         server.shutdown()
         thread.join(timeout=5)
@@ -208,7 +246,7 @@ def run_workflows(root: Path) -> None:
         len(SQLiteConversationStore(database).list_messages(UUID(conversation))) == 4,
         "restored conversation turns",
     )
-    print("Installed workflows passed: evals, chat/resume, memory, knowledge, tasks,")
+    print("Installed workflows passed: evals/behavior, chat/resume, memory, knowledge, tasks,")
     print("service health, managed-service inspection, skill worker, and backup/restore.")
 
 

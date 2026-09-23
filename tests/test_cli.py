@@ -648,3 +648,15 @@ def test_skills_audit_parser_has_bounded_default() -> None:
 
     assert args.skills_command == "audit"
     assert args.limit == 50
+
+
+def test_eval_behavior_parser_defaults_to_loopback() -> None:
+    args = build_parser().parse_args(
+        ["eval", "behavior", "--model", "example"]
+    )
+
+    assert args.eval_command == "behavior"
+    assert args.endpoint == "http://127.0.0.1:8080/v1"
+    assert args.model == "example"
+    assert args.allow_remote is False
+    assert args.case_file is None

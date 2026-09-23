@@ -13,9 +13,9 @@ raw token rate.
 - runtime name and exact version;
 - optional public model source, quantization, precision, context length, and
   explicit non-secret runtime parameters;
-- content fingerprints for both frozen evaluation files;
+- content fingerprints for the core, provider, and behavioral evaluation files;
 - a non-sensitive machine profile;
-- complete core and provider evaluation results;
+- complete core, provider, and behavioral evaluation results;
 - total evaluation duration; and
 - optional runtime-native performance and resource observations.
 
@@ -23,9 +23,10 @@ Reports reject unknown top-level fields, inconsistent evaluation counts,
 timestamps without a timezone, unsupported schema versions, and malformed
 runtime metadata. Existing artifacts are never overwritten.
 
-The frozen core and provider suites ship inside the installed package, so the
-defaults work outside a source checkout. Use `--core-cases` or `--provider-cases`
-only for explicit custom files. Fingerprints describe the actual files used;
+The frozen core, provider, and behavioral suites ship inside the installed package,
+so the defaults work outside a source checkout. Use `--core-cases`,
+`--provider-cases`, or `--behavior-cases` only for explicit custom files.
+Fingerprints describe the actual files used;
 relocating the bundled fixtures does not change their content or fingerprints.
 
 Runtime parameters use repeated `NAME=VALUE` arguments. Names that identify
@@ -81,9 +82,11 @@ Ally version, hardware profile, or evaluation fingerprints differ, because
 behavior, performance, or pass counts then are not directly comparable.
 
 The comparison preserves input order and never computes a composite score,
-ranks candidates, or selects a default. Raw throughput cannot safely outweigh
-instruction reliability, usable context, memory headroom, stability, or Ally's
-planning and memory-proposal behavior. The operator makes that decision from
+ranks candidates, or selects a default. Behavioral pass counts remain separate
+from throughput and resource observations. Raw throughput cannot safely outweigh
+instruction reliability, unnecessary-refusal behavior, viewpoint symmetry,
+calibration, usable context, memory headroom, stability, or Ally's planning and
+memory-proposal behavior. The operator makes that decision from
 the complete evidence described in the first-machine runbook.
 
 ## Evidence boundaries

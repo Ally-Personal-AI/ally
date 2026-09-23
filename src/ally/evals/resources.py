@@ -8,7 +8,7 @@ from importlib.resources import as_file, files
 from pathlib import Path
 from typing import Literal
 
-EvaluationSuite = Literal["core", "provider-smoke"]
+EvaluationSuite = Literal["core", "provider-smoke", "behavioral-qualification"]
 
 
 @contextmanager
@@ -25,7 +25,7 @@ def evaluation_case_file(
     if override is not None:
         yield Path(override).expanduser()
         return
-    if suite not in ("core", "provider-smoke"):
+    if suite not in ("core", "provider-smoke", "behavioral-qualification"):
         raise ValueError("unknown bundled evaluation suite")
     resource = files("ally.evals").joinpath("cases", f"{suite}.jsonl")
     with as_file(resource) as path:
