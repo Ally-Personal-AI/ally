@@ -9,13 +9,13 @@ from ally.storage.sqlite import (
     SQLiteEventSourceCheckpointStore,
     SQLiteEventStore,
     SQLiteKnowledgeStore,
-    SQLiteUserInstructionsStore,
     SQLiteMemoryStore,
     SQLiteScheduleStore,
     SQLiteServiceCycleRunStore,
     SQLiteSkillExecutionAuditStore,
     SQLiteTaskStore,
     SQLiteToolAuditStore,
+    SQLiteUserInstructionsStore,
 )
 
 
