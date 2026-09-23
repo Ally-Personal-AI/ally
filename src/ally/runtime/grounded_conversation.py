@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from ally.context import ContextProvider
 from ally.context.render import render_context
 from ally.models import ChatMessage, ChatRequest, ChatResponse, ModelProvider
-from ally.runtime.conversation import DEFAULT_SYSTEM_PROMPT
+from ally.runtime.conversation import DEFAULT_SYSTEM_PROMPT, compose_system_prompt
 
 
 class GroundedConversationRuntime:
@@ -19,10 +19,14 @@ class GroundedConversationRuntime:
         context_provider: ContextProvider,
         *,
         system_prompt: str = DEFAULT_SYSTEM_PROMPT,
+        user_instructions: str | None = None,
     ) -> None:
         self._provider = provider
         self._context_provider = context_provider
-        self._system_prompt = system_prompt
+        self._system_prompt = compose_system_prompt(
+            system_prompt,
+            user_instructions=user_instructions,
+        )
 
     def respond(
         self,
