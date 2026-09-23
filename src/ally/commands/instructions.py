@@ -20,7 +20,11 @@ def run_show_instructions(
     scope: InstructionScope = "global",
     scope_key: str | None = None,
 ) -> int:
-    profile = build_user_instructions_store().get(scope=scope, scope_key=scope_key)
+    try:
+        profile = build_user_instructions_store().get(scope=scope, scope_key=scope_key)
+    except ValueError as exc:
+        print(f"Instruction error: {exc}")
+        return 2
     if profile is None:
         print(f"No {_scope_label(scope, scope_key)} instructions configured.")
         return 0
@@ -37,12 +41,16 @@ def run_set_instructions(
     scope_key: str | None = None,
     enabled: bool = True,
 ) -> int:
-    profile = build_user_instructions_store().set(
-        content,
-        scope=scope,
-        scope_key=scope_key,
-        enabled=enabled,
-    )
+    try:
+        profile = build_user_instructions_store().set(
+            content,
+            scope=scope,
+            scope_key=scope_key,
+            enabled=enabled,
+        )
+    except ValueError as exc:
+        print(f"Instruction error: {exc}")
+        return 2
     print(f"[{_scope_label(profile.scope, profile.scope_key)}]")
     print(profile.content)
     return 0
@@ -53,7 +61,14 @@ def run_clear_instructions(
     scope: InstructionScope = "global",
     scope_key: str | None = None,
 ) -> int:
-    cleared = build_user_instructions_store().clear(scope=scope, scope_key=scope_key)
+    try:
+        cleared = build_user_instructions_store().clear(
+            scope=scope,
+            scope_key=scope_key,
+        )
+    except ValueError as exc:
+        print(f"Instruction error: {exc}")
+        return 2
     label = _scope_label(scope, scope_key)
     print(f"{label} instructions cleared." if cleared else f"No {label} instructions configured.")
     return 0
@@ -85,7 +100,7 @@ def run_set_instructions_enabled(
             scope=scope,
             scope_key=scope_key,
         )
-    except KeyError as exc:
+    except (KeyError, ValueError) as exc:
         print(f"Instruction error: {exc}")
         return 2
     status = "enabled" if profile.enabled else "disabled"
