@@ -75,6 +75,7 @@ def run_local_model_validation_command(
     thermal_state: str,
     core_case_file: str | None,
     provider_case_file: str | None,
+    behavior_case_file: str | None,
     output: str,
 ) -> int:
     try:
@@ -103,6 +104,10 @@ def run_local_model_validation_command(
         with (
             evaluation_case_file("core", core_case_file) as core_path,
             evaluation_case_file("provider-smoke", provider_case_file) as provider_path,
+            evaluation_case_file(
+                "behavioral-qualification",
+                behavior_case_file,
+            ) as behavior_path,
             OpenAICompatibleProvider(
                 base_url=endpoint,
                 model=model,
@@ -117,6 +122,7 @@ def run_local_model_validation_command(
                 observations=observations,
                 core_case_file=core_path,
                 provider_case_file=provider_path,
+                behavior_case_file=behavior_path,
             )
         destination = write_validation_report(report, Path(output))
     except ValidationError:
@@ -129,7 +135,10 @@ def run_local_model_validation_command(
     print(f"Validation report: {destination}")
     print(
         f"Core: {report.core.passed}/{report.core.total} passed; "
-        f"provider: {report.provider.passed}/{report.provider.total} passed"
+        f"provider: {report.provider.passed}/{report.provider.total} passed; "
+        f"behavior: "
+        f"{report.behavior.passed if report.behavior is not None else 0}/"
+        f"{report.behavior.total if report.behavior is not None else 0} passed"
     )
     return 0 if report.successful else 1
 
@@ -188,6 +197,11 @@ def run_compare_validation_reports(
         print(f"  Context: {_optional(candidate.context_length, suffix=' tokens')}")
         print(f"  Core: {candidate.core_passed}/{candidate.core_total}")
         print(f"  Provider: {candidate.provider_passed}/{candidate.provider_total}")
+        if candidate.behavior_total is not None:
+            print(
+                f"  Behavior: {candidate.behavior_passed}/"
+                f"{candidate.behavior_total}"
+            )
         print(
             "  Time to first token: "
             f"{_optional(candidate.time_to_first_token_ms, suffix=' ms')}"
