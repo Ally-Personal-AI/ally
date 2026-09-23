@@ -9,6 +9,7 @@ from ally.commands._storage import (
     build_conversation_store,
     build_knowledge_store,
     build_memory_store,
+    build_user_instructions_store,
 )
 from ally.context import CompositeContextProvider, ContextProvider
 from ally.knowledge.retrieval import KnowledgeContextProvider, LexicalKnowledgeRetriever
@@ -81,6 +82,8 @@ def run_chat(
             if conversation is None:
                 raise ValueError(f"Conversation not found: {identifier}")
 
+        instruction_profile = build_user_instructions_store().get()
+
         with OpenAICompatibleProvider(
             base_url=endpoint,
             model=model,
@@ -90,6 +93,11 @@ def run_chat(
                 provider,
                 conversation_store,
                 conversation.id,
+                user_instructions=(
+                    instruction_profile.content
+                    if instruction_profile is not None
+                    else None
+                ),
                 context_provider=context_provider,
             )
 
