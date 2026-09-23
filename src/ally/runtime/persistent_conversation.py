@@ -21,6 +21,7 @@ class PersistentConversationRuntime:
         conversation_id: UUID,
         *,
         system_prompt: str = DEFAULT_SYSTEM_PROMPT,
+        user_instructions: str | None = None,
         context_provider: ContextProvider | None = None,
     ) -> None:
         if store.get(conversation_id) is None:
@@ -30,13 +31,18 @@ class PersistentConversationRuntime:
         self._conversation_id = conversation_id
         if context_provider is None:
             self._runtime: ConversationRuntime | GroundedConversationRuntime = (
-                ConversationRuntime(provider, system_prompt=system_prompt)
+                ConversationRuntime(
+                    provider,
+                    system_prompt=system_prompt,
+                    user_instructions=user_instructions,
+                )
             )
         else:
             self._runtime = GroundedConversationRuntime(
                 provider,
                 context_provider,
                 system_prompt=system_prompt,
+                user_instructions=user_instructions,
             )
 
     @property

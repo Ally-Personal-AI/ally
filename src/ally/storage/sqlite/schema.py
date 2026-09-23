@@ -561,4 +561,20 @@ MIGRATIONS: tuple[Migration, ...] = (
             """,
         ),
     ),
+    Migration(
+        version=12,
+        name="user_instructions_v1",
+        statements=(
+            """
+            CREATE TABLE user_instruction_profiles (
+                id TEXT PRIMARY KEY
+                    CHECK (id = 'global'),
+                content TEXT NOT NULL
+                    CHECK (length(content) >= 1 AND length(content) <= 100000),
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+        ),
+    )
 )

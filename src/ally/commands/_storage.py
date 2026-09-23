@@ -15,6 +15,7 @@ from ally.storage.sqlite import (
     SQLiteSkillExecutionAuditStore,
     SQLiteTaskStore,
     SQLiteToolAuditStore,
+    SQLiteUserInstructionsStore,
 )
 
 
@@ -46,6 +47,12 @@ def build_memory_store() -> SQLiteMemoryStore:
     """Create the default local memory store."""
 
     return SQLiteMemoryStore(build_database())
+
+
+def build_user_instructions_store() -> SQLiteUserInstructionsStore:
+    """Create the private global user instruction store."""
+
+    return SQLiteUserInstructionsStore(build_database())
 
 
 def build_knowledge_store() -> SQLiteKnowledgeStore:

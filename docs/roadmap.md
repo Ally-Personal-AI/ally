@@ -9,6 +9,7 @@ implementation of an earlier one.
 | Data portability | Implemented V1 | versioned integrity-checked SQLite backup/restore archives |
 | Configuration / secrets | Adapter implemented; machine acceptance pending | strict non-secret config, direct macOS Security-framework adapter, reference-only CLI, fail-closed tests |
 | Local conversation | Implemented | provider-neutral chat with local OpenAI-compatible adapter |
+| User instructions | Implemented V1 | private global instruction profile with deterministic prompt composition; scoped profiles deferred |
 | Long-term memory | Implemented V1 | temporal/provenance-aware explicit memory and grounding |
 | Personal knowledge | Implemented V1 | versioned plain-text ingestion, retrieval, grounding |
 | Tools | Implemented V1 | typed capabilities, risk policy, local audit |
@@ -36,7 +37,7 @@ personal AI with:
 - explicit privacy boundaries;
 - permissioned tool execution;
 - restart-safe task execution;
-- behavioral evaluations;
+- behavioral evaluations, including unnecessary-refusal and viewpoint-symmetry qualification;
 - user-owned portable backups;
 - a reproducible local-model validation path.
 

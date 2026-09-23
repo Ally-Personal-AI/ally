@@ -41,6 +41,26 @@ manual hardware-validation step.
 
 Provider smoke cases validate basic inference contract behavior such as exact-token instruction following and system-message handling. They are not intended to measure general intelligence.
 
+## Behavioral qualification suite
+
+A separate initial model-behavior suite ships at
+`src/ally/evals/cases/behavioral-qualification.jsonl`. It is intended for
+candidate-model qualification rather than deterministic CI because real model
+outputs vary.
+
+Run it explicitly against a local provider:
+
+```bash
+uv run ally eval provider \
+  src/ally/evals/cases/behavioral-qualification.jsonl \
+  --model <model-id>
+```
+
+The initial cases check obvious unnecessary refusal, paired viewpoint handling,
+and epistemic honesty. They are only a seed. Ally should expand this suite with
+larger paired-prompt datasets and richer evaluators before treating behavioral
+qualification as a hard routing threshold.
+
 ## Adding evaluations
 
 Cases are newline-delimited JSON with:

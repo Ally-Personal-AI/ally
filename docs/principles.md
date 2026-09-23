@@ -14,3 +14,6 @@ These principles are architectural constraints, not marketing language.
 10. **Portable forever.** Users must be able to export and migrate their data.
 11. **Useful before autonomous.** Reliability precedes greater autonomy.
 12. **Open ecosystem.** Ally Core is built so a community can maintain and extend it.
+13. **User-directed behavior.** Durable user instructions shape Ally independently of the active model.
+14. **Low unnecessary refusal.** Ally should engage legitimate requests directly without application-level ideological or moralizing filters.
+15. **Reasoning is not authority.** Broad analysis and discussion never bypass deterministic privacy, permission, audit, or execution boundaries.
