@@ -9,7 +9,7 @@ implementation of an earlier one.
 | Data portability | Implemented V1 | versioned integrity-checked SQLite backup/restore archives |
 | Configuration / secrets | Adapter implemented; machine acceptance pending | strict non-secret config, direct macOS Security-framework adapter, reference-only CLI, fail-closed tests |
 | Local conversation | Implemented | provider-neutral chat with local OpenAI-compatible adapter |
-| User instructions | Implemented V1 | private global instruction profile with deterministic prompt composition; scoped profiles deferred |
+| User instructions | Implemented V2 | global/project/conversation/task profiles, enable/disable, provenance-aware composition, and ephemeral session instructions |
 | Long-term memory | Implemented V1 | temporal/provenance-aware explicit memory and grounding |
 | Personal knowledge | Implemented V1 | versioned plain-text ingestion, retrieval, grounding |
 | Tools | Implemented V1 | typed capabilities, risk policy, local audit |
