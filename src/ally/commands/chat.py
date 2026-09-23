@@ -12,6 +12,11 @@ from ally.commands._storage import (
     build_user_instructions_store,
 )
 from ally.context import CompositeContextProvider, ContextProvider
+from ally.instructions import (
+    InstructionContext,
+    instruction_contributions,
+    render_instruction_contributions,
+)
 from ally.knowledge.retrieval import KnowledgeContextProvider, LexicalKnowledgeRetriever
 from ally.memory.retrieval import LexicalMemoryRetriever, MemoryContextProvider
 from ally.models.errors import ModelProviderError
@@ -56,6 +61,9 @@ def run_chat(
     allow_remote: bool,
     allow_private_context_remote: bool,
     conversation_id: str | None,
+    instruction_project: str | None = None,
+    instruction_task: str | None = None,
+    session_instructions: str | None = None,
 ) -> int:
     try:
         conversation_store = build_conversation_store()
@@ -83,11 +91,22 @@ def run_chat(
             if conversation is None:
                 raise ValueError(f"Conversation not found: {identifier}")
 
-        instruction_profile = (
-            build_user_instructions_store().get()
-            if private_context_allowed
-            else None
-        )
+        rendered_instructions: str | None = None
+        if private_context_allowed:
+            instruction_context = InstructionContext(
+                project_key=instruction_project,
+                conversation_key=str(conversation.id),
+                task_key=instruction_task,
+                session_instructions=session_instructions,
+            )
+            profiles = build_user_instructions_store().resolve(instruction_context)
+            contributions = instruction_contributions(
+                profiles,
+                session_instructions=instruction_context.session_instructions,
+            )
+            rendered_instructions = (
+                render_instruction_contributions(contributions) or None
+            )
 
         with OpenAICompatibleProvider(
             base_url=endpoint,
@@ -98,11 +117,7 @@ def run_chat(
                 provider,
                 conversation_store,
                 conversation.id,
-                user_instructions=(
-                    instruction_profile.content
-                    if instruction_profile is not None
-                    else None
-                ),
+                user_instructions=rendered_instructions,
                 context_provider=context_provider,
             )
 
