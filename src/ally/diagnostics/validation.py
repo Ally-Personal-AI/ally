@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from ally import __version__
 from ally.diagnostics.hardware import HardwareProfile, collect_hardware_profile
 from ally.evals import EvalSummary, EvaluationRunner, EvaluatorRegistry
+from ally.evals.behavior import register_behavioral_evaluators
 from ally.evals.builtin import register_builtin_evaluators
 from ally.evals.loader import load_eval_cases
 from ally.evals.memory_proposal import MemoryProposalEvaluator
@@ -136,6 +137,10 @@ class EvaluationSuiteProfile(BaseModel):
 
     core_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     provider_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    behavioral_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+    )
 
 
 class LocalModelValidationReport(BaseModel):
@@ -154,6 +159,7 @@ class LocalModelValidationReport(BaseModel):
     hardware: HardwareProfile
     core: EvalSummary
     provider: EvalSummary
+    behavior: EvalSummary | None = None
     duration_ms: float = Field(ge=0.0)
 
     @model_validator(mode="after")
@@ -169,18 +175,31 @@ class LocalModelValidationReport(BaseModel):
             or parsed_endpoint.fragment
         ):
             raise ValueError("validation endpoint must be a credential-free loopback URL")
-        for name, summary in (("core", self.core), ("provider", self.provider)):
+        summaries: list[tuple[str, EvalSummary]] = [
+            ("core", self.core),
+            ("provider", self.provider),
+        ]
+        if self.behavior is not None:
+            summaries.append(("behavior", self.behavior))
+        for name, summary in summaries:
             if summary.total < 1:
                 raise ValueError(f"{name} evaluation must contain at least one result")
             if summary.total != summary.passed + summary.failed + summary.errors:
                 raise ValueError(f"{name} evaluation counts must add up to total")
             if summary.total != len(summary.results):
                 raise ValueError(f"{name} evaluation total must match result count")
+        if (self.behavior is None) != (
+            self.evaluation_suite.behavioral_sha256 is None
+        ):
+            raise ValueError(
+                "behavior results and behavioral suite fingerprint must appear together"
+            )
         return self
 
     @property
     def successful(self) -> bool:
-        return self.core.successful and self.provider.successful
+        behavior_ok = self.behavior is None or self.behavior.successful
+        return self.core.successful and self.provider.successful and behavior_ok
 
 
 class ValidationComparisonCandidate(BaseModel):
@@ -201,6 +220,8 @@ class ValidationComparisonCandidate(BaseModel):
     core_total: int
     provider_passed: int
     provider_total: int
+    behavior_passed: int | None = None
+    behavior_total: int | None = None
     duration_ms: float
     time_to_first_token_ms: float | None
     generation_tokens_per_second: float | None
@@ -249,6 +270,15 @@ def _provider_summary(
     return EvaluationRunner(registry).run(load_eval_cases(case_file))
 
 
+def _behavior_summary(
+    case_file: Path,
+    provider: ModelProvider,
+) -> EvalSummary:
+    registry = EvaluatorRegistry()
+    register_behavioral_evaluators(registry, provider)
+    return EvaluationRunner(registry).run(load_eval_cases(case_file))
+
+
 def run_local_model_validation(
     *,
     provider: ModelProvider,
@@ -257,6 +287,7 @@ def run_local_model_validation(
     runtime: RuntimeProfile,
     core_case_file: Path,
     provider_case_file: Path,
+    behavior_case_file: Path | None = None,
     observations: PerformanceObservations | None = None,
     hardware: HardwareProfile | None = None,
 ) -> LocalModelValidationReport:
@@ -266,9 +297,19 @@ def run_local_model_validation(
     suite = EvaluationSuiteProfile(
         core_sha256=_sha256(core_case_file),
         provider_sha256=_sha256(provider_case_file),
+        behavioral_sha256=(
+            _sha256(behavior_case_file)
+            if behavior_case_file is not None
+            else None
+        ),
     )
     core = _core_summary(core_case_file)
     provider_summary = _provider_summary(provider_case_file, provider)
+    behavior_summary = (
+        _behavior_summary(behavior_case_file, provider)
+        if behavior_case_file is not None
+        else None
+    )
 
     return LocalModelValidationReport(
         generated_at=datetime.now(UTC),
@@ -281,6 +322,7 @@ def run_local_model_validation(
         hardware=hardware or collect_hardware_profile(),
         core=core,
         provider=provider_summary,
+        behavior=behavior_summary,
         duration_ms=(perf_counter() - started) * 1000,
     )
 
@@ -373,6 +415,12 @@ def compare_validation_reports(
             core_total=report.core.total,
             provider_passed=report.provider.passed,
             provider_total=report.provider.total,
+            behavior_passed=(
+                report.behavior.passed if report.behavior is not None else None
+            ),
+            behavior_total=(
+                report.behavior.total if report.behavior is not None else None
+            ),
             duration_ms=report.duration_ms,
             time_to_first_token_ms=report.observations.time_to_first_token_ms,
             generation_tokens_per_second=(
