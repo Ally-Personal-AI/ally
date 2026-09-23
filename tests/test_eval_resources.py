@@ -10,7 +10,14 @@ from ally.evals.loader import load_eval_cases
 from ally.evals.resources import EvaluationSuite, evaluation_case_file
 
 
-@pytest.mark.parametrize("suite, count", [("core", 10), ("provider-smoke", 4)])
+@pytest.mark.parametrize(
+    "suite, count",
+    [
+        ("core", 10),
+        ("provider-smoke", 4),
+        ("behavioral-qualification", 10),
+    ],
+)
 def test_packaged_cases_ignore_working_directory(
     suite: EvaluationSuite,
     count: int,
