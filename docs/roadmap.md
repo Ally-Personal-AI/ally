@@ -10,6 +10,7 @@ implementation of an earlier one.
 | Configuration / secrets | Adapter implemented; machine acceptance pending | strict non-secret config, direct macOS Security-framework adapter, reference-only CLI, fail-closed tests |
 | Local conversation | Implemented | provider-neutral chat with local OpenAI-compatible adapter |
 | User instructions | Implemented V2 | global/project/conversation/task profiles, enable/disable, provenance-aware composition, and ephemeral session instructions |
+| Behavioral model qualification | Implemented V1 | separate refusal, instruction-following, calibration, moralizing, and paired viewpoint-symmetry evidence integrated into local-model validation |
 | Long-term memory | Implemented V1 | temporal/provenance-aware explicit memory and grounding |
 | Personal knowledge | Implemented V1 | versioned plain-text ingestion, retrieval, grounding |
 | Tools | Implemented V1 | typed capabilities, risk policy, local audit |
