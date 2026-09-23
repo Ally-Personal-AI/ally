@@ -4,17 +4,53 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from ally.instructions.models import UserInstructions
+from ally.instructions.models import (
+    InstructionContext,
+    InstructionScope,
+    UserInstructions,
+)
 
 
 class UserInstructionsStore(Protocol):
-    """Store the current global user instruction profile."""
+    """Store and resolve scoped private user instruction profiles."""
 
-    def get(self) -> UserInstructions | None:
+    def get(
+        self,
+        *,
+        scope: InstructionScope = "global",
+        scope_key: str | None = None,
+    ) -> UserInstructions | None:
         ...
 
-    def set(self, content: str) -> UserInstructions:
+    def set(
+        self,
+        content: str,
+        *,
+        scope: InstructionScope = "global",
+        scope_key: str | None = None,
+        enabled: bool = True,
+    ) -> UserInstructions:
         ...
 
-    def clear(self) -> bool:
+    def set_enabled(
+        self,
+        enabled: bool,
+        *,
+        scope: InstructionScope = "global",
+        scope_key: str | None = None,
+    ) -> UserInstructions:
+        ...
+
+    def clear(
+        self,
+        *,
+        scope: InstructionScope = "global",
+        scope_key: str | None = None,
+    ) -> bool:
+        ...
+
+    def list(self, *, include_disabled: bool = True) -> tuple[UserInstructions, ...]:
+        ...
+
+    def resolve(self, context: InstructionContext) -> tuple[UserInstructions, ...]:
         ...

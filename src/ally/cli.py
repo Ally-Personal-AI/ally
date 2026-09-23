@@ -32,7 +32,10 @@ from ally.commands.events import (
 )
 from ally.commands.instructions import (
     run_clear_instructions,
+    run_list_instructions,
+    run_resolve_instructions,
     run_set_instructions,
+    run_set_instructions_enabled,
     run_show_instructions,
 )
 from ally.commands.knowledge import (
@@ -110,6 +113,7 @@ from ally.events import (
     AttentionClass,
     EventImportance,
 )
+from ally.instructions import INSTRUCTION_SCOPES, InstructionScope
 from ally.memory import (
     MEMORY_KINDS,
     MEMORY_PRIVACY_LEVELS,
@@ -153,6 +157,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Allow memory/document grounding to be sent to a remote endpoint.",
     )
+    chat.add_argument(
+        "--instruction-project",
+        help="Optional project instruction-scope key for this chat.",
+    )
+    chat.add_argument(
+        "--instruction-task",
+        help="Optional task instruction-scope key for this chat.",
+    )
+    chat.add_argument(
+        "--session-instructions",
+        help="Temporary instructions for this invocation; never persisted.",
+    )
 
     config = subcommands.add_parser(
         "config",
@@ -175,21 +191,69 @@ def build_parser() -> argparse.ArgumentParser:
 
     instructions = subcommands.add_parser(
         "instructions",
-        help="Inspect or change private global user instructions.",
+        help="Inspect or change private scoped user instructions.",
     )
     instruction_commands = instructions.add_subparsers(dest="instructions_command")
-    instruction_commands.add_parser(
+
+    instruction_show = instruction_commands.add_parser(
         "show",
-        help="Show the current private global instruction profile.",
+        help="Show one instruction profile.",
     )
+    instruction_show.add_argument("--scope", choices=INSTRUCTION_SCOPES, default="global")
+    instruction_show.add_argument("--key")
+
     instruction_set = instruction_commands.add_parser(
         "set",
-        help="Replace the current private global instruction profile.",
+        help="Create or replace one instruction profile.",
     )
     instruction_set.add_argument("content")
-    instruction_commands.add_parser(
+    instruction_set.add_argument("--scope", choices=INSTRUCTION_SCOPES, default="global")
+    instruction_set.add_argument("--key")
+    instruction_set.add_argument(
+        "--disabled",
+        action="store_true",
+        help="Store the profile disabled.",
+    )
+
+    instruction_clear = instruction_commands.add_parser(
         "clear",
-        help="Remove the current private global instruction profile.",
+        help="Remove one instruction profile.",
+    )
+    instruction_clear.add_argument("--scope", choices=INSTRUCTION_SCOPES, default="global")
+    instruction_clear.add_argument("--key")
+
+    instruction_list = instruction_commands.add_parser(
+        "list",
+        help="List durable instruction profiles.",
+    )
+    instruction_list.add_argument(
+        "--enabled-only",
+        action="store_true",
+        help="Hide disabled profiles.",
+    )
+
+    for action in ("enable", "disable"):
+        instruction_toggle = instruction_commands.add_parser(
+            action,
+            help=f"{action.capitalize()} one durable instruction profile.",
+        )
+        instruction_toggle.add_argument(
+            "--scope",
+            choices=INSTRUCTION_SCOPES,
+            default="global",
+        )
+        instruction_toggle.add_argument("--key")
+
+    instruction_resolve = instruction_commands.add_parser(
+        "resolve",
+        help="Show exactly which instructions resolve for a synthetic context.",
+    )
+    instruction_resolve.add_argument("--project")
+    instruction_resolve.add_argument("--conversation")
+    instruction_resolve.add_argument("--task")
+    instruction_resolve.add_argument(
+        "--session",
+        help="Optional temporary session instructions; never persisted.",
     )
 
     conversations = subcommands.add_parser(
@@ -965,6 +1029,9 @@ def _run_command(argv: Sequence[str] | None) -> int:
                 args.allow_private_context_remote,
             ),
             conversation_id=cast(str | None, args.conversation),
+            instruction_project=cast(str | None, args.instruction_project),
+            instruction_task=cast(str | None, args.instruction_task),
+            session_instructions=cast(str | None, args.session_instructions),
         )
 
     if args.command == "config":
@@ -979,11 +1046,39 @@ def _run_command(argv: Sequence[str] | None) -> int:
 
     if args.command == "instructions":
         if args.instructions_command == "show":
-            return run_show_instructions()
+            return run_show_instructions(
+                scope=cast(InstructionScope, args.scope),
+                scope_key=cast(str | None, args.key),
+            )
         if args.instructions_command == "set":
-            return run_set_instructions(content=cast(str, args.content))
+            return run_set_instructions(
+                content=cast(str, args.content),
+                scope=cast(InstructionScope, args.scope),
+                scope_key=cast(str | None, args.key),
+                enabled=not cast(bool, args.disabled),
+            )
         if args.instructions_command == "clear":
-            return run_clear_instructions()
+            return run_clear_instructions(
+                scope=cast(InstructionScope, args.scope),
+                scope_key=cast(str | None, args.key),
+            )
+        if args.instructions_command == "list":
+            return run_list_instructions(
+                include_disabled=not cast(bool, args.enabled_only),
+            )
+        if args.instructions_command in {"enable", "disable"}:
+            return run_set_instructions_enabled(
+                enabled=args.instructions_command == "enable",
+                scope=cast(InstructionScope, args.scope),
+                scope_key=cast(str | None, args.key),
+            )
+        if args.instructions_command == "resolve":
+            return run_resolve_instructions(
+                project_key=cast(str | None, args.project),
+                conversation_key=cast(str | None, args.conversation),
+                task_key=cast(str | None, args.task),
+                session_instructions=cast(str | None, args.session),
+            )
 
     if args.command == "conversations":
         if args.conversations_command == "list":

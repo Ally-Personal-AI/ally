@@ -99,6 +99,11 @@ def seed_database(path: Path) -> tuple[str, str, str]:
 
     instructions = SQLiteUserInstructionsStore(database)
     instructions.set("Prefer concise synthetic answers.")
+    instructions.set(
+        "Project-specific synthetic preference.",
+        scope="project",
+        scope_key="backup-project",
+    )
 
     schedules = SQLiteScheduleStore(database)
     schedule = schedules.create(
@@ -121,7 +126,7 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
     validated = validate_backup(archive)
 
     assert validated == manifest
-    assert manifest.database.schema_versions == (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
+    assert manifest.database.schema_versions == (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
 
     with ZipFile(archive, mode="r") as bundle:
         assert set(bundle.namelist()) == {"manifest.json", "ally.sqlite3"}
@@ -167,6 +172,15 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
     restored_instructions = instruction_store.get()
     assert restored_instructions is not None
     assert restored_instructions.content == "Prefer concise synthetic answers."
+    restored_project_instructions = instruction_store.get(
+        scope="project",
+        scope_key="backup-project",
+    )
+    assert restored_project_instructions is not None
+    assert (
+        restored_project_instructions.content
+        == "Project-specific synthetic preference."
+    )
     restored_audit = skill_audit_store.list()
     assert len(restored_audit) == 1
     assert restored_audit[0].skill_id == "backup.skill"

@@ -576,5 +576,48 @@ MIGRATIONS: tuple[Migration, ...] = (
             )
             """,
         ),
+    ),
+    Migration(
+        version=13,
+        name="scoped_user_instructions_v2",
+        statements=(
+            """
+            ALTER TABLE user_instruction_profiles
+            RENAME TO user_instruction_profiles_v1
+            """,
+            """
+            CREATE TABLE user_instruction_profiles (
+                scope TEXT NOT NULL
+                    CHECK (scope IN ('global', 'project', 'conversation', 'task')),
+                scope_key TEXT NOT NULL
+                    CHECK (length(scope_key) <= 512),
+                content TEXT NOT NULL
+                    CHECK (length(content) >= 1 AND length(content) <= 100000),
+                enabled INTEGER NOT NULL
+                    CHECK (enabled IN (0, 1)),
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (scope, scope_key),
+                CHECK (
+                    (scope = 'global' AND scope_key = '')
+                    OR (scope != 'global' AND length(scope_key) >= 1)
+                )
+            )
+            """,
+            """
+            INSERT INTO user_instruction_profiles(
+                scope, scope_key, content, enabled, created_at, updated_at
+            )
+            SELECT 'global', '', content, 1, created_at, updated_at
+            FROM user_instruction_profiles_v1
+            """,
+            """
+            DROP TABLE user_instruction_profiles_v1
+            """,
+            """
+            CREATE INDEX idx_user_instruction_profiles_scope
+            ON user_instruction_profiles(scope, updated_at DESC)
+            """,
+        ),
     )
 )

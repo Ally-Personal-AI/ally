@@ -38,6 +38,7 @@ supersede previous ADRs rather than silently rewriting project history.
 29. [Database upgrades are atomic and recovery never replaces a destination](0029-atomic-database-recovery.md)
 30. [The macOS managed service is explicit and bounded](0030-macos-managed-service-is-explicit-and-bounded.md)
 31. [Behavior and user instructions are separate from authority](0031-behavior-and-user-instructions-are-separate-from-authority.md)
+32. [User instructions compose by explicit scope](0032-user-instructions-compose-by-explicit-scope.md)
 
 ## Adding an ADR
 
