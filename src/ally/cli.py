@@ -30,6 +30,11 @@ from ally.commands.events import (
     run_list_events,
     run_show_event,
 )
+from ally.commands.instructions import (
+    run_clear_instructions,
+    run_set_instructions,
+    run_show_instructions,
+)
 from ally.commands.knowledge import (
     run_ingest_knowledge_file,
     run_list_knowledge_sources,
@@ -166,6 +171,25 @@ def build_parser() -> argparse.ArgumentParser:
     config_commands.add_parser(
         "validate",
         help="Validate the existing config file.",
+    )
+
+    instructions = subcommands.add_parser(
+        "instructions",
+        help="Inspect or change private global user instructions.",
+    )
+    instruction_commands = instructions.add_subparsers(dest="instructions_command")
+    instruction_commands.add_parser(
+        "show",
+        help="Show the current private global instruction profile.",
+    )
+    instruction_set = instruction_commands.add_parser(
+        "set",
+        help="Replace the current private global instruction profile.",
+    )
+    instruction_set.add_argument("content")
+    instruction_commands.add_parser(
+        "clear",
+        help="Remove the current private global instruction profile.",
     )
 
     conversations = subcommands.add_parser(
@@ -952,6 +976,14 @@ def _run_command(argv: Sequence[str] | None) -> int:
             return run_config_show()
         if args.config_command == "validate":
             return run_config_validate()
+
+    if args.command == "instructions":
+        if args.instructions_command == "show":
+            return run_show_instructions()
+        if args.instructions_command == "set":
+            return run_set_instructions(content=cast(str, args.content))
+        if args.instructions_command == "clear":
+            return run_clear_instructions()
 
     if args.command == "conversations":
         if args.conversations_command == "list":
