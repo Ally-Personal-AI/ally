@@ -921,6 +921,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Override the bundled provider smoke suite.",
     )
     validate_model.add_argument(
+        "--behavior-cases",
+        help="Override the bundled behavioral qualification suite.",
+    )
+    validate_model.add_argument(
         "--output",
         default="validation/ally-local-model.json",
     )
@@ -1333,6 +1337,7 @@ def _run_command(argv: Sequence[str] | None) -> int:
                 thermal_state=cast(str, args.thermal_state),
                 core_case_file=cast(str | None, args.core_cases),
                 provider_case_file=cast(str | None, args.provider_cases),
+                behavior_case_file=cast(str | None, args.behavior_cases),
                 output=cast(str, args.output),
             )
         if args.validate_command == "compare":
