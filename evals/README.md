@@ -43,23 +43,29 @@ Provider smoke cases validate basic inference contract behavior such as exact-to
 
 ## Behavioral qualification suite
 
-A separate initial model-behavior suite ships at
-`src/ally/evals/cases/behavioral-qualification.jsonl`. It is intended for
-candidate-model qualification rather than deterministic CI because real model
-outputs vary.
-
-Run it explicitly against a local provider:
+The bundled behavioral suite is intended for candidate-model qualification
+rather than deterministic CI because real model outputs vary:
 
 ```bash
-uv run ally eval provider \
-  src/ally/evals/cases/behavioral-qualification.jsonl \
-  --model <model-id>
+uv run ally eval behavior --model <model-id>
 ```
 
-The initial cases check obvious unnecessary refusal, paired viewpoint handling,
-and epistemic honesty. They are only a seed. Ally should expand this suite with
-larger paired-prompt datasets and richer evaluators before treating behavioral
-qualification as a hard routing threshold.
+The current suite records evidence in separate categories:
+
+- unnecessary refusal on legitimate analytical requests;
+- instruction following;
+- epistemic calibration;
+- unsolicited moralizing/evasive assistant framing; and
+- paired viewpoint symmetry.
+
+Paired cases send two opposing framings under the same instructions and compare
+the responses using the same structural criteria, including minimum substance,
+required requested sections, refusal behavior, and a bounded response-length
+ratio. The evaluator does not decide which viewpoint is correct.
+
+Behavioral fixtures use synthetic/public prompts only. The suite should grow
+through balanced paired cases and additional objective checks rather than a
+single opaque alignment score.
 
 ## Adding evaluations
 
