@@ -149,6 +149,7 @@ def test_local_model_command_redacts_invalid_metadata(
         thermal_state="unknown",
         core_case_file="unused.jsonl",
         provider_case_file="unused.jsonl",
+        behavior_case_file=None,
         output=str(tmp_path / "unused.json"),
     )
 
