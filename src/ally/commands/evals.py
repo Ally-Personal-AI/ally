@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ally.evals import EvalSummary, EvaluationRunner, EvaluatorRegistry
+from ally.evals.behavior import register_behavioral_evaluators
 from ally.evals.builtin import register_builtin_evaluators
 from ally.evals.loader import load_eval_cases
 from ally.evals.memory_proposal import MemoryProposalEvaluator
@@ -58,6 +59,36 @@ def run_provider_evals(
             registry.register(ProviderResponseEvaluator(provider))
             registry.register(TaskPlanProposalEvaluator(provider))
             registry.register(MemoryProposalEvaluator(provider))
+            register_behavioral_evaluators(registry, provider)
+            summary = EvaluationRunner(registry).run(cases)
+    except (ModelProviderError, ValueError) as exc:
+        print(f"Evaluation error: {exc}")
+        return 2
+
+    _print_summary(summary=summary, json_output=json_output)
+    return 0 if summary.successful else 1
+
+
+def run_behavior_evals(
+    *,
+    case_file: str | None,
+    endpoint: str,
+    model: str,
+    allow_remote: bool,
+    json_output: bool,
+) -> int:
+    """Run the bundled behavioral qualification suite against one provider."""
+
+    try:
+        with evaluation_case_file("behavioral-qualification", case_file) as path:
+            cases = load_eval_cases(path)
+        registry = EvaluatorRegistry()
+        with OpenAICompatibleProvider(
+            base_url=endpoint,
+            model=model,
+            allow_remote=allow_remote,
+        ) as provider:
+            register_behavioral_evaluators(registry, provider)
             summary = EvaluationRunner(registry).run(cases)
     except (ModelProviderError, ValueError) as exc:
         print(f"Evaluation error: {exc}")
