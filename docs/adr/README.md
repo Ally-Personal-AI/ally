@@ -37,6 +37,7 @@ supersede previous ADRs rather than silently rewriting project history.
 28. [Model validation evidence is versioned and comparison is neutral](0028-model-validation-evidence-is-versioned.md)
 29. [Database upgrades are atomic and recovery never replaces a destination](0029-atomic-database-recovery.md)
 30. [The macOS managed service is explicit and bounded](0030-macos-managed-service-is-explicit-and-bounded.md)
+31. [Behavior and user instructions are separate from authority](0031-behavior-and-user-instructions-are-separate-from-authority.md)
 
 ## Adding an ADR
 
