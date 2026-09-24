@@ -63,6 +63,10 @@ Chat automatically resolves the global profile plus the active conversation
 profile. Optional project/task keys and non-persistent session instructions may
 also be supplied explicitly.
 
+All resolved instructions are private model context and therefore use only the
+private loopback inference provider. They are not eligible for external model
+inference.
+
 ## Authority boundary
 
 Instruction composition changes model context only. No instruction scope can
