@@ -4,8 +4,8 @@ import hashlib
 import json
 import os
 from datetime import UTC, datetime
-from types import SimpleNamespace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
