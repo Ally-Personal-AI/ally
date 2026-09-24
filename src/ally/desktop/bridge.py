@@ -191,6 +191,18 @@ class _AttentionHistoryParams(_ListParams):
     status: Literal["succeeded", "failed"] | None = None
 
 
+class _DesktopProactiveParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    schedule_limit: int = Field(default=100, ge=1, le=100)
+    delivery_limit: int = Field(default=50, ge=1, le=100)
+
+
+class _NotificationResultParams(_AttentionEventParams):
+    delivery_key: str = Field(min_length=1, max_length=512)
+    succeeded: bool
+
+
 class _TaskParams(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
