@@ -21,6 +21,7 @@ from ally.application.models import (
     ChatTurnResult,
     ConversationBootstrapSection,
     ConversationView,
+    DesktopNotificationResultRequest,
     KnowledgeIngestResult,
     KnowledgeSearchResult,
     KnowledgeSourceView,
@@ -76,7 +77,11 @@ from ally.runtime_profiles import (
     RuntimeProfileCatalogError,
     ValidatedRuntimeProfile,
 )
-from ally.service import ServiceCycleRunRecord, ServiceHealthReport
+from ally.service import (
+    DesktopProactivePreparation,
+    ServiceCycleRunRecord,
+    ServiceHealthReport,
+)
 from ally.tasks import TaskPlan, TaskRecord, TaskStepRecord
 
 InferenceTargetResolver = Callable[
@@ -667,6 +672,48 @@ class AllyApplication:
             limit=limit,
             status=status,
         )
+
+    def prepare_desktop_proactive(
+        self,
+        *,
+        schedule_limit: int = 100,
+        delivery_limit: int = 50,
+    ) -> DesktopProactivePreparation:
+        """Prepare one bounded proactive cycle for app-owned notification delivery."""
+
+        operations = self._require_operations()
+        coordinator = operations.desktop_proactive
+        if coordinator is None:
+            raise ApplicationUnavailableError(
+                "desktop proactive coordinator is not available"
+            )
+        return coordinator.prepare(
+            schedule_limit=schedule_limit,
+            delivery_limit=delivery_limit,
+        )
+
+    def record_desktop_notification_result(
+        self,
+        request: DesktopNotificationResultRequest,
+    ) -> AttentionDeliveryRecord:
+        """Record one exact app-owned notification result without accepting payload."""
+
+        operations = self._require_operations()
+        coordinator = operations.desktop_proactive
+        if coordinator is None:
+            raise ApplicationUnavailableError(
+                "desktop proactive coordinator is not available"
+            )
+        try:
+            return coordinator.record_delivery_result(
+                event_id=request.event_id,
+                delivery_key_value=request.delivery_key,
+                succeeded=request.succeeded,
+            )
+        except KeyError as exc:
+            raise ApplicationNotFoundError(
+                f"Attention event not found: {request.event_id}"
+            ) from exc
 
     def service_history(
         self,
