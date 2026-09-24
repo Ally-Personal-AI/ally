@@ -49,6 +49,27 @@ public enum JSONValue: Codable, Sendable, Equatable {
     }
 }
 
+public extension JSONValue {
+    var displayText: String {
+        switch self {
+        case .string(let value):
+            return value
+        case .number(let value):
+            return value.formatted()
+        case .bool(let value):
+            return value ? "true" : "false"
+        case .object(let value):
+            return value.keys.sorted().map { key in
+                "\(key): \(value[key]?.displayText ?? "null")"
+            }.joined(separator: "\n")
+        case .array(let value):
+            return value.map(\.displayText).joined(separator: ", ")
+        case .null:
+            return "null"
+        }
+    }
+}
+
 public struct BridgeRequest: Encodable, Sendable {
     public let id: String
     public let method: String
