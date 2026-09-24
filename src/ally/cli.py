@@ -111,8 +111,10 @@ from ally.commands.validate import (
     run_local_model_validation_command,
     run_runtime_privacy_qualification,
     run_show_candidate_evidence,
+    run_show_functional_workflow_report,
     run_show_runtime_privacy_report,
     run_synthetic_workflow_validation,
+    run_verify_functional_workflow_report,
     run_verify_runtime_privacy_report,
 )
 from ally.diagnostics import NetworkObservationMethod, RuntimeIsolationMode
@@ -961,14 +963,40 @@ def build_parser() -> argparse.ArgumentParser:
 
     validate_workflows = validate_commands.add_parser(
         "workflows",
-        help="Run isolated synthetic end-to-end workflows against a local model.",
+        help=(
+            "Run isolated synthetic workflows and bind evidence to one "
+            "local-model validation report."
+        ),
+    )
+    validate_workflows.add_argument("validation_report")
+    validate_workflows.add_argument(
+        "--output",
+        default="validation/ally-functional-workflows.json",
     )
     validate_workflows.add_argument(
-        "--endpoint",
-        default="http://127.0.0.1:8080/v1",
+        "--json",
+        action="store_true",
+        dest="json_output",
     )
-    validate_workflows.add_argument("--model", required=True)
-    validate_workflows.add_argument(
+
+    validate_workflows_show = validate_commands.add_parser(
+        "workflows-show",
+        help="Inspect one functional workflow evidence artifact.",
+    )
+    validate_workflows_show.add_argument("report")
+    validate_workflows_show.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
+    validate_workflows_verify = validate_commands.add_parser(
+        "workflows-verify",
+        help="Verify functional workflow evidence against its exact validation report.",
+    )
+    validate_workflows_verify.add_argument("report")
+    validate_workflows_verify.add_argument("validation_report")
+    validate_workflows_verify.add_argument(
         "--json",
         action="store_true",
         dest="json_output",
@@ -1128,10 +1156,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     validate_candidate = validate_commands.add_parser(
         "candidate",
-        help="Inspect one exact verified capability/privacy candidate pair.",
+        help="Inspect one exact verified capability/privacy/workflow evidence set.",
     )
     validate_candidate.add_argument("validation_report")
     validate_candidate.add_argument("privacy_report")
+    validate_candidate.add_argument("workflow_report")
     validate_candidate.add_argument(
         "--json",
         action="store_true",
@@ -1140,15 +1169,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     validate_candidate_compare = validate_commands.add_parser(
         "compare-candidates",
-        help="Compare verified capability/privacy candidate pairs without ranking.",
+        help="Compare verified candidate evidence sets without ranking.",
     )
     validate_candidate_compare.add_argument(
-        "--pair",
+        "--candidate",
         action="append",
-        nargs=2,
+        nargs=3,
         required=True,
-        metavar=("VALIDATION", "PRIVACY"),
-        dest="pairs",
+        metavar=("VALIDATION", "PRIVACY", "WORKFLOWS"),
+        dest="evidence_sets",
     )
     validate_candidate_compare.add_argument(
         "--json",
@@ -1557,8 +1586,19 @@ def _run_command(argv: Sequence[str] | None) -> int:
             return run_hardware_report(json_output=cast(bool, args.json_output))
         if args.validate_command == "workflows":
             return run_synthetic_workflow_validation(
-                endpoint=cast(str, args.endpoint),
-                model=cast(str, args.model),
+                validation_report=cast(str, args.validation_report),
+                output=cast(str, args.output),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.validate_command == "workflows-show":
+            return run_show_functional_workflow_report(
+                report_path=cast(str, args.report),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.validate_command == "workflows-verify":
+            return run_verify_functional_workflow_report(
+                report_path=cast(str, args.report),
+                validation_report=cast(str, args.validation_report),
                 json_output=cast(bool, args.json_output),
             )
         if args.validate_command == "local-model":
@@ -1654,11 +1694,15 @@ def _run_command(argv: Sequence[str] | None) -> int:
             return run_show_candidate_evidence(
                 validation_report=cast(str, args.validation_report),
                 privacy_report=cast(str, args.privacy_report),
+                workflow_report=cast(str, args.workflow_report),
                 json_output=cast(bool, args.json_output),
             )
         if args.validate_command == "compare-candidates":
             return run_compare_candidate_evidence(
-                pairs=cast(Sequence[Sequence[str]], args.pairs),
+                evidence_sets=cast(
+                    Sequence[Sequence[str]],
+                    args.evidence_sets,
+                ),
                 json_output=cast(bool, args.json_output),
             )
 
