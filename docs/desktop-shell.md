@@ -52,13 +52,29 @@ The first shell includes:
 - read-only memory inspection;
 - read-only knowledge-source inspection;
 - task summary/status inspection;
+- task detail with explicit one-step-at-a-time approval and failed-step retry;
 - private-runtime readiness; and
 - proactive-service health and attention counts.
 
-This is the first #66 slice, not the complete desktop product. Detailed task
-approval controls, memory/knowledge mutation, validated-profile management,
+This is the first #66 slice, not the complete desktop product. Memory/knowledge mutation, validated-profile management,
 modern bundled notification authorization, polished empty/error states, and
 release packaging remain follow-on work.
+
+## Task approval boundary
+
+Desktop protocol v2 deliberately separates task progression from approval:
+
+- `task.run` accepts only a task ID and cannot carry approvals;
+- `task.approve_step` accepts exactly one task ID plus one step ID;
+- the application facade verifies that the selected step currently has
+  `approval_required` status before forwarding that one ID to `TaskRunner`;
+- stale, premature, or bulk approvals fail closed; and
+- `task.retry_step` only resets an explicitly selected failed step.
+
+The native UI displays the tool name, exact arguments, durable step ID, prior
+output/error state, and a confirmation dialog before approval. After one
+approval, Ally may execute later steps that policy permits without approval, but
+must pause again at the next approval-required step.
 
 ## Development
 

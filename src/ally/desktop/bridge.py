@@ -19,14 +19,16 @@ from ally import __version__
 from ally.application import (
     AllyApplication,
     ApplicationNotFoundError,
+    ApplicationStateError,
     ApplicationUnavailableError,
+    ApproveTaskStepRequest,
     ChatTurnRequest,
     RunTaskRequest,
 )
 from ally.composition import build_default_application
 from ally.runtime_profiles import InferenceTargetError
 
-BRIDGE_PROTOCOL_VERSION = 1
+BRIDGE_PROTOCOL_VERSION = 2
 MAX_REQUEST_BYTES = 1024 * 1024
 
 BridgeMethod = Literal[
@@ -41,6 +43,8 @@ BridgeMethod = Literal[
     "knowledge.search",
     "task.get",
     "task.run",
+    "task.approve_step",
+    "task.retry_step",
     "service.health",
 ]
 BridgeErrorCode = Literal[
@@ -48,13 +52,14 @@ BridgeErrorCode = Literal[
     "not_found",
     "unavailable",
     "inference_unavailable",
+    "invalid_state",
     "operation_failed",
     "request_too_large",
 ]
 
 
 class BridgeRequest(BaseModel):
-    """One version-1 request from a local presentation process."""
+    """One versioned request from a local presentation process."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -129,8 +134,8 @@ class _TaskParams(BaseModel):
     task_id: UUID
 
 
-class _RunTaskParams(_TaskParams):
-    approved_steps: tuple[UUID, ...] = ()
+class _TaskStepParams(_TaskParams):
+    step_id: UUID
 
 
 def _json_value(value: object) -> JsonValue:
@@ -167,6 +172,8 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                 "knowledge.search",
                 "task.get",
                 "task.run",
+                "task.approve_step",
+                "task.retry_step",
                 "service.health",
             ],
         }
@@ -249,17 +256,34 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
 
     if request.method == "task.run":
         params = cast(
-            _RunTaskParams,
-            _validate_params(_RunTaskParams, request.params),
+            _TaskParams,
+            _validate_params(_TaskParams, request.params),
         )
         return _json_value(
-            app.run_task(
-                RunTaskRequest(
+            app.run_task(RunTaskRequest(task_id=params.task_id)).model_dump(mode="json")
+        )
+
+    if request.method == "task.approve_step":
+        params = cast(
+            _TaskStepParams,
+            _validate_params(_TaskStepParams, request.params),
+        )
+        return _json_value(
+            app.approve_task_step(
+                ApproveTaskStepRequest(
                     task_id=params.task_id,
-                    approved_steps=params.approved_steps,
+                    step_id=params.step_id,
                 )
             ).model_dump(mode="json")
         )
+
+    if request.method == "task.retry_step":
+        params = cast(
+            _TaskStepParams,
+            _validate_params(_TaskStepParams, request.params),
+        )
+        app.retry_task_step(task_id=params.task_id, step_id=params.step_id)
+        return _json_value(app.task(params.task_id).model_dump(mode="json"))
 
     if request.method == "service.health":
         _validate_params(_EmptyParams, request.params)
@@ -307,6 +331,12 @@ def handle_request_json(app: AllyApplication, raw: str) -> BridgeResponse:
             request_id=request_id,
             code="unavailable",
             message="This Ally capability is not available in the current composition.",
+        )
+    except ApplicationStateError:
+        return _response_error(
+            request_id=request_id,
+            code="invalid_state",
+            message="The requested action is no longer valid for the current Ally state.",
         )
     except (ValidationError, ValueError):
         return _response_error(

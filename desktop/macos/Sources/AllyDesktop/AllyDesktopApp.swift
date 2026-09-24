@@ -193,16 +193,187 @@ private struct TasksScreen: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
-        List(model.snapshot?.tasks.items ?? []) { task in
-            VStack(alignment: .leading, spacing: 5) {
-                Text(task.goal)
-                Text(task.status.replacingOccurrences(of: "_", with: " ").capitalized)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        NavigationStack {
+            List(model.snapshot?.tasks.items ?? []) { task in
+                NavigationLink(value: task.id) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(task.goal)
+                        HStack(spacing: 8) {
+                            Text(task.status.replacingOccurrences(of: "_", with: " ").capitalized)
+                            if task.status == "waiting_approval" {
+                                Label("Approval required", systemImage: "hand.raised.fill")
+                            }
+                        }
+                        .font(.caption)
+                        .foregroundStyle(task.status == "waiting_approval" ? .primary : .secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
             }
-            .padding(.vertical, 4)
+            .navigationTitle("Tasks")
+            .navigationDestination(for: String.self) { taskID in
+                TaskDetailScreen(model: model, taskID: taskID)
+            }
         }
-        .navigationTitle("Tasks")
+    }
+}
+
+private struct TaskDetailScreen: View {
+    @ObservedObject var model: AppModel
+    let taskID: String
+    @State private var pendingApproval: TaskStepSummary?
+    @State private var showingApproval = false
+
+    var body: some View {
+        ScrollView {
+            if let view = model.taskDetail, view.task.id == taskID {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(view.task.goal)
+                            .font(.title2)
+                        HStack {
+                            Text(view.task.status.replacingOccurrences(of: "_", with: " ").capitalized)
+                                .font(.headline)
+                            Spacer()
+                            if view.task.status == "pending" {
+                                Button("Run Task") {
+                                    Task { await model.runTask(taskID) }
+                                }
+                                .disabled(model.isBusy)
+                            }
+                        }
+                        if let failure = view.task.failure {
+                            Text(failure)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                        }
+                        if view.task.status == "waiting_approval" {
+                            Text("Ally is paused. Review the exact step below before approving it. Approval applies only to that step ID; Ally may continue through later steps that do not require approval and will pause again before another approval-required step.")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    ForEach(view.steps) { step in
+                        TaskStepCard(
+                            step: step,
+                            isBusy: model.isBusy,
+                            approve: {
+                                pendingApproval = step
+                                showingApproval = true
+                            },
+                            retry: {
+                                Task {
+                                    await model.retryTaskStep(
+                                        taskID: taskID,
+                                        stepID: step.id
+                                    )
+                                }
+                            }
+                        )
+                    }
+                }
+                .padding()
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity, minHeight: 240)
+            }
+        }
+        .navigationTitle("Task")
+        .task(id: taskID) {
+            await model.selectTask(taskID)
+        }
+        .alert(
+            "Approve this exact task step?",
+            isPresented: $showingApproval,
+            presenting: pendingApproval
+        ) { step in
+            Button("Cancel", role: .cancel) {}
+            Button("Approve & Continue") {
+                Task {
+                    await model.approveTaskStep(
+                        taskID: taskID,
+                        stepID: step.id
+                    )
+                }
+            }
+        } message: { step in
+            Text("Tool: \(step.toolName)\nStep ID: \(step.id)\n\nOnly this step is approved. Review its arguments before continuing.")
+        }
+    }
+}
+
+private struct TaskStepCard: View {
+    let step: TaskStepSummary
+    let isBusy: Bool
+    let approve: () -> Void
+    let retry: () -> Void
+
+    var body: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(step.toolName)
+                        .font(.headline)
+                    Spacer()
+                    Text(step.status.replacingOccurrences(of: "_", with: " ").capitalized)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                LabeledContent("Step", value: String(step.position + 1))
+                LabeledContent("Attempts", value: String(step.attempts))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Arguments")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(step.argumentsText)
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if let output = step.lastOutput {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Last output")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(output.displayText)
+                            .font(.caption.monospaced())
+                            .textSelection(.enabled)
+                    }
+                }
+
+                if let error = step.lastError {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Last error")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(error)
+                            .font(.caption.monospaced())
+                            .textSelection(.enabled)
+                    }
+                }
+
+                if step.status == "approval_required" {
+                    Button("Review & Approve This Step") {
+                        approve()
+                    }
+                    .disabled(isBusy)
+                } else if step.status == "failed" {
+                    Button("Reset Failed Step for Retry") {
+                        retry()
+                    }
+                    .disabled(isBusy)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(4)
+        } label: {
+            Text("Step \(step.position + 1)")
+        }
     }
 }
 

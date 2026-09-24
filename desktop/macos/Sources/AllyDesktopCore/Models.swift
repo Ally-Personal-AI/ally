@@ -57,6 +57,34 @@ public struct TaskSummary: Decodable, Sendable, Equatable, Identifiable {
     public let updatedAt: String
 }
 
+public struct TaskStepSummary: Decodable, Sendable, Equatable, Identifiable {
+    public let id: String
+    public let taskId: String
+    public let position: Int
+    public let toolName: String
+    public let arguments: [String: JSONValue]
+    public let status: String
+    public let attempts: Int
+    public let lastOutput: JSONValue?
+    public let lastError: String?
+    public let createdAt: String
+    public let updatedAt: String
+
+    public var argumentsText: String {
+        if arguments.isEmpty {
+            return "No arguments"
+        }
+        return arguments.keys.sorted().map { key in
+            "\(key): \(arguments[key]?.displayText ?? "null")"
+        }.joined(separator: "\n")
+    }
+}
+
+public struct TaskView: Decodable, Sendable, Equatable {
+    public let task: TaskSummary
+    public let steps: [TaskStepSummary]
+}
+
 public struct EventSummary: Decodable, Sendable, Equatable, Identifiable {
     public let id: String
     public let type: String

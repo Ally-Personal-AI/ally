@@ -9,7 +9,9 @@ from pydantic import JsonValue
 from ally.application import (
     AllyApplication,
     ApplicationOperations,
+    ApplicationStateError,
     ApplicationUnavailableError,
+    ApproveTaskStepRequest,
     RunTaskRequest,
 )
 from ally.events import NewEvent
@@ -191,6 +193,90 @@ def test_task_execution_pauses_and_requires_exact_step_approval(
     assert resumed.steps[0].status == "succeeded"
     assert resumed.steps[0].attempts == 2
     assert tool.calls == 1
+
+
+def test_exact_step_approval_cannot_implicitly_approve_later_steps(
+    tmp_path: Path,
+) -> None:
+    app, tool, _, _, _, _ = _application(tmp_path)
+    view = app.create_task(
+        TaskPlan(
+            goal="Run two reversible synthetic operations",
+            steps=(
+                NewTaskStep(
+                    tool_name="test.reversible",
+                    arguments={"value": "first"},
+                ),
+                NewTaskStep(
+                    tool_name="test.reversible",
+                    arguments={"value": "second"},
+                ),
+            ),
+        )
+    )
+
+    first_pause = app.run_task(RunTaskRequest(task_id=view.task.id))
+    assert first_pause.task.status == "waiting_approval"
+    assert first_pause.steps[0].status == "approval_required"
+    assert first_pause.steps[1].status == "pending"
+
+    second_pause = app.approve_task_step(
+        ApproveTaskStepRequest(
+            task_id=view.task.id,
+            step_id=view.steps[0].id,
+        )
+    )
+
+    assert tool.calls == 1
+    assert second_pause.task.status == "waiting_approval"
+    assert second_pause.steps[0].status == "succeeded"
+    assert second_pause.steps[1].status == "approval_required"
+
+    finished = app.approve_task_step(
+        ApproveTaskStepRequest(
+            task_id=view.task.id,
+            step_id=view.steps[1].id,
+        )
+    )
+    assert finished.task.status == "succeeded"
+    assert tool.calls == 2
+
+
+def test_exact_step_approval_rejects_stale_or_nonpaused_steps(
+    tmp_path: Path,
+) -> None:
+    app, _, _, _, _, _ = _application(tmp_path)
+    view = app.create_task(
+        TaskPlan(
+            goal="Require exact approval",
+            steps=(NewTaskStep(tool_name="test.reversible"),),
+        )
+    )
+
+    with pytest.raises(ApplicationStateError, match="waiting"):
+        app.approve_task_step(
+            ApproveTaskStepRequest(
+                task_id=view.task.id,
+                step_id=view.steps[0].id,
+            )
+        )
+
+    paused = app.run_task(RunTaskRequest(task_id=view.task.id))
+    approved = app.approve_task_step(
+        ApproveTaskStepRequest(
+            task_id=view.task.id,
+            step_id=paused.steps[0].id,
+        )
+    )
+    assert approved.task.status == "succeeded"
+
+    with pytest.raises(ApplicationStateError, match="waiting"):
+        app.approve_task_step(
+            ApproveTaskStepRequest(
+                task_id=view.task.id,
+                step_id=paused.steps[0].id,
+            )
+        )
 
 
 def test_task_views_and_retry_preserve_existing_state_machine(
