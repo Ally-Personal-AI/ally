@@ -259,6 +259,13 @@ class RuntimeProfileCatalog:
                 "active runtime profile selection is invalid"
             ) from exc
 
+    def selection(self) -> ActiveRuntimeProfileSelection | None:
+        """Return validated active selection metadata, or None when unset."""
+
+        if not self.selection_path.exists():
+            return None
+        return self._load_selection()
+
     def active(self) -> ValidatedRuntimeProfile:
         """Resolve active selection and fail if the installed profile changed."""
 
@@ -292,8 +299,8 @@ class RuntimeProfileCatalog:
     def remove(self, profile_id: str) -> bool:
         """Remove an inactive installed profile only."""
 
-        if self.selection_path.exists():
-            selection = self._load_selection()
+        selection = self.selection()
+        if selection is not None:
             if selection.profile_id == profile_id:
                 raise RuntimeProfileCatalogError(
                     "cannot remove the active runtime profile; deselect it first"
