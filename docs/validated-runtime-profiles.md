@@ -60,3 +60,7 @@ runtime/model configuration is eligible for future selection.
 Future desktop/runtime composition should select a validated profile and then
 verify/launch the corresponding runtime. It should not reintroduce arbitrary
 production endpoint/model strings as an alternate path around qualification.
+
+After verification, install the profile into Ally's
+[Runtime Profile Catalog](runtime-profile-catalog.md) and select it explicitly
+for daily-use composition.
