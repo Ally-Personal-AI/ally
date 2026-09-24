@@ -166,7 +166,7 @@ def test_candidate_requires_exact_matching_evidence_set(tmp_path: Path) -> None:
         stem="a",
         model="model-a",
     )
-    validation_b, _, _ = _evidence_set(
+    validation_b, privacy_b, _ = _evidence_set(
         tmp_path,
         stem="b",
         model="model-b",
@@ -186,11 +186,6 @@ def test_candidate_requires_exact_matching_evidence_set(tmp_path: Path) -> None:
             workflow_path=workflow_a,
         )
 
-    _, privacy_b, _ = _evidence_set(
-        tmp_path,
-        stem="c",
-        model="model-b",
-    )
     with pytest.raises(FunctionalWorkflowEvidenceError, match="does not match"):
         build_candidate_evidence(
             validation_path=validation_b,
