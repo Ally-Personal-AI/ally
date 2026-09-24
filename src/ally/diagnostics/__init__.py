@@ -43,6 +43,14 @@ from ally.diagnostics.validation import (
     run_local_model_validation,
     write_validation_report,
 )
+from ally.diagnostics.workflow_evidence import (
+    FunctionalWorkflowEvidenceError,
+    FunctionalWorkflowQualificationReport,
+    build_functional_workflow_report,
+    load_functional_workflow_report,
+    verify_functional_workflow_source,
+    write_functional_workflow_report,
+)
 from ally.diagnostics.workflows import (
     SyntheticWorkflowCheck,
     SyntheticWorkflowReport,
@@ -58,6 +66,8 @@ __all__ = [
     "EvaluationSuiteProfile",
     "FirstMachineReadinessCheck",
     "FirstMachineReadinessReport",
+    "FunctionalWorkflowEvidenceError",
+    "FunctionalWorkflowQualificationReport",
     "HardwareProfile",
     "LocalModelValidationReport",
     "NetworkObservationMethod",
@@ -77,6 +87,7 @@ __all__ = [
     "WorkflowCheckStatus",
     "build_candidate_evidence",
     "build_first_machine_readiness",
+    "build_functional_workflow_report",
     "build_runtime_privacy_report",
     "build_service_health",
     "collect_first_machine_readiness",
@@ -84,11 +95,14 @@ __all__ = [
     "compare_candidate_evidence",
     "compare_validation_reports",
     "fingerprint_artifact",
+    "load_functional_workflow_report",
     "load_runtime_privacy_report",
     "load_validation_report",
     "run_isolated_synthetic_workflows",
     "run_local_model_validation",
+    "verify_functional_workflow_source",
     "verify_runtime_privacy_source",
+    "write_functional_workflow_report",
     "write_runtime_privacy_report",
     "write_validation_report",
 ]
