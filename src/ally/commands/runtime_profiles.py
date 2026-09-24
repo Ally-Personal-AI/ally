@@ -140,7 +140,6 @@ def run_verify_runtime_profile(
     return 0
 
 
-
 def run_install_runtime_profile(
     *,
     profile_path: str,
