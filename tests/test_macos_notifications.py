@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
-import sys
 from typing import Literal
 from uuid import uuid4
 
