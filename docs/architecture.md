@@ -80,6 +80,12 @@ uses an OpenAI-compatible local HTTP endpoint; future MLX, llama.cpp, Ollama,
 CUDA, and other runtimes can be added without changing memory, tasks, tools, or
 identity state.
 
+For production selection, candidate qualification is converted into an immutable
+[Validated Runtime Profile](validated-runtime-profiles.md). Future UI/runtime
+composition should consume those profiles rather than arbitrary endpoint/model
+pairs, preserving the evidence boundary between experimentation and approved
+daily-use inference.
+
 ```text
 Ally Core
    |
