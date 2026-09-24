@@ -759,6 +759,85 @@ def test_bridge_attention_center_detail_history_and_handled_state(
     assert pending.result == []
 
 
+def test_bridge_prepares_minimized_notification_and_requires_exact_result(
+    tmp_path: Path,
+) -> None:
+    app, events, deliveries = _attention_application(tmp_path)
+    event = events.create(
+        NewEvent(
+            type="synthetic.app-owned-notification",
+            source="bridge-test",
+            importance="urgent",
+            payload={
+                "summary": "Synthetic visible reminder.",
+                "private_detail": "must stay out of notification candidate",
+            },
+        ),
+        attention="notify",
+    )
+
+    prepared = handle_request_json(
+        app,
+        _request("service.prepare_proactive"),
+    )
+    assert prepared.ok
+    assert isinstance(prepared.result, dict)
+    candidates = prepared.result["candidates"]
+    assert isinstance(candidates, list)
+    assert len(candidates) == 1
+    candidate = candidates[0]
+    assert isinstance(candidate, dict)
+    assert candidate["event_id"] == str(event.id)
+    assert candidate["title"] == "Ally"
+    assert candidate["body"] == "Synthetic visible reminder."
+    rendered = json.dumps(candidate, sort_keys=True)
+    assert "private_detail" not in rendered
+
+    delivery_key = candidate["delivery_key"]
+    assert isinstance(delivery_key, str)
+
+    rejected = handle_request_json(
+        app,
+        _request(
+            "attention.notification_result",
+            {
+                "event_id": str(event.id),
+                "delivery_key": delivery_key,
+                "succeeded": True,
+                "title": "must not be accepted",
+            },
+        ),
+    )
+    assert not rejected.ok
+    assert rejected.error is not None
+    assert rejected.error.code == "invalid_request"
+    assert deliveries.get(event.id, "macos.notification") is None
+
+    accepted = handle_request_json(
+        app,
+        _request(
+            "attention.notification_result",
+            {
+                "event_id": str(event.id),
+                "delivery_key": delivery_key,
+                "succeeded": True,
+            },
+        ),
+    )
+    assert accepted.ok
+    assert isinstance(accepted.result, dict)
+    assert accepted.result["status"] == "succeeded"
+    assert accepted.result["sink_id"] == "macos.notification"
+
+    prepared_again = handle_request_json(
+        app,
+        _request("service.prepare_proactive"),
+    )
+    assert prepared_again.ok
+    assert isinstance(prepared_again.result, dict)
+    assert prepared_again.result["candidates"] == []
+
+
 def test_bridge_task_approval_is_exactly_one_paused_step(
     tmp_path: Path,
 ) -> None:
