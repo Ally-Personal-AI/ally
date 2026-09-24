@@ -1,6 +1,10 @@
 """Interface-neutral proactive attention delivery."""
 
-from ally.attention.factory import AttentionSinkName, build_attention_sink
+from ally.attention.factory import (
+    AttentionSinkName,
+    build_attention_sink,
+    macos_notification_status,
+)
 from ally.attention.macos import (
     MacOSNotificationError,
     MacOSNotificationSink,
@@ -32,5 +36,6 @@ __all__ = [
     "NativeMacOSNotificationBackend",
     "build_attention_sink",
     "delivery_key",
+    "macos_notification_status",
     "render_macos_notification",
 ]
