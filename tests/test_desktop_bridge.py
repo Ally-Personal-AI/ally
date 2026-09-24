@@ -22,7 +22,7 @@ from ally.diagnostics import (
     PerformanceObservations,
     RuntimeProfile,
 )
-from ally.events import NewEvent
+from ally.events import EventRuntime, NewEvent
 from ally.models import ChatRequest, ChatResponse, ModelProvider
 from ally.runtime_profiles import (
     EvidenceReference,
@@ -33,8 +33,13 @@ from ally.runtime_profiles import (
     resolve_inference_target,
     runtime_profile_id,
 )
+from ally.scheduler import SchedulerRuntime
 from ally.security.tool_policy import DefaultToolPolicy
-from ally.service import ServiceHealthReport
+from ally.service import (
+    DesktopProactiveCoordinator,
+    SQLiteServiceLeaseStore,
+    ServiceHealthReport,
+)
 from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
     SQLiteConversationStore,
@@ -42,6 +47,7 @@ from ally.storage.sqlite import (
     SQLiteEventStore,
     SQLiteKnowledgeStore,
     SQLiteMemoryStore,
+    SQLiteScheduleStore,
     SQLiteServiceCycleRunStore,
     SQLiteTaskStore,
     SQLiteToolAuditStore,
@@ -265,6 +271,7 @@ def _attention_application(
             SQLiteToolAuditStore(database),
         ),
     )
+    runs = SQLiteServiceCycleRunStore(database)
     app = AllyApplication(
         conversations=SQLiteConversationStore(database),
         memories=SQLiteMemoryStore(database),
@@ -277,12 +284,24 @@ def _attention_application(
             task_runner=runner,
             events=events,
             attention_deliveries=deliveries,
-            service_runs=SQLiteServiceCycleRunStore(database),
+            service_runs=runs,
             service_health=lambda: ServiceHealthReport(
                 status="healthy",
                 database_exists=True,
                 database_integrity_ok=True,
                 schema_current=True,
+            ),
+            desktop_proactive=DesktopProactiveCoordinator(
+                scheduler=SchedulerRuntime(
+                    SQLiteScheduleStore(database),
+                    EventRuntime(events),
+                ),
+                events=events,
+                deliveries=deliveries,
+                runs=runs,
+                leases=SQLiteServiceLeaseStore(
+                    tmp_path / "attention-runtime.sqlite3"
+                ),
             ),
         ),
     )
