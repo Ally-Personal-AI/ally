@@ -14,6 +14,7 @@ from ally.application.models import (
     ApplicationStateError,
     ApplicationUnavailableError,
     ApproveTaskStepRequest,
+    AttentionEventView,
     AttentionHistoryBootstrapSection,
     BootstrapLimits,
     ChatTurnRequest,
@@ -39,7 +40,11 @@ from ally.application.models import (
     TaskView,
 )
 from ally.application.operations import ApplicationOperations
-from ally.attention import AttentionDeliveryRecord, AttentionDeliveryStatus
+from ally.attention import (
+    DELIVERABLE_ATTENTION_CLASSES,
+    AttentionDeliveryRecord,
+    AttentionDeliveryStatus,
+)
 from ally.context import CompositeContextProvider, ContextProvider
 from ally.conversations import Conversation, ConversationStore
 from ally.events import AttentionClass, EventRecord
@@ -586,6 +591,56 @@ class AllyApplication:
             raise ApplicationStateError(
                 "task step is not currently eligible for retry"
             ) from exc
+
+    def list_attention_events(
+        self,
+        *,
+        limit: int = 100,
+        handled: bool | None = None,
+    ) -> tuple[EventRecord, ...]:
+        """List user-facing attention events, including handled history."""
+
+        if limit < 1:
+            raise ValueError("limit must be positive")
+        operations = self._require_operations()
+        collected: list[EventRecord] = []
+        for attention in DELIVERABLE_ATTENTION_CLASSES:
+            collected.extend(
+                operations.events.list(
+                    limit=limit,
+                    attention=attention,
+                    handled=handled,
+                )
+            )
+        collected.sort(
+            key=lambda event: (event.created_at, str(event.id)),
+            reverse=True,
+        )
+        return tuple(collected[:limit])
+
+    def attention_event(self, event_id: UUID) -> AttentionEventView:
+        """Return one durable event with every delivery record for inspection."""
+
+        operations = self._require_operations()
+        event = operations.events.get(event_id)
+        if event is None:
+            raise ApplicationNotFoundError(f"Attention event not found: {event_id}")
+        return AttentionEventView(
+            event=event,
+            deliveries=operations.attention_deliveries.list_for_event(event_id),
+        )
+
+    def mark_attention_handled(self, event_id: UUID) -> AttentionEventView:
+        """Explicitly mark one event handled without changing delivery history."""
+
+        operations = self._require_operations()
+        try:
+            operations.events.mark_handled(event_id)
+        except KeyError as exc:
+            raise ApplicationNotFoundError(
+                f"Attention event not found: {event_id}"
+            ) from exc
+        return self.attention_event(event_id)
 
     def pending_attention(
         self,
