@@ -39,7 +39,10 @@ needed for runtime composition:
 - path-free SHA-256 references to the exact capability, privacy, and functional
   workflow evidence artifacts.
 
-The profile ID is deterministically derived from the three evidence digests.
+The profile ID is deterministically derived from the three evidence digests
+plus every copied operational metadata field. The creation timestamp is
+excluded. This makes metadata tampering self-invalidating even before a profile
+is installed or selected.
 
 Profiles are immutable and never overwritten. Verification recomputes all three
 evidence digests, re-runs candidate qualification, and confirms every copied
