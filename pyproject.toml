@@ -18,6 +18,7 @@ dependencies = [
 
 [project.scripts]
 ally = "ally.cli:main"
+ally-desktop-bridge = "ally.desktop.bridge:main"
 
 [project.optional-dependencies]
 dev = [
