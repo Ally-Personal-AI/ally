@@ -14,7 +14,9 @@ The most important rule is dependency direction:
 | --- | --- |
 | `src/ally/cli.py` | Argument parsing and top-level CLI dispatch only. |
 | `src/ally/commands/` | CLI presentation adapters and output formatting. |
-| `src/ally/application/` | UI-neutral typed daily-use services shared by CLI and future local interfaces, including chat, memory, knowledge, tasks, attention views, and service observability. |
+| `src/ally/application/` | UI-neutral typed daily-use services shared by CLI and local interfaces, including chat, memory, knowledge, tasks, attention views, and service observability. |
+| `src/ally/desktop/` | Local desktop presentation adapters, including the bounded stdio bridge into `AllyApplication`. |
+| `desktop/macos/` | Native SwiftUI presentation client and its Foundation-only bridge/protocol models. |
 | `src/ally/composition/` | Reusable concrete dependency assembly for application/presentation surfaces. |
 | `src/ally/runtime/` | Provider-neutral runtime workflows, including persistent and grounded conversation orchestration. |
 | `src/ally/service/` | Bounded proactive service-cycle logic, lifecycle metadata, and runtime coordination contracts. |
@@ -96,8 +98,9 @@ when it protects a durable architectural property and can be explained simply.
 
 Use these questions in order:
 
-1. **Is this argument parsing or user-facing formatting?** Put it in
-   `cli.py` or `commands/`.
+1. **Is this argument parsing or user-facing formatting?** Put CLI concerns in
+   `cli.py` or `commands/`; native macOS presentation belongs under
+   `desktop/macos/` and local bridge adaptation under `src/ally/desktop/`.
 2. **Is this a daily-use workflow shared across interfaces?** Put UI-neutral
    orchestration in `application/`.
 3. **Is this concrete dependency assembly?** Put it in `composition/`.
