@@ -40,3 +40,21 @@ import Testing
     #expect(rendered.contains("synthetic private message"))
     #expect(rendered.contains("conversation.send"))
 }
+
+@Test func helperEnvironmentDropsUnrelatedShellState() {
+    let filtered = DesktopBridgeClient.helperEnvironment(
+        source: [
+            "HOME": "/tmp/synthetic-home",
+            "TMPDIR": "/tmp/synthetic-tmp",
+            "HTTP_PROXY": "http://example.invalid",
+            "API_TOKEN": "synthetic-secret",
+            "PATH": "/tmp/synthetic-path",
+        ]
+    )
+
+    #expect(filtered["HOME"] == "/tmp/synthetic-home")
+    #expect(filtered["TMPDIR"] == "/tmp/synthetic-tmp")
+    #expect(filtered["HTTP_PROXY"] == nil)
+    #expect(filtered["API_TOKEN"] == nil)
+    #expect(filtered["PATH"] == nil)
+}
