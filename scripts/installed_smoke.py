@@ -99,7 +99,7 @@ def run_workflows(root: Path) -> None:
     ))
     require(
         bridge_info["ok"] is True
-        and bridge_info["result"]["protocol_version"] == 3
+        and bridge_info["result"]["protocol_version"] == 4
         and bridge_info["result"]["transport"] == "stdio",
         "installed desktop bridge protocol",
     )
