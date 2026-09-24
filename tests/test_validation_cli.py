@@ -172,3 +172,15 @@ def test_validate_readiness_parser_supports_json() -> None:
     assert args.command == "validate"
     assert args.validate_command == "readiness"
     assert args.json_output is True
+
+
+def test_validate_workflows_parser_defaults_to_loopback() -> None:
+    args = build_parser().parse_args(
+        ["validate", "workflows", "--model", "example", "--json"]
+    )
+
+    assert args.command == "validate"
+    assert args.validate_command == "workflows"
+    assert args.endpoint == "http://127.0.0.1:8080/v1"
+    assert args.model == "example"
+    assert args.json_output is True
