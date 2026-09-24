@@ -17,6 +17,7 @@ from ally.knowledge.retrieval import KnowledgeContextProvider, LexicalKnowledgeR
 from ally.memory import MemorySource, ModelMemoryProposer, NewMemory
 from ally.models import ModelProvider
 from ally.planning.model_planner import ModelTaskPlanner
+from ally.portability import create_backup, restore_backup, validate_backup
 from ally.runtime import PersistentConversationRuntime
 from ally.runtime.grounded_conversation import GroundedConversationRuntime
 from ally.security.tool_policy import DefaultToolPolicy
@@ -258,6 +259,30 @@ def _memory_proposal_check(provider: ModelProvider) -> None:
     _require(all(candidate.confidence >= 0.0 for candidate in bundle.memories))
 
 
+def _backup_restore_check(
+    database: SQLiteDatabase,
+    root: Path,
+) -> None:
+    marker = SQLiteMemoryStore(database).create(
+        NewMemory(
+            kind="semantic",
+            content="Synthetic backup recovery marker BRAVO-904.",
+            source=MemorySource(type="system", id="synthetic-validation"),
+        )
+    )
+    archive = root / "synthetic-recovery.ally-backup"
+    restored_path = root / "restored-synthetic.sqlite3"
+
+    create_backup(database, archive)
+    manifest = validate_backup(archive)
+    _require(manifest.database.size_bytes > 0)
+    restore_backup(archive, restored_path)
+
+    restored = SQLiteMemoryStore(SQLiteDatabase(restored_path)).get(marker.id)
+    _require(restored is not None)
+    _require(restored.content == "Synthetic backup recovery marker BRAVO-904.")
+
+
 def _workspace_integrity_check(root: Path, database_path: Path) -> None:
     _require(database_path.is_file())
     resolved_root = root.resolve()
@@ -303,6 +328,10 @@ def _run_workspace(
         _run_check(
             "model.memory_proposal",
             lambda: _memory_proposal_check(provider),
+        ),
+        _run_check(
+            "data.backup_restore",
+            lambda: _backup_restore_check(database, root),
         ),
         _run_check(
             "workspace.isolation",
