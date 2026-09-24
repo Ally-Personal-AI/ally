@@ -59,8 +59,8 @@ The first shell includes:
 - modern macOS notification authorization status/request through `UNUserNotificationCenter`.
 
 This is still an incremental #66 product surface. Polished empty/error states,
-standalone helper packaging, real Developer ID/notarization acceptance, and
-dedicated-machine release validation remain follow-on work.
+real Developer ID/notarization acceptance, and dedicated-machine release
+validation remain follow-on work.
 
 ## Validated runtime selection boundary
 
@@ -196,14 +196,20 @@ signing, post-sign helper-hash refresh, outer app signing, signature
 verification, notarization through an existing `notarytool` Keychain profile,
 ticket stapling, and Gatekeeper assessment.
 
-Hosted macOS CI builds the actual Swift release executable, assembles an
-`Ally.app`, and ad-hoc signs/verifies it. CI uses a Mach-O stand-in at the
-helper path so it can validate nested-code and manifest mechanics without
-claiming that the final standalone Python helper artifact exists.
+Hosted macOS CI builds the actual Swift release executable and a self-contained
+one-file `ally-desktop-bridge`, executes the frozen helper's `bridge.info` and
+`bootstrap` operations outside the repository checkout, assembles the real
+`Ally.app`, and ad-hoc signs/verifies the nested helper and outer application.
 
-A production release still requires a self-contained signed helper that does not
-depend on the repository, a virtual environment, `PATH`, Homebrew, or an
-externally installed Python runtime.
+The helper build currently pins PyInstaller 6.22.3 and
+`pyinstaller-hooks-contrib` 2026.7 in the release CI command. The resulting
+helper does not depend on the repository checkout, a developer virtual
+environment, `PATH`, Homebrew, or an externally installed Python runtime.
+
+For a real Developer ID release, the Developer ID Application identity must also
+be supplied to the PyInstaller helper-build step so the binary payload embedded
+inside the one-file helper receives the correct signing identity before the
+outer app is signed.
 
 The full signing, notarization, updater, and rollback threat model is documented
 in [macos-release-security.md](macos-release-security.md).
