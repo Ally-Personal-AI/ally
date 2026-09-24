@@ -62,6 +62,22 @@ The bootstrap call has no external side effects: it does not run tasks, approve
 steps, deliver notifications, execute a service cycle, invoke a model, or mutate
 attention state.
 
+## Native desktop adapter
+
+The first macOS presentation client lives under `desktop/macos/` and talks to
+`AllyApplication` through the bounded `ally-desktop-bridge` stdio adapter.
+
+The bridge is deliberately narrower than the full Python API. In particular,
+desktop chat does not expose development endpoint/model overrides: private user
+data can only route through the active validated runtime profile. Bridge errors
+use stable sanitized codes rather than arbitrary exception text.
+
+The SwiftUI shell may format, navigate, and collect explicit user intent, but
+domain state, grounding, model selection, and approval authority remain on the
+existing application/Core side.
+
+See [Native macOS Desktop Shell](desktop-shell.md).
+
 ## Private chat path
 
 The shared chat flow is:

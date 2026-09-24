@@ -60,6 +60,8 @@ jobs:
         run: uv run pytest
       - name: Core behavioral evaluations
         run: uv run ally eval run
+      - name: Test native macOS desktop package
+        run: swift test --package-path desktop/macos
 
   distribution:
     name: Distribution (${{ matrix.os }})

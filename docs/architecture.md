@@ -68,6 +68,9 @@ Some packages intentionally sit at the edge of Core:
 
 - `application/` exposes typed UI-neutral daily-use workflows over Ally-owned
   protocols;
+- `desktop/` contains local desktop presentation adapters; its stdio bridge is
+  bounded, opens no network listener, and delegates authority to `AllyApplication`;
+- `desktop/macos/` is the native SwiftUI client and does not own Core semantics;
 - `composition/` assembles concrete stores/providers for presentation layers;
 - `commands/` formats CLI input/output and increasingly delegates to
   `application/`;
@@ -155,10 +158,12 @@ The first implementation is Python 3.12. The primary executable interface is the
 `ally` CLI.
 
 The shared [Application Facade](application-facade.md) is the interface-neutral
-daily-use composition boundary. The CLI and future desktop/mobile surfaces are
-peer presentation adapters over it. UI code should not shell out to the CLI or
-take ownership of conversation grounding, memory, model selection, permissions,
-or persistence semantics.
+daily-use composition boundary. The CLI and native desktop surface are peer
+presentation adapters over it. The first SwiftUI shell uses a dedicated bounded
+local stdio bridge rather than shelling out to CLI commands or opening a local
+network service. UI code must not take ownership of conversation grounding,
+memory, model selection, permissions, or persistence semantics. See
+[Native macOS Desktop Shell](desktop-shell.md).
 
 ## Repository strategy
 

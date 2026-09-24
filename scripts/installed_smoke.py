@@ -15,7 +15,7 @@ import subprocess
 import sys
 from collections import deque
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from importlib.metadata import version
+from importlib.metadata import entry_points, version
 from importlib.util import find_spec
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -27,13 +27,19 @@ from zipfile import ZipFile
 import ally
 from ally.cli import main as ally_main
 from ally.composition import build_default_application
+from ally.desktop.bridge import main as desktop_bridge_main
 from ally.diagnostics import load_validation_report
 from ally.storage.sqlite import SQLiteConversationStore, SQLiteDatabase, SQLiteMemoryStore
 
 
-def output(arguments: list[str]) -> str:
+def output(arguments: list[str], *, input_text: str | None = None) -> str:
     result = subprocess.run(
-        arguments, capture_output=True, text=True, check=False, timeout=30,
+        arguments,
+        capture_output=True,
+        text=True,
+        input=input_text,
+        check=False,
+        timeout=30,
     )
     if result.returncode != 0:
         raise RuntimeError(
@@ -72,6 +78,31 @@ def run_workflows(root: Path) -> None:
     console = [sys.executable, "-I", str(entry)]
     require(version("ally-personal-ai") in output([*console, "--version"]), "version")
     require("Ally" in output([*console, "doctor"]), "doctor")
+    console_scripts = {
+        item.name: item.value
+        for item in entry_points(group="console_scripts")
+        if item.name.startswith("ally")
+    }
+    require(
+        console_scripts.get("ally-desktop-bridge") == "ally.desktop.bridge:main",
+        "desktop bridge console entry point",
+    )
+    bridge_info = json.loads(output(
+        [
+            sys.executable,
+            "-I",
+            str(Path(__file__).resolve()),
+            "--desktop-bridge",
+            str(root),
+        ],
+        input_text='{"id":"installed-smoke","method":"bridge.info","params":{}}\n',
+    ))
+    require(
+        bridge_info["ok"] is True
+        and bridge_info["result"]["protocol_version"] == 1
+        and bridge_info["result"]["transport"] == "stdio",
+        "installed desktop bridge protocol",
+    )
     core = json.loads(output([*console, "eval", "run", "--json"]))
     require(core["total"] > 0 and core["passed"] == core["total"], "bundled core suite")
 
@@ -482,7 +513,7 @@ def run_workflows(root: Path) -> None:
     )
     print(
         "Installed workflows passed: evals/behavior, isolated validation, "
-        "chat/resume, memory, knowledge, tasks,"
+        "desktop bridge, chat/resume, memory, knowledge, tasks,"
     )
     print("service health, managed-service inspection, skill worker, and backup/restore.")
 
@@ -500,6 +531,13 @@ def main() -> int:
             patch("ally.config.user_data_dir", return_value=str(root / "data")),
         ):
             return ally_main(sys.argv[3:])
+    if len(sys.argv) > 1 and sys.argv[1] == "--desktop-bridge":
+        root = Path(sys.argv[2])
+        with (
+            patch("ally.config.user_config_dir", return_value=str(root / "config")),
+            patch("ally.config.user_data_dir", return_value=str(root / "data")),
+        ):
+            return desktop_bridge_main(["--once"])
     if len(sys.argv) > 1 and sys.argv[1] == "--bootstrap":
         root = Path(sys.argv[2])
         with (
