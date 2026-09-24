@@ -5,9 +5,9 @@ from __future__ import annotations
 from contextlib import AbstractContextManager
 
 from ally.application import AllyApplication, ApplicationOperations
-from ally.events import EventRuntime
 from ally.configuration import default_config_path
 from ally.diagnostics import build_service_health
+from ally.events import EventRuntime
 from ally.models import ModelProvider
 from ally.models.providers import OpenAICompatibleProvider
 from ally.runtime_profiles import (
