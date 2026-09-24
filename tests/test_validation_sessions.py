@@ -334,3 +334,91 @@ def test_readiness_failure_precedes_other_next_actions(tmp_path: Path) -> None:
     assert status.profile.state == "passed"
     assert status.next_step == "resolve_readiness"
     assert not status.complete
+
+
+
+def test_session_can_adopt_existing_evidence_filenames(tmp_path: Path) -> None:
+    root = tmp_path / "candidate"
+    root.mkdir()
+    validation = write_validation_report(
+        _validation(),
+        root / "existing-validation.json",
+    )
+    privacy = build_runtime_privacy_report(
+        validation_path=validation,
+        isolation_mode="host_offline",
+        network_observation="system_tools",
+        checks=RuntimePrivacyChecks(
+            inference_with_egress_blocked="pass",
+            synthetic_chat="pass",
+            synthetic_planning="pass",
+            synthetic_memory_proposal="pass",
+            synthetic_grounding="pass",
+            no_cloud_auth_required="pass",
+            no_cloud_fallback_observed="pass",
+            no_prompt_telemetry_observed="pass",
+            no_unexpected_outbound_connections="pass",
+        ),
+    )
+    privacy_path = write_runtime_privacy_report(
+        privacy,
+        root / "existing-privacy.json",
+    )
+    workflow = build_functional_workflow_report(
+        validation_path=validation,
+        workflow=SyntheticWorkflowReport(
+            generated_at=datetime(2026, 9, 24, tzinfo=UTC),
+            ally_version=__version__,
+            provider="synthetic",
+            model="synthetic-model",
+            checks=(
+                SyntheticWorkflowCheck(
+                    id="conversation.persistence",
+                    status="passed",
+                    duration_ms=1.0,
+                ),
+            ),
+            duration_ms=1.0,
+        ),
+    )
+    workflow_path = write_functional_workflow_report(
+        workflow,
+        root / "existing-workflows.json",
+    )
+    profile = build_validated_runtime_profile(
+        validation_path=validation,
+        privacy_path=privacy_path,
+        workflow_path=workflow_path,
+    )
+    profile_path = write_validated_runtime_profile(
+        profile,
+        root / "existing-profile.json",
+    )
+    _, session = initialize_validation_session(
+        directory=root,
+        candidate_label="candidate",
+        artifacts=ValidationArtifactPlan(
+            capability=validation.name,
+            privacy=privacy_path.name,
+            workflows=workflow_path.name,
+            profile=profile_path.name,
+        ),
+    )
+
+    status = inspect_validation_session(session, readiness=_ready())
+
+    assert status.complete
+    assert status.next_step == "complete"
+
+
+def test_session_artifact_plan_rejects_duplicate_or_unsafe_names() -> None:
+    with pytest.raises(ValueError, match="unique"):
+        ValidationArtifactPlan(
+            capability="evidence.json",
+            privacy="evidence.json",
+        )
+
+    with pytest.raises(ValueError, match="leaf filenames"):
+        ValidationArtifactPlan(
+            capability="../capability.json",
+        )
