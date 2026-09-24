@@ -30,6 +30,10 @@ final class AppModel: ObservableObject {
         isBusy = true
         defer { isBusy = false }
         do {
+            let info: BridgeInfo = try await client.call("bridge.info")
+            guard info.protocolVersion == DesktopBridgeClient.supportedProtocolVersion else {
+                throw DesktopBridgeError.invalidResponse
+            }
             async let snapshot: BootstrapSnapshot = client.call("bootstrap")
             async let memories: [MemorySummary] = client.call(
                 "memory.list",
