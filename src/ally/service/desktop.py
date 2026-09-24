@@ -113,14 +113,21 @@ class DesktopProactiveCoordinator:
                 )
                 raise
 
-            finished = self._runs.finish(
+            run = self._runs.update_running_progress(
                 run.id,
-                status="succeeded",
-                finished_at=datetime.now(UTC),
                 scheduled_events=len(ticks),
             )
+            if not candidates:
+                run = self._runs.finish(
+                    run.id,
+                    status="succeeded",
+                    finished_at=datetime.now(UTC),
+                    scheduled_events=run.scheduled_events,
+                    delivery_attempts=run.delivery_attempts,
+                    delivery_failures=run.delivery_failures,
+                )
             return DesktopProactivePreparation(
-                run=finished,
+                run=run,
                 candidates=candidates,
             )
 
@@ -176,6 +183,7 @@ class DesktopProactiveCoordinator:
     def record_delivery_result(
         self,
         *,
+        run_id: UUID,
         event_id: UUID,
         delivery_key_value: str,
         succeeded: bool,
@@ -200,9 +208,33 @@ class DesktopProactiveCoordinator:
         if existing is not None and existing.status == "succeeded":
             return existing
 
-        return self._deliveries.record_attempt(
+        recorded = self._deliveries.record_attempt(
             event_id=event.id,
             sink_id=DESKTOP_NOTIFICATION_SINK_ID,
             succeeded=succeeded,
             error=None if succeeded else _NATIVE_DELIVERY_ERROR,
+        )
+        self._runs.update_running_progress(
+            run_id,
+            delivery_attempts_delta=1,
+            delivery_failures_delta=0 if succeeded else 1,
+        )
+        return recorded
+
+    def complete(self, run_id: UUID) -> ServiceCycleRunRecord:
+        """Finish one prepared cycle using only server-owned progress counters."""
+
+        current = self._runs.get(run_id)
+        if current is None:
+            raise KeyError(f"Unknown service cycle run: {run_id}")
+        if current.status != "running":
+            return current
+
+        return self._runs.finish(
+            run_id,
+            status="degraded" if current.delivery_failures else "succeeded",
+            finished_at=datetime.now(UTC),
+            scheduled_events=current.scheduled_events,
+            delivery_attempts=current.delivery_attempts,
+            delivery_failures=current.delivery_failures,
         )
