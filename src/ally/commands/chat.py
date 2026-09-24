@@ -21,6 +21,7 @@ from ally.memory.retrieval import LexicalMemoryRetriever, MemoryContextProvider
 from ally.models.errors import ModelProviderError
 from ally.models.providers import OpenAICompatibleProvider
 from ally.runtime import PersistentConversationRuntime
+from ally.runtime_profiles import InferenceTargetError, resolve_inference_target
 
 
 def _parse_conversation_id(value: str | None) -> UUID | None:
@@ -53,14 +54,23 @@ def _build_private_context_provider() -> ContextProvider:
 
 def run_chat(
     *,
-    endpoint: str,
-    model: str,
+    development_endpoint: str | None,
+    development_model: str | None,
     prompt: str | None,
     conversation_id: str | None,
     instruction_project: str | None = None,
     instruction_task: str | None = None,
     session_instructions: str | None = None,
 ) -> int:
+    try:
+        target = resolve_inference_target(
+            development_endpoint=development_endpoint,
+            development_model=development_model,
+        )
+    except InferenceTargetError as exc:
+        print(f"Inference target error: {exc}")
+        return 2
+
     try:
         conversation_store = build_conversation_store()
 
@@ -89,8 +99,8 @@ def run_chat(
         rendered_instructions = render_instruction_contributions(contributions) or None
 
         with OpenAICompatibleProvider(
-            base_url=endpoint,
-            model=model,
+            base_url=target.endpoint,
+            model=target.model,
         ) as provider:
             runtime = PersistentConversationRuntime(
                 provider,
@@ -121,6 +131,9 @@ def run_chat(
 
                 response = runtime.respond(user_input)
                 print(f"Ally: {response.content}")
-    except (KeyError, ModelProviderError, ValueError) as exc:
+    except ModelProviderError as exc:
+        print(f"Ally provider error: {exc}")
+        return 2
+    except (KeyError, ValueError) as exc:
         print(f"Ally error: {exc}")
         return 2
