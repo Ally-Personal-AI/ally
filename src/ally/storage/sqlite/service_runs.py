@@ -71,11 +71,12 @@ class SQLiteServiceCycleRunStore:
         *,
         observed_at: datetime,
         started_at: datetime,
+        run_id: UUID | None = None,
     ) -> ServiceCycleRunRecord:
         observed = _as_utc(observed_at)
         started = _as_utc(started_at)
         record = ServiceCycleRunRecord(
-            id=uuid4(),
+            id=run_id or uuid4(),
             status="running",
             observed_at=observed,
             started_at=started,
