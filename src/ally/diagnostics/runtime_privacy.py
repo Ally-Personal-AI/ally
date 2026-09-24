@@ -74,6 +74,7 @@ class RuntimePrivacyQualificationReport(BaseModel):
     generated_at: datetime
     ally_version: str = Field(min_length=1, max_length=100)
     source_validation_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_validation_successful: bool
     model: str = Field(min_length=1, max_length=300)
     runtime: RuntimeProfile
     hardware: HardwareProfile
@@ -106,7 +107,8 @@ class RuntimePrivacyQualificationReport(BaseModel):
     @property
     def qualified_for_private_inference(self) -> bool:
         return (
-            self.isolation_mode != "unverified"
+            self.source_validation_successful
+            and self.isolation_mode != "unverified"
             and self.network_observation != "none"
             and self.checks.all_passed
         )
@@ -131,10 +133,15 @@ def build_runtime_privacy_report(
 
     resolved = validation_path.expanduser().resolve()
     validation: LocalModelValidationReport = load_validation_report(resolved)
+    if validation.ally_version != __version__:
+        raise ValueError(
+            "source validation Ally version must match the current Ally version"
+        )
     return RuntimePrivacyQualificationReport(
         generated_at=datetime.now(UTC),
         ally_version=__version__,
         source_validation_sha256=_sha256(resolved),
+        source_validation_successful=validation.successful,
         model=validation.model,
         runtime=validation.runtime,
         hardware=validation.hardware,
