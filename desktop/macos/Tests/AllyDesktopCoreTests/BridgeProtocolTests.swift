@@ -153,3 +153,143 @@ import UserNotifications
             == .provisional
     )
 }
+
+
+private func makeSyntheticReleaseBundle(
+    bundleIdentifier: String = DesktopReleaseBundle.bundleIdentifier,
+    bridgeProtocolVersion: Int = DesktopBridgeClient.supportedProtocolVersion,
+    helperContents: String = "#!/bin/sh\necho synthetic\n"
+) throws -> (root: URL, helper: URL) {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        .appendingPathComponent("Ally.app", isDirectory: true)
+    let helpers = root.appendingPathComponent("Contents/Helpers", isDirectory: true)
+    let resources = root.appendingPathComponent("Contents/Resources", isDirectory: true)
+    try FileManager.default.createDirectory(
+        at: helpers,
+        withIntermediateDirectories: true
+    )
+    try FileManager.default.createDirectory(
+        at: resources,
+        withIntermediateDirectories: true
+    )
+
+    let helper = helpers.appendingPathComponent("ally-desktop-bridge")
+    try Data(helperContents.utf8).write(to: helper)
+    try FileManager.default.setAttributes(
+        [.posixPermissions: 0o755],
+        ofItemAtPath: helper.path
+    )
+    let helperHash = try DesktopReleaseBundle.sha256(of: helper)
+    let manifest: [String: Any] = [
+        "schema_version": 1,
+        "bundle_identifier": bundleIdentifier,
+        "ally_version": "0.1.0.dev0",
+        "bridge_protocol_version": bridgeProtocolVersion,
+        "helper_relative_path": DesktopReleaseBundle.helperRelativePath,
+        "helper_sha256": helperHash,
+        "app_executable_sha256": String(repeating: "a", count: 64),
+        "source_revision": "synthetic",
+    ]
+    let manifestData = try JSONSerialization.data(
+        withJSONObject: manifest,
+        options: [.sortedKeys]
+    )
+    try manifestData.write(
+        to: resources.appendingPathComponent("release-manifest.json")
+    )
+    return (root, helper)
+}
+
+@Test func releaseHelperResolutionIgnoresDevelopmentOverride() throws {
+    let release = try makeSyntheticReleaseBundle()
+    defer { try? FileManager.default.removeItem(at: release.root.deletingLastPathComponent()) }
+
+    let resolved = try DesktopBridgeClient.resolveHelper(
+        environment: [
+            DesktopBridgeClient.helperEnvironmentKey: "/tmp/untrusted-helper",
+        ],
+        bundleURL: release.root,
+        bundleIdentifier: DesktopReleaseBundle.bundleIdentifier,
+        allowDevelopmentOverride: false
+    )
+
+    #expect(resolved.standardizedFileURL == release.helper.standardizedFileURL)
+}
+
+@Test func releaseHelperResolutionRejectsTampering() throws {
+    let release = try makeSyntheticReleaseBundle()
+    defer { try? FileManager.default.removeItem(at: release.root.deletingLastPathComponent()) }
+
+    try Data("#!/bin/sh\necho tampered\n".utf8).write(to: release.helper)
+
+    #expect(throws: DesktopBridgeError.helperIntegrityFailed) {
+        _ = try DesktopBridgeClient.resolveHelper(
+            environment: [:],
+            bundleURL: release.root,
+            bundleIdentifier: DesktopReleaseBundle.bundleIdentifier,
+            allowDevelopmentOverride: false
+        )
+    }
+}
+
+@Test func releaseHelperResolutionRejectsWrongBundleIdentity() throws {
+    let release = try makeSyntheticReleaseBundle()
+    defer { try? FileManager.default.removeItem(at: release.root.deletingLastPathComponent()) }
+
+    #expect(throws: DesktopBridgeError.releaseManifestInvalid) {
+        _ = try DesktopBridgeClient.resolveHelper(
+            environment: [:],
+            bundleURL: release.root,
+            bundleIdentifier: "invalid.synthetic.bundle",
+            allowDevelopmentOverride: false
+        )
+    }
+}
+
+@Test func releaseHelperResolutionRejectsProtocolMismatch() throws {
+    let release = try makeSyntheticReleaseBundle(
+        bridgeProtocolVersion: DesktopBridgeClient.supportedProtocolVersion + 1
+    )
+    defer { try? FileManager.default.removeItem(at: release.root.deletingLastPathComponent()) }
+
+    #expect(throws: DesktopBridgeError.releaseManifestInvalid) {
+        _ = try DesktopBridgeClient.resolveHelper(
+            environment: [:],
+            bundleURL: release.root,
+            bundleIdentifier: DesktopReleaseBundle.bundleIdentifier,
+            allowDevelopmentOverride: false
+        )
+    }
+}
+
+@Test func developmentHelperOverrideStillRequiresAbsoluteExecutable() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let helper = root.appendingPathComponent("synthetic-helper")
+    try Data("#!/bin/sh\nexit 0\n".utf8).write(to: helper)
+    try FileManager.default.setAttributes(
+        [.posixPermissions: 0o755],
+        ofItemAtPath: helper.path
+    )
+
+    let resolved = try DesktopBridgeClient.resolveHelper(
+        environment: [DesktopBridgeClient.helperEnvironmentKey: helper.path],
+        bundleURL: root,
+        bundleIdentifier: nil,
+        allowDevelopmentOverride: true
+    )
+    #expect(resolved.standardizedFileURL == helper.standardizedFileURL)
+
+    #expect(throws: DesktopBridgeError.helperNotExecutable) {
+        _ = try DesktopBridgeClient.resolveHelper(
+            environment: [DesktopBridgeClient.helperEnvironmentKey: "relative-helper"],
+            bundleURL: root,
+            bundleIdentifier: nil,
+            allowDevelopmentOverride: true
+        )
+    }
+}
