@@ -240,19 +240,35 @@ Keep the raw JSON capability reports and matching runtime-privacy artifacts so
 future hardware, runtime, and model changes can be compared against the same
 baseline.
 
-Compare candidate artifacts after each candidate has completed the same frozen
-suite on the same machine:
+Capability-only comparison remains available, but production selection should
+compare verified capability/privacy pairs after each candidate has completed
+both phases.
+
+Inspect one exact pair:
 
 ```bash
-uv run ally validate compare \
+uv run ally validate candidate \
   validation/<candidate-a>.json \
-  validation/<candidate-b>.json
+  validation/<candidate-a>-privacy.json
 ```
 
-The command warns when the Ally version, hardware, or evaluation fingerprints
-differ and never selects a default automatically. See
-[Local-model Validation Evidence](../model-validation.md) for the complete
-artifact contract.
+Compare multiple verified candidates:
+
+```bash
+uv run ally validate compare-candidates \
+  --pair validation/<candidate-a>.json validation/<candidate-a>-privacy.json \
+  --pair validation/<candidate-b>.json validation/<candidate-b>-privacy.json
+```
+
+Each pair is cryptographically verified before comparison. The command shows
+capability success and privacy qualification separately, marks a candidate
+production-eligible only when both pass, warns when hardware, Ally version, or
+evaluation fingerprints differ, and never selects or ranks a default.
+
+Capability-only `ally validate compare` remains useful during exploratory
+testing. See [Local-model Validation Evidence](../model-validation.md) and
+[Runtime Privacy Qualification](../runtime-privacy-qualification.md) for the
+artifact contracts.
 
 ## Exit criteria
 

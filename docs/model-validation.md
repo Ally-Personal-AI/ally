@@ -96,6 +96,12 @@ or required external egress. Before a candidate becomes eligible for private
 daily use, create the separate fail-closed runtime privacy artifact described in
 [Runtime Privacy Qualification](runtime-privacy-qualification.md).
 
+For production selection, use `ally validate candidate` or
+`ally validate compare-candidates` rather than mentally pairing artifacts.
+Those commands verify that each privacy artifact belongs to the exact
+capability report and expose production eligibility without computing a
+composite score or selecting a winner.
+
 ## Evidence boundaries
 
 Generated reports remain local and are ignored by Git. Frozen evaluation cases

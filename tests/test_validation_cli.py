@@ -91,3 +91,44 @@ def test_validate_runtime_privacy_verify_parser_supports_json() -> None:
     assert args.report == "privacy.json"
     assert args.validation_report == "validation.json"
     assert args.json_output is True
+
+
+
+def test_validate_candidate_parser_accepts_exact_pair() -> None:
+    args = build_parser().parse_args(
+        [
+            "validate",
+            "candidate",
+            "validation.json",
+            "privacy.json",
+            "--json",
+        ]
+    )
+
+    assert args.validate_command == "candidate"
+    assert args.validation_report == "validation.json"
+    assert args.privacy_report == "privacy.json"
+    assert args.json_output is True
+
+
+def test_validate_compare_candidates_parser_accepts_repeated_pairs() -> None:
+    args = build_parser().parse_args(
+        [
+            "validate",
+            "compare-candidates",
+            "--pair",
+            "a-validation.json",
+            "a-privacy.json",
+            "--pair",
+            "b-validation.json",
+            "b-privacy.json",
+            "--json",
+        ]
+    )
+
+    assert args.validate_command == "compare-candidates"
+    assert args.pairs == [
+        ["a-validation.json", "a-privacy.json"],
+        ["b-validation.json", "b-privacy.json"],
+    ]
+    assert args.json_output is True

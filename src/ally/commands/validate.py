@@ -9,6 +9,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from ally.diagnostics import (
+    CandidateEvidence,
     LocalModelValidationReport,
     NetworkObservationMethod,
     PerformanceObservations,
@@ -19,8 +20,10 @@ from ally.diagnostics import (
     RuntimePrivacyQualificationReport,
     RuntimeProfile,
     ValidationReportError,
+    build_candidate_evidence,
     build_runtime_privacy_report,
     collect_hardware_profile,
+    compare_candidate_evidence,
     compare_validation_reports,
     load_runtime_privacy_report,
     load_validation_report,
@@ -367,3 +370,166 @@ def run_verify_runtime_privacy_report(
             f"{'yes' if report.qualified_for_private_inference else 'no'}"
         )
     return 0 if report.qualified_for_private_inference else 1
+
+
+
+def _candidate_summary(candidate: CandidateEvidence) -> dict[str, object]:
+    return candidate.model_dump(mode="json")
+
+
+def run_show_candidate_evidence(
+    *,
+    validation_report: str,
+    privacy_report: str,
+    json_output: bool,
+) -> int:
+    """Inspect one exact capability/privacy pair."""
+
+    try:
+        candidate = build_candidate_evidence(
+            validation_path=Path(validation_report),
+            privacy_path=Path(privacy_report),
+        )
+    except (RuntimePrivacyEvidenceError, ValidationReportError, ValueError) as exc:
+        print(f"Candidate evidence error: {exc}")
+        return 2
+
+    if json_output:
+        print(json.dumps(_candidate_summary(candidate), indent=2, sort_keys=True))
+    else:
+        print(
+            "Production eligible: "
+            f"{'yes' if candidate.production_eligible else 'no'}"
+        )
+        print(
+            "Capability validation: "
+            f"{'pass' if candidate.capability_successful else 'fail'}"
+        )
+        print(
+            "Runtime privacy: "
+            f"{'qualified' if candidate.privacy_qualified else 'unqualified'}"
+        )
+        print(f"Runtime: {candidate.runtime.name} {candidate.runtime.version}")
+        print(f"Model: {candidate.model}")
+        print(f"Isolation mode: {candidate.isolation_mode}")
+        print(f"Network observation: {candidate.network_observation}")
+        print(f"Core: {candidate.core_passed}/{candidate.core_total}")
+        print(f"Provider: {candidate.provider_passed}/{candidate.provider_total}")
+        if candidate.behavior_total is not None:
+            print(
+                f"Behavior: {candidate.behavior_passed}/"
+                f"{candidate.behavior_total}"
+            )
+        print(
+            "Time to first token: "
+            f"{_optional(candidate.observations.time_to_first_token_ms, suffix=' ms')}"
+        )
+        print(
+            "Generation rate: "
+            f"{_optional(candidate.observations.generation_tokens_per_second, suffix=' tok/s')}"
+        )
+        print(
+            "Peak memory: "
+            f"{_optional(candidate.observations.peak_memory_bytes, suffix=' bytes')}"
+        )
+    return 0 if candidate.production_eligible else 1
+
+
+def run_compare_candidate_evidence(
+    *,
+    pairs: Sequence[Sequence[str]],
+    json_output: bool,
+) -> int:
+    """Compare exact verified capability/privacy pairs without choosing a winner."""
+
+    try:
+        if len(pairs) < 2:
+            raise ValueError("candidate comparison requires at least two --pair values")
+        candidates: list[CandidateEvidence] = []
+        pair_labels: set[tuple[str, str]] = set()
+        for pair in pairs:
+            if len(pair) != 2:
+                raise ValueError("each --pair requires VALIDATION PRIVACY")
+            validation_report, privacy_report = pair
+            label = (Path(validation_report).name, Path(privacy_report).name)
+            if label in pair_labels:
+                raise ValueError("candidate evidence pairs must be unique")
+            pair_labels.add(label)
+            candidates.append(
+                build_candidate_evidence(
+                    validation_path=Path(validation_report),
+                    privacy_path=Path(privacy_report),
+                )
+            )
+        comparison = compare_candidate_evidence(candidates)
+    except (RuntimePrivacyEvidenceError, ValidationReportError, ValueError) as exc:
+        print(f"Candidate comparison error: {exc}")
+        return 2
+
+    if json_output:
+        print(
+            json.dumps(
+                comparison.model_dump(mode="json"),
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0
+
+    print(f"Same hardware: {'yes' if comparison.same_hardware else 'no'}")
+    print(
+        "Same evaluation suite: "
+        f"{'yes' if comparison.same_evaluation_suite else 'no'}"
+    )
+    print(f"Same Ally version: {'yes' if comparison.same_ally_version else 'no'}")
+    for warning in comparison.warnings:
+        print(f"Warning: {warning}")
+
+    for candidate in comparison.candidates:
+        print(
+            f"\nCandidate: {candidate.validation_report} + "
+            f"{candidate.privacy_report}"
+        )
+        print(
+            "  Production eligible: "
+            f"{'yes' if candidate.production_eligible else 'no'}"
+        )
+        print(
+            "  Capability: "
+            f"{'pass' if candidate.capability_successful else 'fail'}"
+        )
+        print(
+            "  Privacy: "
+            f"{'qualified' if candidate.privacy_qualified else 'unqualified'}"
+        )
+        print(f"  Runtime: {candidate.runtime.name} {candidate.runtime.version}")
+        print(f"  Model: {candidate.model}")
+        print(f"  Isolation: {candidate.isolation_mode}")
+        print(f"  Network observation: {candidate.network_observation}")
+        print(f"  Core: {candidate.core_passed}/{candidate.core_total}")
+        print(f"  Provider: {candidate.provider_passed}/{candidate.provider_total}")
+        if candidate.behavior_total is not None:
+            print(
+                f"  Behavior: {candidate.behavior_passed}/"
+                f"{candidate.behavior_total}"
+            )
+        print(
+            "  Time to first token: "
+            f"{_optional(candidate.observations.time_to_first_token_ms, suffix=' ms')}"
+        )
+        print(
+            "  Generation rate: "
+            f"{_optional(candidate.observations.generation_tokens_per_second, suffix=' tok/s')}"
+        )
+        print(
+            "  Peak memory: "
+            f"{_optional(candidate.observations.peak_memory_bytes, suffix=' bytes')}"
+        )
+        print(f"  Memory pressure: {candidate.memory_pressure}")
+        print(f"  Thermal state: {candidate.thermal_state}")
+
+    print(
+        "\nNo default is selected automatically; review only verified, "
+        "production-eligible candidates."
+    )
+    return 0
