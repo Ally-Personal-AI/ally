@@ -215,21 +215,18 @@ filename when repeating a run so prior evidence remains intact.
 ## 6. Run isolated synthetic Ally workflows
 
 Do not use Ally's default personal-state database for functional validation.
-Run the isolated synthetic workflow against the same candidate endpoint/model:
-
-```bash
-uv run ally validate workflows --model <model-id>
-```
-
-For a non-default loopback endpoint:
+Run the isolated synthetic workflow from the exact capability artifact while
+the same candidate server is still running:
 
 ```bash
 uv run ally validate workflows \
-  --endpoint http://127.0.0.1:11434/v1 \
-  --model <model-id>
+  validation/<candidate>.json \
+  --output validation/<candidate>-workflows.json
 ```
 
-Use `--json` for machine-readable status.
+The endpoint and model are read from the capability artifact, so workflow
+evidence cannot accidentally be attributed to another candidate. Use `--json`
+for machine-readable status.
 
 The command creates a temporary Ally SQLite database and synthetic knowledge
 inside a disposable workspace, exercises the real runtime/store/policy
@@ -250,12 +247,21 @@ The workflow checks:
 8. backup, integrity validation, restore, and recovered synthetic state; and
 9. that all generated validation state lives under the disposable workspace.
 
-The report stores only check IDs, pass/fail state, durations, and safe exception
-class names. Model responses, synthetic prompts, temporary filesystem paths,
-and generated database content are not copied into the report.
+The immutable report stores the source capability SHA-256, copied
+model/runtime/hardware identity, check IDs, pass/fail state, durations, and safe
+exception class names. Model responses, synthetic prompts, temporary filesystem
+paths, and generated database content are not copied into the report.
 
-A failed workflow should be investigated before selecting the candidate even
-when the frozen provider/behavior suites passed.
+Verify the binding explicitly when desired:
+
+```bash
+uv run ally validate workflows-verify \
+  validation/<candidate>-workflows.json \
+  validation/<candidate>.json
+```
+
+A failed workflow remains useful diagnostic evidence but cannot qualify the
+candidate for production use.
 
 ## 7. Compare runtimes/models
 
@@ -278,34 +284,34 @@ tokens/second. Compare:
 - ability to operate with external network egress unavailable
 - absence of prompt-bearing telemetry or required cloud inference
 
-Keep the raw JSON capability reports and matching runtime-privacy artifacts so
-future hardware, runtime, and model changes can be compared against the same
-baseline.
+Keep the raw JSON capability reports plus their matching runtime-privacy and
+functional-workflow artifacts so future hardware, runtime, and model changes can
+be compared against the same baseline.
 
-Capability-only comparison remains available, but production selection should
-compare verified capability/privacy pairs after each candidate has completed
-both phases.
+Capability-only comparison remains available, but production selection uses
+three verified artifacts per candidate.
 
-Inspect one exact pair:
+Inspect one exact evidence set:
 
 ```bash
 uv run ally validate candidate \
   validation/<candidate-a>.json \
-  validation/<candidate-a>-privacy.json
+  validation/<candidate-a>-privacy.json \
+  validation/<candidate-a>-workflows.json
 ```
 
 Compare multiple verified candidates:
 
 ```bash
 uv run ally validate compare-candidates \
-  --pair validation/<candidate-a>.json validation/<candidate-a>-privacy.json \
-  --pair validation/<candidate-b>.json validation/<candidate-b>-privacy.json
+  --candidate validation/<candidate-a>.json validation/<candidate-a>-privacy.json validation/<candidate-a>-workflows.json \
+  --candidate validation/<candidate-b>.json validation/<candidate-b>-privacy.json validation/<candidate-b>-workflows.json
 ```
 
-Each pair is cryptographically verified before comparison. The command shows
-capability success and privacy qualification separately, marks a candidate
-production-eligible only when both pass, warns when hardware, Ally version, or
-evaluation fingerprints differ, and never selects or ranks a default.
+Both secondary artifacts are cryptographically verified against the exact same
+capability report before comparison. The command shows capability, privacy, and
+functional qualification separately. Production eligibility requires all three;
+comparison never selects or ranks a default.
 
 Capability-only `ally validate compare` remains useful during exploratory
 testing. See [Local-model Validation Evidence](../model-validation.md) and
@@ -328,6 +334,6 @@ The first-machine phase is complete when at least one local runtime/model pair:
 - survives repeated conversation/task workflows without instability.
 
 Only then should Ally add hardware-specific optimizations such as a direct MLX
-adapter or choose a default local model. A candidate without a qualified runtime
-privacy artifact remains development-only even when the local-model validation
-report passes.
+adapter or choose a default local model. A candidate without both qualified
+runtime-privacy and functional-workflow artifacts remains development-only even
+when the local-model validation report passes.
