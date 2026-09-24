@@ -136,8 +136,9 @@ final class AppModel: ObservableObject {
             snapshot = try await client.call("bootstrap")
             errorMessage = nil
         } catch {
-            errorMessage = error.localizedDescription
+            let message = error.localizedDescription
             await selectTask(taskID)
+            errorMessage = message
         }
     }
 
@@ -157,8 +158,9 @@ final class AppModel: ObservableObject {
             snapshot = try await client.call("bootstrap")
             errorMessage = nil
         } catch {
-            errorMessage = error.localizedDescription
+            let message = error.localizedDescription
             await selectTask(taskID)
+            errorMessage = message
         }
     }
 
