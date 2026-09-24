@@ -386,8 +386,27 @@ def run_workflows(root: Path) -> None:
     task = identifier(cli("tasks", "create", str(plan_path)))
     require("Status: succeeded" in cli("tasks", "run", task), "read-only task")
     require("succeeded" in cli("tasks", "show", task), "task persisted")
+
+    emitted = cli(
+        "events", "emit", "synthetic.application-facade",
+        "--source", "installed-smoke",
+        "--importance", "urgent",
+        "--payload", '{"message":"synthetic"}',
+    )
+    require("Attention: notify" in emitted, "synthetic attention event")
+    pending = cli("attention", "pending")
+    require(
+        "synthetic.application-facade" in pending,
+        "application-backed pending attention",
+    )
+
     cycle = json.loads(cli("service", "cycle", "--sink", "console", "--json"))
     require(cycle["run"]["status"] == "succeeded", "bounded service cycle")
+    history = cli("attention", "history")
+    require(
+        "sink=console" in history and "succeeded" in history,
+        "application-backed attention history",
+    )
     health = json.loads(cli("service", "health", "--json"))
     require(health["status"] == "healthy", "service health")
     launch_agent = plistlib.loads(cli("service", "managed", "inspect").encode())
