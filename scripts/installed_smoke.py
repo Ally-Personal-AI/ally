@@ -191,11 +191,11 @@ def run_workflows(root: Path) -> None:
             "behavior CLI defaults",
         )
 
-        workflow_plan = {
+        workflow_plan: dict[str, object] = {
             "goal": "Inspect the synthetic validation runtime",
             "steps": [{"tool_name": "system.info", "arguments": {}}],
         }
-        workflow_memory = {
+        workflow_memory: dict[str, object] = {
             "memories": [{
                 "kind": "preference",
                 "content": "Synthetic subject prefers jasmine tea.",
