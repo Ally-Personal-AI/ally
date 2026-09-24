@@ -740,6 +740,8 @@ private struct TaskStepCard: View {
 
 private struct SystemScreen: View {
     @ObservedObject var model: AppModel
+    @State private var pendingProfile: RuntimeProfileSummary?
+    @State private var showingProfileSelection = false
 
     var body: some View {
         Form {
@@ -749,6 +751,97 @@ private struct SystemScreen: View {
                     LabeledContent("Model", value: target.model)
                     if let runtimeName = target.runtimeName {
                         LabeledContent("Runtime", value: runtimeName)
+                    }
+                    if let runtimeVersion = target.runtimeVersion {
+                        LabeledContent("Runtime version", value: runtimeVersion)
+                    }
+                    if let profileID = target.profileId {
+                        LabeledContent("Validated profile", value: shortHash(profileID))
+                    }
+                } else {
+                    Text("Private inference stays unavailable until an installed validated profile is selected.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("Validated runtime profiles") {
+                let profiles = model.runtimeProfiles?.items ?? []
+                if profiles.isEmpty {
+                    Text("No validated profiles are installed yet. New profiles must come from Ally's qualification and install workflow; this app cannot create an arbitrary model or endpoint.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(profiles) { profile in
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(profile.model)
+                                        .font(.headline)
+                                    Text("\(profile.runtimeName) \(profile.runtimeVersion)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if profile.active {
+                                    Label("Active", systemImage: "checkmark.seal.fill")
+                                        .font(.caption)
+                                }
+                            }
+
+                            HStack(spacing: 10) {
+                                if let chip = profile.appleChip {
+                                    Text(chip)
+                                }
+                                if let context = profile.contextLength {
+                                    Text("context \(context)")
+                                }
+                                if let speed = profile.generationTokensPerSecond {
+                                    Text("\(speed, format: .number.precision(.fractionLength(1))) tok/s")
+                                }
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                            LabeledContent("Profile ID", value: shortHash(profile.profileId))
+                                .font(.caption)
+                                .textSelection(.enabled)
+
+                            DisclosureGroup("Qualification evidence") {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    evidenceRow(
+                                        label: "Capability",
+                                        name: profile.capabilityEvidenceName,
+                                        sha256: profile.capabilityEvidenceSha256
+                                    )
+                                    evidenceRow(
+                                        label: "Privacy",
+                                        name: profile.privacyEvidenceName,
+                                        sha256: profile.privacyEvidenceSha256
+                                    )
+                                    evidenceRow(
+                                        label: "Workflows",
+                                        name: profile.workflowEvidenceName,
+                                        sha256: profile.workflowEvidenceSha256
+                                    )
+                                }
+                                .padding(.top, 6)
+                            }
+
+                            if profile.active {
+                                Button("Deselect Profile") {
+                                    Task { await model.deselectRuntimeProfile() }
+                                }
+                                .disabled(model.isBusy)
+                            } else {
+                                Button("Select for Private Inference") {
+                                    pendingProfile = profile
+                                    showingProfileSelection = true
+                                }
+                                .disabled(model.isBusy)
+                            }
+                        }
+                        .padding(.vertical, 6)
                     }
                 }
             }
@@ -776,6 +869,34 @@ private struct SystemScreen: View {
         }
         .formStyle(.grouped)
         .navigationTitle("System")
+        .alert(
+            "Use this validated profile?",
+            isPresented: $showingProfileSelection,
+            presenting: pendingProfile
+        ) { profile in
+            Button("Cancel", role: .cancel) {}
+            Button("Select Profile") {
+                Task { await model.selectRuntimeProfile(profile.profileId) }
+            }
+        } message: { profile in
+            Text("Private inference will use \(profile.model) through \(profile.runtimeName) \(profile.runtimeVersion). Only this already-installed evidence-backed profile ID will be selected.")
+        }
+    }
+
+    @ViewBuilder
+    private func evidenceRow(label: String, name: String, sha256: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(label): \(name)")
+                .font(.caption)
+            Text(sha256)
+                .font(.caption2.monospaced())
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+        }
+    }
+
+    private func shortHash(_ value: String) -> String {
+        String(value.prefix(12))
     }
 }
 #else
