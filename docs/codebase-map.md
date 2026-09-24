@@ -14,7 +14,7 @@ The most important rule is dependency direction:
 | --- | --- |
 | `src/ally/cli.py` | Argument parsing and top-level CLI dispatch only. |
 | `src/ally/commands/` | CLI presentation adapters and output formatting. |
-| `src/ally/application/` | UI-neutral typed daily-use services shared by CLI and future local interfaces. |
+| `src/ally/application/` | UI-neutral typed daily-use services shared by CLI and future local interfaces, including chat, memory, knowledge, tasks, attention views, and service observability. |
 | `src/ally/composition/` | Reusable concrete dependency assembly for application/presentation surfaces. |
 | `src/ally/runtime/` | Provider-neutral runtime workflows, including persistent and grounded conversation orchestration. |
 | `src/ally/service/` | Bounded proactive service-cycle logic, lifecycle metadata, and runtime coordination contracts. |
