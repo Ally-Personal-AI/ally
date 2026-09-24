@@ -152,40 +152,401 @@ private struct ConversationScreen: View {
 
 private struct MemoryScreen: View {
     @ObservedObject var model: AppModel
+    @State private var searchText = ""
+
+    private var displayedMemories: [MemorySummary] {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? model.memories
+            : model.memorySearchResults
+    }
 
     var body: some View {
-        List(model.memories) { memory in
-            VStack(alignment: .leading, spacing: 5) {
-                Text(memory.content)
-                HStack {
-                    Text(memory.kind)
-                    Text(memory.privacy)
-                    Text("importance \(memory.importance, format: .number.precision(.fractionLength(2)))")
+        NavigationStack {
+            List(displayedMemories) { memory in
+                NavigationLink(value: memory.id) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(memory.content)
+                            .lineLimit(3)
+                        HStack {
+                            Text(memory.kind)
+                            Text(memory.privacy)
+                            Text("importance \(memory.importance, format: .number.precision(.fractionLength(2)))")
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
-            .padding(.vertical, 4)
+            .navigationTitle("Memory")
+            .searchable(text: $searchText, prompt: "Search active memory")
+            .onSubmit(of: .search) {
+                Task { await model.searchMemories(searchText) }
+            }
+            .onChange(of: searchText) { _, value in
+                if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    model.memorySearchResults = []
+                }
+            }
+            .navigationDestination(for: String.self) { memoryID in
+                MemoryDetailScreen(model: model, memoryID: memoryID)
+            }
+        }
+    }
+}
+
+private struct MemoryDetailScreen: View {
+    @ObservedObject var model: AppModel
+    let memoryID: String
+    @State private var showingCorrection = false
+    @State private var showingRetraction = false
+    @State private var correctionText = ""
+
+    var body: some View {
+        ScrollView {
+            if let memory = model.memoryDetail, memory.id == memoryID {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text(memory.content)
+                        .font(.title3)
+                        .textSelection(.enabled)
+
+                    GroupBox("State") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            LabeledContent("Status", value: memoryStatus(memory))
+                            LabeledContent("Kind", value: memory.kind)
+                            LabeledContent("Privacy", value: memory.privacy)
+                            LabeledContent(
+                                "Confidence",
+                                value: memory.confidence.formatted(
+                                    .number.precision(.fractionLength(2))
+                                )
+                            )
+                            LabeledContent(
+                                "Importance",
+                                value: memory.importance.formatted(
+                                    .number.precision(.fractionLength(2))
+                                )
+                            )
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(4)
+                    }
+
+                    GroupBox("Provenance") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            LabeledContent("Source type", value: memory.source.type)
+                            if let sourceID = memory.source.id {
+                                LabeledContent("Source ID", value: sourceID)
+                            }
+                            if let sourceURI = memory.source.uri {
+                                LabeledContent("Source URI", value: sourceURI)
+                            }
+                            LabeledContent("Memory ID", value: memory.id)
+                            if let supersedes = memory.supersedes {
+                                LabeledContent("Corrects", value: supersedes)
+                            }
+                            if let supersededBy = memory.supersededBy {
+                                LabeledContent("Replaced by", value: supersededBy)
+                            }
+                        }
+                        .font(.callout)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(4)
+                    }
+
+                    if memory.isActive {
+                        HStack {
+                            Button("Correct Memory") {
+                                correctionText = memory.content
+                                showingCorrection = true
+                            }
+                            .disabled(model.isBusy)
+
+                            Button("Retract Memory", role: .destructive) {
+                                showingRetraction = true
+                            }
+                            .disabled(model.isBusy)
+                        }
+                    } else {
+                        Text("Historical memory is preserved for provenance and is no longer used as active memory.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding()
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity, minHeight: 240)
+            }
         }
         .navigationTitle("Memory")
+        .task(id: memoryID) {
+            await model.selectMemory(memoryID)
+        }
+        .sheet(isPresented: $showingCorrection) {
+            MemoryCorrectionSheet(
+                content: $correctionText,
+                isBusy: model.isBusy,
+                cancel: { showingCorrection = false },
+                save: {
+                    let content = correctionText
+                    showingCorrection = false
+                    Task {
+                        await model.correctMemory(
+                            memoryID: memoryID,
+                            content: content
+                        )
+                    }
+                }
+            )
+        }
+        .alert("Retract this memory?", isPresented: $showingRetraction) {
+            Button("Cancel", role: .cancel) {}
+            Button("Retract", role: .destructive) {
+                Task { await model.retractMemory(memoryID) }
+            }
+        } message: {
+            Text("The record will remain in Ally's local history for provenance, but it will no longer be active or used for retrieval.")
+        }
+    }
+
+    private func memoryStatus(_ memory: MemorySummary) -> String {
+        if memory.retractedAt != nil {
+            return "Retracted"
+        }
+        if memory.supersededAt != nil {
+            return "Superseded"
+        }
+        return "Active"
+    }
+}
+
+private struct MemoryCorrectionSheet: View {
+    @Binding var content: String
+    let isBusy: Bool
+    let cancel: () -> Void
+    let save: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Correct Memory")
+                .font(.title2)
+            Text("Ally will preserve the original record and create this text as a new superseding memory.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            TextEditor(text: $content)
+                .font(.body)
+                .frame(minHeight: 180)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(.quaternary)
+                }
+            HStack {
+                Spacer()
+                Button("Cancel", action: cancel)
+                Button("Save Correction", action: save)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(
+                        isBusy ||
+                        content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    )
+            }
+        }
+        .padding()
+        .frame(minWidth: 520, minHeight: 320)
     }
 }
 
 private struct KnowledgeScreen: View {
     @ObservedObject var model: AppModel
+    @State private var searchText = ""
+    @State private var showingIngest = false
+
+    private var isSearching: Bool {
+        !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     var body: some View {
-        List(model.knowledge) { source in
-            VStack(alignment: .leading, spacing: 5) {
-                Text(source.title)
-                Text(source.uri)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+        NavigationStack {
+            List {
+                if isSearching {
+                    ForEach(model.knowledgeSearchResults) { hit in
+                        NavigationLink(value: hit.source.id) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(hit.source.title)
+                                    .font(.headline)
+                                Text(hit.chunk.content)
+                                    .lineLimit(4)
+                                Text("score \(hit.score, format: .number.precision(.fractionLength(3)))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                } else {
+                    ForEach(model.knowledge) { source in
+                        NavigationLink(value: source.id) {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(source.title)
+                                Text(source.uri)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
             }
-            .padding(.vertical, 4)
+            .navigationTitle("Knowledge")
+            .searchable(text: $searchText, prompt: "Search local knowledge")
+            .onSubmit(of: .search) {
+                Task { await model.searchKnowledge(searchText) }
+            }
+            .onChange(of: searchText) { _, value in
+                if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    model.knowledgeSearchResults = []
+                }
+            }
+            .toolbar {
+                ToolbarItem {
+                    Button {
+                        showingIngest = true
+                    } label: {
+                        Label("Add Note", systemImage: "plus")
+                    }
+                    .disabled(model.isBusy)
+                }
+            }
+            .navigationDestination(for: String.self) { sourceID in
+                KnowledgeDetailScreen(model: model, sourceID: sourceID)
+            }
         }
-        .navigationTitle("Knowledge")
+        .sheet(isPresented: $showingIngest) {
+            KnowledgeIngestSheet(
+                isBusy: model.isBusy,
+                cancel: { showingIngest = false },
+                ingest: { title, text in
+                    showingIngest = false
+                    Task { await model.ingestKnowledge(title: title, text: text) }
+                }
+            )
+        }
+    }
+}
+
+private struct KnowledgeDetailScreen: View {
+    @ObservedObject var model: AppModel
+    let sourceID: String
+
+    var body: some View {
+        ScrollView {
+            if let view = model.knowledgeDetail, view.source.id == sourceID {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(view.source.title)
+                            .font(.title2)
+                        Text(view.source.uri)
+                            .font(.callout.monospaced())
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                        HStack {
+                            Text(view.source.mediaType)
+                            Text("revision \(view.source.currentRevision)")
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+
+                    GroupBox("Current content") {
+                        VStack(alignment: .leading, spacing: 14) {
+                            ForEach(view.currentChunks) { chunk in
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Chunk \(chunk.ordinal + 1)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Text(chunk.content)
+                                        .textSelection(.enabled)
+                                }
+                                if chunk.id != view.currentChunks.last?.id {
+                                    Divider()
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(4)
+                    }
+
+                    GroupBox("Revision history") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(view.revisions) { revision in
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Revision \(revision.revision)")
+                                        .font(.headline)
+                                    Text(revision.sha256)
+                                        .font(.caption.monospaced())
+                                        .foregroundStyle(.secondary)
+                                        .textSelection(.enabled)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(4)
+                    }
+                }
+                .padding()
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity, minHeight: 240)
+            }
+        }
+        .navigationTitle("Knowledge Source")
+        .task(id: sourceID) {
+            await model.selectKnowledgeSource(sourceID)
+        }
+    }
+}
+
+private struct KnowledgeIngestSheet: View {
+    let isBusy: Bool
+    let cancel: () -> Void
+    let ingest: (String, String) -> Void
+    @State private var title = ""
+    @State private var text = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Add Local Knowledge")
+                .font(.title2)
+            Text("Paste text into Ally's local knowledge store. This desktop flow does not read a filesystem path or send the text to a model.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            TextField("Title", text: $title)
+                .textFieldStyle(.roundedBorder)
+            TextEditor(text: $text)
+                .frame(minHeight: 240)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(.quaternary)
+                }
+            HStack {
+                Spacer()
+                Button("Cancel", action: cancel)
+                Button("Add to Knowledge") {
+                    ingest(title, text)
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(
+                    isBusy ||
+                    title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                    text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                )
+            }
+        }
+        .padding()
+        .frame(minWidth: 620, minHeight: 440)
     }
 }
 

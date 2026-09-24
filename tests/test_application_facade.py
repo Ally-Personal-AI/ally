@@ -9,6 +9,7 @@ import pytest
 from ally.application import (
     AllyApplication,
     ApplicationNotFoundError,
+    ApplicationStateError,
     ChatTurnRequest,
     KnowledgeTextIngestRequest,
     MemoryProposalRequest,
@@ -265,6 +266,14 @@ def test_application_memory_lifecycle_matches_domain_semantics(
     retracted = app.retract_memory(replacement.id)
     assert retracted.retracted_at is not None
     assert app.search_memories("jasmine") == ()
+
+    with pytest.raises(ApplicationStateError, match="active memory"):
+        app.supersede_memory(
+            SupersedeMemoryRequest(
+                memory_id=replacement.id,
+                content="This correction must not revive a retracted memory.",
+            )
+        )
 
     with pytest.raises(ApplicationNotFoundError):
         app.memory(original.id.__class__(int=0))

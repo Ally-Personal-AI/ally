@@ -3,13 +3,13 @@ import Testing
 @testable import AllyDesktopCore
 
 @Test func decodesBridgeInfoEnvelope() throws {
-    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":2,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap"]}}"#.utf8)
+    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":3,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap"]}}"#.utf8)
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let envelope = try decoder.decode(BridgeEnvelope<BridgeInfo>.self, from: data)
 
     #expect(envelope.ok)
-    #expect(envelope.result?.protocolVersion == 2)
+    #expect(envelope.result?.protocolVersion == 3)
     #expect(envelope.result?.transport == "stdio")
     #expect(envelope.result?.capabilities == ["bootstrap"])
 }
@@ -69,4 +69,33 @@ import Testing
     #expect(envelope.result?.steps.count == 1)
     #expect(envelope.result?.steps[0].status == "approval_required")
     #expect(envelope.result?.steps[0].argumentsText == "value: synthetic")
+}
+
+
+@Test func decodesMemoryProvenanceAndInactiveState() throws {
+    let data = Data(#"{"id":"1","ok":true,"result":{"id":"00000000-0000-0000-0000-000000000010","kind":"preference","content":"Synthetic preference.","source":{"type":"user","id":null,"uri":null},"confidence":1.0,"importance":0.8,"privacy":"private","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:01Z","observed_at":"2026-01-01T00:00:00Z","valid_from":null,"valid_until":null,"supersedes":null,"superseded_at":"2026-01-01T00:00:01Z","superseded_by":"00000000-0000-0000-0000-000000000011","retracted_at":null}}"#.utf8)
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    let envelope = try decoder.decode(BridgeEnvelope<MemorySummary>.self, from: data)
+
+    #expect(envelope.result?.source.type == "user")
+    #expect(envelope.result?.supersededBy == "00000000-0000-0000-0000-000000000011")
+    #expect(envelope.result?.isActive == false)
+}
+
+@Test func decodesKnowledgeDetailAndSearchModels() throws {
+    let detailData = Data(#"{"id":"1","ok":true,"result":{"source":{"id":"00000000-0000-0000-0000-000000000020","uri":"ally-desktop://note/synthetic","title":"Synthetic note","media_type":"text/plain","current_revision":1,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"},"revisions":[{"id":"00000000-0000-0000-0000-000000000021","source_id":"00000000-0000-0000-0000-000000000020","revision":1,"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","created_at":"2026-01-01T00:00:00Z"}],"current_chunks":[{"id":"00000000-0000-0000-0000-000000000022","source_id":"00000000-0000-0000-0000-000000000020","revision_id":"00000000-0000-0000-0000-000000000021","revision":1,"ordinal":0,"content":"Synthetic chunk.","start_char":0,"end_char":16,"sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","created_at":"2026-01-01T00:00:00Z"}]}}"#.utf8)
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    let detail = try decoder.decode(BridgeEnvelope<KnowledgeSourceView>.self, from: detailData)
+
+    #expect(detail.result?.source.title == "Synthetic note")
+    #expect(detail.result?.revisions.count == 1)
+    #expect(detail.result?.currentChunks[0].content == "Synthetic chunk.")
+
+    let searchData = Data(#"{"id":"2","ok":true,"result":{"source":{"id":"00000000-0000-0000-0000-000000000020","uri":"ally-desktop://note/synthetic","title":"Synthetic note","media_type":"text/plain","current_revision":1,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"},"chunk":{"id":"00000000-0000-0000-0000-000000000022","source_id":"00000000-0000-0000-0000-000000000020","revision_id":"00000000-0000-0000-0000-000000000021","revision":1,"ordinal":0,"content":"Synthetic chunk.","start_char":0,"end_char":16,"sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","created_at":"2026-01-01T00:00:00Z"},"score":0.75}}"#.utf8)
+    let hit = try decoder.decode(BridgeEnvelope<KnowledgeSearchResult>.self, from: searchData)
+
+    #expect(hit.result?.id == "00000000-0000-0000-0000-000000000022")
+    #expect(hit.result?.score == 0.75)
 }

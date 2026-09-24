@@ -23,12 +23,14 @@ from ally.application import (
     ApplicationUnavailableError,
     ApproveTaskStepRequest,
     ChatTurnRequest,
+    KnowledgeTextIngestRequest,
     RunTaskRequest,
+    SupersedeMemoryRequest,
 )
 from ally.composition import build_default_application
 from ally.runtime_profiles import InferenceTargetError
 
-BRIDGE_PROTOCOL_VERSION = 2
+BRIDGE_PROTOCOL_VERSION = 3
 MAX_REQUEST_BYTES = 1024 * 1024
 
 BridgeMethod = Literal[
@@ -38,9 +40,14 @@ BridgeMethod = Literal[
     "conversation.get",
     "conversation.send",
     "memory.list",
+    "memory.get",
     "memory.search",
+    "memory.supersede",
+    "memory.retract",
     "knowledge.list",
+    "knowledge.get",
     "knowledge.search",
+    "knowledge.ingest_text",
     "task.get",
     "task.run",
     "task.approve_step",
@@ -121,6 +128,31 @@ class _MemoryListParams(_ListParams):
     include_inactive: bool = False
 
 
+class _MemoryParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    memory_id: UUID
+
+
+class _SupersedeMemoryParams(_MemoryParams):
+    content: str = Field(min_length=1, max_length=1_000_000)
+
+
+class _KnowledgeParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    source_id: UUID
+
+
+class _KnowledgeIngestTextParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    uri: str = Field(min_length=1, max_length=4096)
+    title: str = Field(min_length=1, max_length=1000)
+    text: str = Field(min_length=1, max_length=1_000_000)
+    media_type: str = Field(default="text/plain", min_length=1, max_length=255)
+
+
 class _SearchParams(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -167,9 +199,14 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                 "conversation.get",
                 "conversation.send",
                 "memory.list",
+                "memory.get",
                 "memory.search",
+                "memory.supersede",
+                "memory.retract",
                 "knowledge.list",
+                "knowledge.get",
                 "knowledge.search",
+                "knowledge.ingest_text",
                 "task.get",
                 "task.run",
                 "task.approve_step",
@@ -226,12 +263,40 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
             )
         )
 
+    if request.method == "memory.get":
+        params = cast(
+            _MemoryParams,
+            _validate_params(_MemoryParams, request.params),
+        )
+        return _json_value(app.memory(params.memory_id).model_dump(mode="json"))
+
     if request.method == "memory.search":
         params = cast(
             _SearchParams,
             _validate_params(_SearchParams, request.params),
         )
         return _models_json(app.search_memories(params.query, limit=params.limit))
+
+    if request.method == "memory.supersede":
+        params = cast(
+            _SupersedeMemoryParams,
+            _validate_params(_SupersedeMemoryParams, request.params),
+        )
+        return _json_value(
+            app.supersede_memory(
+                SupersedeMemoryRequest(
+                    memory_id=params.memory_id,
+                    content=params.content,
+                )
+            ).model_dump(mode="json")
+        )
+
+    if request.method == "memory.retract":
+        params = cast(
+            _MemoryParams,
+            _validate_params(_MemoryParams, request.params),
+        )
+        return _json_value(app.retract_memory(params.memory_id).model_dump(mode="json"))
 
     if request.method == "knowledge.list":
         params = cast(
@@ -240,12 +305,37 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
         )
         return _models_json(app.list_knowledge_sources(limit=params.limit))
 
+    if request.method == "knowledge.get":
+        params = cast(
+            _KnowledgeParams,
+            _validate_params(_KnowledgeParams, request.params),
+        )
+        return _json_value(
+            app.knowledge_source(params.source_id).model_dump(mode="json")
+        )
+
     if request.method == "knowledge.search":
         params = cast(
             _SearchParams,
             _validate_params(_SearchParams, request.params),
         )
         return _models_json(app.search_knowledge(params.query, limit=params.limit))
+
+    if request.method == "knowledge.ingest_text":
+        params = cast(
+            _KnowledgeIngestTextParams,
+            _validate_params(_KnowledgeIngestTextParams, request.params),
+        )
+        return _json_value(
+            app.ingest_knowledge_text(
+                KnowledgeTextIngestRequest(
+                    uri=params.uri,
+                    title=params.title,
+                    text=params.text,
+                    media_type=params.media_type,
+                )
+            ).model_dump(mode="json")
+        )
 
     if request.method == "task.get":
         params = cast(

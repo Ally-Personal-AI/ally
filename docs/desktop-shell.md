@@ -49,20 +49,40 @@ The first shell includes:
 
 - bounded startup state from `AllyApplication.bootstrap()`;
 - conversation listing, creation, resume, and private chat;
-- read-only memory inspection;
-- read-only knowledge-source inspection;
+- searchable memory inspection with provenance-preserving correction/retraction;
+- searchable knowledge sources with revision/chunk detail and pasted-text ingestion;
 - task summary/status inspection;
 - task detail with explicit one-step-at-a-time approval and failed-step retry;
 - private-runtime readiness; and
 - proactive-service health and attention counts.
 
-This is the first #66 slice, not the complete desktop product. Memory/knowledge mutation, validated-profile management,
-modern bundled notification authorization, polished empty/error states, and
-release packaging remain follow-on work.
+This is still an incremental #66 product surface. Validated-profile management,
+full attention history/detail, modern bundled notification authorization,
+polished empty/error states, and release packaging remain follow-on work.
+
+## Memory and knowledge boundary
+
+Desktop protocol v3 exposes explicit local state-management operations without
+granting broader filesystem or model authority:
+
+- memory correction calls `AllyApplication.supersede_memory()`, preserving the
+  original record and creating a linked replacement rather than overwriting
+  history;
+- memory retraction preserves the record and provenance while removing it from
+  active retrieval;
+- inactive memories cannot be corrected through the application boundary;
+- knowledge detail exposes stored source/revision/chunk provenance;
+- knowledge search uses Ally's existing local lexical retriever; and
+- desktop ingestion accepts bounded pasted UTF-8 text only. The bridge does not
+  accept a filesystem path, open arbitrary files, or invoke a model during
+  ingestion.
+
+The native UI makes those semantics visible before mutation and explains that
+correction/retraction preserve local history.
 
 ## Task approval boundary
 
-Desktop protocol v2 deliberately separates task progression from approval:
+Desktop protocol v3 retains the v2 task contract and deliberately separates task progression from approval:
 
 - `task.run` accepts only a task ID and cannot carry approvals;
 - `task.approve_step` accepts exactly one task ID plus one step ID;

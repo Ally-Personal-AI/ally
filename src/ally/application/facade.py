@@ -374,20 +374,25 @@ class AllyApplication:
         request: SupersedeMemoryRequest,
     ) -> MemoryRecord:
         existing = self.memory(request.memory_id)
-        _, replacement = self._memories.supersede(
-            existing.id,
-            NewMemory(
-                kind=existing.kind,
-                content=request.content,
-                source=MemorySource(type="user"),
-                confidence=1.0,
-                importance=existing.importance,
-                privacy=existing.privacy,
-                observed_at=datetime.now(UTC),
-                valid_from=existing.valid_from,
-                valid_until=existing.valid_until,
-            ),
-        )
+        try:
+            _, replacement = self._memories.supersede(
+                existing.id,
+                NewMemory(
+                    kind=existing.kind,
+                    content=request.content,
+                    source=MemorySource(type="user"),
+                    confidence=1.0,
+                    importance=existing.importance,
+                    privacy=existing.privacy,
+                    observed_at=datetime.now(UTC),
+                    valid_from=existing.valid_from,
+                    valid_until=existing.valid_until,
+                ),
+            )
+        except ValueError as exc:
+            raise ApplicationStateError(
+                "only an active memory can be corrected"
+            ) from exc
         return replacement
 
     def retract_memory(self, memory_id: UUID) -> MemoryRecord:

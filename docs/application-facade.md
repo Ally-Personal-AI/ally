@@ -69,8 +69,11 @@ The first macOS presentation client lives under `desktop/macos/` and talks to
 
 The bridge is deliberately narrower than the full Python API. In particular,
 desktop chat does not expose development endpoint/model overrides: private user
-data can only route through the active validated runtime profile. Bridge errors
-use stable sanitized codes rather than arbitrary exception text.
+data can only route through the active validated runtime profile. Desktop
+knowledge ingestion accepts bounded text plus metadata, not an arbitrary
+filesystem path. Memory corrections/retractions delegate to the existing
+provenance-preserving application methods. Bridge errors use stable sanitized
+codes rather than arbitrary exception text.
 
 The SwiftUI shell may format, navigate, and collect explicit user intent, but
 domain state, grounding, model selection, and approval authority remain on the

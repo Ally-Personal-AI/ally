@@ -7,7 +7,11 @@ import AllyDesktopCore
 final class AppModel: ObservableObject {
     @Published var snapshot: BootstrapSnapshot?
     @Published var memories: [MemorySummary] = []
+    @Published var memoryDetail: MemorySummary?
+    @Published var memorySearchResults: [MemorySummary] = []
     @Published var knowledge: [KnowledgeSourceSummary] = []
+    @Published var knowledgeDetail: KnowledgeSourceView?
+    @Published var knowledgeSearchResults: [KnowledgeSearchResult] = []
     @Published var selectedConversationID: String?
     @Published var conversation: ConversationView?
     @Published var taskDetail: TaskView?
@@ -82,6 +86,169 @@ final class AppModel: ObservableObject {
             )
             let refreshed: BootstrapSnapshot = try await client.call("bootstrap")
             snapshot = refreshed
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func selectMemory(_ id: String) async {
+        guard let client else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            memoryDetail = try await client.call(
+                "memory.get",
+                params: ["memory_id": .string(id)]
+            )
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func searchMemories(_ query: String) async {
+        guard let client else { return }
+        let compact = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !compact.isEmpty else {
+            memorySearchResults = []
+            return
+        }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            memorySearchResults = try await client.call(
+                "memory.search",
+                params: [
+                    "query": .string(compact),
+                    "limit": .number(100),
+                ]
+            )
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func correctMemory(memoryID: String, content: String) async {
+        guard let client else { return }
+        let compact = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !compact.isEmpty else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let _: MemorySummary = try await client.call(
+                "memory.supersede",
+                params: [
+                    "memory_id": .string(memoryID),
+                    "content": .string(compact),
+                ]
+            )
+            async let refreshedMemories: [MemorySummary] = client.call(
+                "memory.list",
+                params: ["limit": .number(100)]
+            )
+            async let original: MemorySummary = client.call(
+                "memory.get",
+                params: ["memory_id": .string(memoryID)]
+            )
+            memories = try await refreshedMemories
+            memoryDetail = try await original
+            memorySearchResults = []
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func retractMemory(_ memoryID: String) async {
+        guard let client else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let updated: MemorySummary = try await client.call(
+                "memory.retract",
+                params: ["memory_id": .string(memoryID)]
+            )
+            memoryDetail = updated
+            memories = try await client.call(
+                "memory.list",
+                params: ["limit": .number(100)]
+            )
+            memorySearchResults = []
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func selectKnowledgeSource(_ id: String) async {
+        guard let client else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            knowledgeDetail = try await client.call(
+                "knowledge.get",
+                params: ["source_id": .string(id)]
+            )
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func searchKnowledge(_ query: String) async {
+        guard let client else { return }
+        let compact = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !compact.isEmpty else {
+            knowledgeSearchResults = []
+            return
+        }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            knowledgeSearchResults = try await client.call(
+                "knowledge.search",
+                params: [
+                    "query": .string(compact),
+                    "limit": .number(50),
+                ]
+            )
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func ingestKnowledge(title: String, text: String) async {
+        guard let client else { return }
+        let compactTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let compactText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !compactTitle.isEmpty, !compactText.isEmpty else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let uri = "ally-desktop://note/\(UUID().uuidString.lowercased())"
+            let result: KnowledgeIngestResult = try await client.call(
+                "knowledge.ingest_text",
+                params: [
+                    "uri": .string(uri),
+                    "title": .string(compactTitle),
+                    "text": .string(compactText),
+                    "media_type": .string("text/plain"),
+                ]
+            )
+            async let refreshedKnowledge: [KnowledgeSourceSummary] = client.call(
+                "knowledge.list",
+                params: ["limit": .number(100)]
+            )
+            async let detail: KnowledgeSourceView = client.call(
+                "knowledge.get",
+                params: ["source_id": .string(result.source.id)]
+            )
+            knowledge = try await refreshedKnowledge
+            knowledgeDetail = try await detail
+            knowledgeSearchResults = []
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
