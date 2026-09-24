@@ -346,6 +346,19 @@ uv run ally profiles verify \
   validation/<candidate>-workflows.json
 ```
 
+Install and select the chosen validated profile:
+
+```bash
+uv run ally profiles install \
+  validation/<candidate>-profile.json \
+  validation/<candidate>.json \
+  validation/<candidate>-privacy.json \
+  validation/<candidate>-workflows.json
+
+uv run ally profiles select <profile-id>
+uv run ally profiles active
+```
+
 Do not configure daily-use runtime selection directly from raw endpoint/model
 strings after a validated profile exists.
 
