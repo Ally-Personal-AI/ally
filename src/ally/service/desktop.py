@@ -8,7 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ally.attention import DELIVERABLE_ATTENTION_CLASSES, AttentionDeliveryRecord
-from ally.attention.macos import render_macos_notification
+from ally.attention.notifications import render_notification
 from ally.attention.runtime import delivery_key
 from ally.attention.store import AttentionDeliveryStore
 from ally.events import AttentionClass, EventStore
@@ -158,7 +158,7 @@ class DesktopProactiveCoordinator:
                 if existing is not None and existing.status == "succeeded":
                     continue
 
-                title, body = render_macos_notification(event)
+                title, body = render_notification(event)
                 selected.append(
                     DesktopNotificationCandidate(
                         event_id=event.id,
