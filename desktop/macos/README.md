@@ -1,6 +1,6 @@
 # Ally macOS Desktop
 
-This Swift package is the first native Ally desktop presentation surface.
+This Swift package is the first native Ally desktop presentation surface. It includes conversation/chat, local state inspection, and persisted task detail with exact one-step approval and failed-step retry.
 
 It depends on the local `ally-desktop-bridge` helper and never reimplements Ally
 Core policy, persistence, grounding, or model-selection logic.
