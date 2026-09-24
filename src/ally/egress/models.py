@@ -80,7 +80,11 @@ class EgressFieldManifest(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    name: str
+    name: str = Field(
+        min_length=1,
+        max_length=128,
+        pattern=r"^[a-zA-Z][a-zA-Z0-9_.-]*$",
+    )
     classification: EgressDataClass
 
 
