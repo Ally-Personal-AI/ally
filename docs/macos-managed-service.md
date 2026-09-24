@@ -48,6 +48,9 @@ Uninstall first unloads the agent and then removes the plist. It refuses to
 remove a definition whose bytes no longer match Ally's expected definition.
 Logs and personal data are retained.
 
+For the overall dedicated-machine order and stop conditions, start with
+[Unified First-Machine Acceptance](hardware/first-machine-acceptance.md).
+
 ## Dedicated-machine acceptance
 
 The implementation and mocked lifecycle are hardware-independent. Before

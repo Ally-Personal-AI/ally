@@ -94,6 +94,9 @@ changing the command contract.
 
 Do not infer permission from a successful API call alone.
 
+For the overall dedicated-machine order and stop conditions, start with
+[Unified First-Machine Acceptance](hardware/first-machine-acceptance.md).
+
 ## Dedicated-machine acceptance
 
 Before closing the native-attention milestone:

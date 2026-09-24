@@ -1,5 +1,9 @@
 # Runtime Privacy Qualification
 
+For the canonical first-machine sequence and the point at which this evidence
+blocks runtime selection, start with
+[Unified First-Machine Acceptance](hardware/first-machine-acceptance.md).
+
 Ally separates model capability evidence from runtime privacy evidence.
 
 A local model can pass every behavioral and functional evaluation while its

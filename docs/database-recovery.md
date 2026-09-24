@@ -1,5 +1,9 @@
 # Database upgrades and recovery
 
+For the first dedicated-machine acceptance sequence, including when to perform
+the recovery drill relative to runtime/privacy and OS integration gates, start
+with [Unified First-Machine Acceptance](hardware/first-machine-acceptance.md).
+
 Ally's conversation, memory, knowledge, task, and audit state lives in the core
 SQLite database. Migration and recovery must preserve that state independently
 of the model, runtime, or dedicated hardware.
