@@ -98,29 +98,40 @@ After Developer ID signing:
 5. validate the staple; and
 6. run Gatekeeper assessment with `spctl`.
 
-Hosted CI currently exercises the bundle structure and ad-hoc signing path only.
-Ad-hoc signing is test evidence for layout/signing mechanics; it is not a
-distributable or notarized release.
+Hosted CI now exercises the real frozen helper, bundle structure, and ad-hoc
+signing path. Ad-hoc signing is test evidence for helper/bundle mechanics; it is
+not a distributable or notarized release.
 
-## Standalone helper requirement
+## Standalone helper
 
-The bundle assembler accepts a prebuilt executable
+The bundle assembler accepts the prebuilt executable
 `ally-desktop-bridge`.
 
-A production release is not complete until that helper is a self-contained,
-single-file (or equivalently self-contained signed nested-code) artifact that
-does not depend on:
+The release path now builds that helper as a self-contained one-file macOS
+executable using the minimal
+`scripts/ally_desktop_bridge_entry.py` entry point and
+`scripts/build_macos_desktop_helper.py`.
+
+Hosted macOS CI currently pins PyInstaller 6.22.3 and
+`pyinstaller-hooks-contrib` 2026.7, then verifies the resulting binary by
+running `bridge.info` and `bootstrap` with a sanitized environment and a
+working directory outside the repository checkout.
+
+The verified helper does not depend on:
 
 - the repository checkout;
 - a developer virtual environment;
 - `PATH`;
-- Homebrew;
-- an externally installed Python interpreter; or
-- mutable dependencies outside the signed app bundle.
+- Homebrew; or
+- an externally installed Python interpreter.
 
-The current release-foundation CI uses a Mach-O stand-in at the helper location
-to validate app-bundle and code-signing mechanics. It does **not** claim that the
-final standalone Python helper packaging is solved.
+PyInstaller one-file helpers contain embedded native binaries. A real Developer
+ID release must therefore pass the Developer ID Application identity to the
+helper builder itself. Post-processing only the outer one-file executable is not
+a substitute for signing its embedded binary payload correctly.
+
+The helper SHA-256 is still refreshed after final top-level helper signing and
+bound into the outer signed release manifest.
 
 ## User-owned data boundary
 
