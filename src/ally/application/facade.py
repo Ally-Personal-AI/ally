@@ -516,6 +516,10 @@ class AllyApplication:
             raise ApplicationNotFoundError(
                 f"Task or step not found: {task_id}/{step_id}"
             ) from exc
+        except ValueError as exc:
+            raise ApplicationStateError(
+                "task step is not currently eligible for retry"
+            ) from exc
 
     def pending_attention(
         self,
