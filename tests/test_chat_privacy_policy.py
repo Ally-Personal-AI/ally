@@ -50,20 +50,21 @@ def test_private_chat_rejects_remote_endpoint_before_inference(
 
 
 
-def test_chat_target_failure_precedes_private_state_access(
+def test_chat_target_failure_is_reported_by_presentation_adapter(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    def fail_target(**_: object) -> object:
-        raise InferenceTargetError(
-            "active validated runtime profile is unavailable or invalid"
-        )
+    class FailingApplication:
+        def send_message(self, request: object) -> object:
+            raise InferenceTargetError(
+                "active validated runtime profile is unavailable or invalid"
+            )
 
-    def forbidden_store() -> object:
-        raise AssertionError("conversation store must not be opened")
-
-    monkeypatch.setattr(chat_module, "resolve_inference_target", fail_target)
-    monkeypatch.setattr(chat_module, "build_conversation_store", forbidden_store)
+    monkeypatch.setattr(
+        chat_module,
+        "build_default_application",
+        lambda: FailingApplication(),
+    )
 
     result = chat_module.run_chat(
         development_endpoint=None,
