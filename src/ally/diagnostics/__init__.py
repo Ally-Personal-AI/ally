@@ -28,12 +28,6 @@ from ally.diagnostics.runtime_privacy import (
     write_runtime_privacy_report,
 )
 from ally.diagnostics.service_health import build_service_health
-from ally.diagnostics.workflows import (
-    SyntheticWorkflowCheck,
-    SyntheticWorkflowReport,
-    WorkflowCheckStatus,
-    run_isolated_synthetic_workflows,
-)
 from ally.diagnostics.validation import (
     ArtifactFingerprint,
     EvaluationSuiteProfile,
@@ -48,6 +42,13 @@ from ally.diagnostics.validation import (
     load_validation_report,
     run_local_model_validation,
     write_validation_report,
+)
+
+from ally.diagnostics.workflows import (
+    SyntheticWorkflowCheck,
+    SyntheticWorkflowReport,
+    WorkflowCheckStatus,
+    run_isolated_synthetic_workflows,
 )
 
 __all__ = [
