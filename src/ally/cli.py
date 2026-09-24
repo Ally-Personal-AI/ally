@@ -109,6 +109,7 @@ from ally.commands.validate import (
     run_local_model_validation_command,
     run_runtime_privacy_qualification,
     run_show_runtime_privacy_report,
+    run_verify_runtime_privacy_report,
 )
 from ally.diagnostics import NetworkObservationMethod, RuntimeIsolationMode
 from ally.events import (
@@ -1068,6 +1069,18 @@ def build_parser() -> argparse.ArgumentParser:
         dest="json_output",
     )
 
+    validate_privacy_verify = validate_commands.add_parser(
+        "runtime-privacy-verify",
+        help="Verify a runtime privacy artifact against its exact validation report.",
+    )
+    validate_privacy_verify.add_argument("report")
+    validate_privacy_verify.add_argument("validation_report")
+    validate_privacy_verify.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
     plan = subcommands.add_parser(
         "plan",
         help="Ask a model to propose TaskPlan data without executing it.",
@@ -1542,6 +1555,12 @@ def _run_command(argv: Sequence[str] | None) -> int:
         if args.validate_command == "runtime-privacy-show":
             return run_show_runtime_privacy_report(
                 report_path=cast(str, args.report),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.validate_command == "runtime-privacy-verify":
+            return run_verify_runtime_privacy_report(
+                report_path=cast(str, args.report),
+                validation_report=cast(str, args.validation_report),
                 json_output=cast(bool, args.json_output),
             )
 
