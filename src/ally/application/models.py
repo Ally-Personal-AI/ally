@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from ally.conversations import Conversation, ConversationMessage
+from ally.tasks import TaskRecord, TaskStepRecord
 from ally.knowledge import KnowledgeChunk, KnowledgeRevision, KnowledgeSource
 from ally.memory import (
     MemoryKind,
@@ -24,6 +25,10 @@ class ApplicationError(ValueError):
 
 class ApplicationNotFoundError(ApplicationError):
     """Requested Ally-owned state does not exist."""
+
+
+class ApplicationUnavailableError(ApplicationError):
+    """Requested application capability is not composed in this instance."""
 
 
 class ChatTurnRequest(BaseModel):
@@ -142,3 +147,21 @@ class KnowledgeSearchResult(BaseModel):
     source: KnowledgeSource
     chunk: KnowledgeChunk
     score: float = Field(ge=0.0)
+
+
+class TaskView(BaseModel):
+    """Persisted task plus ordered step state for presentation surfaces."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    task: TaskRecord
+    steps: tuple[TaskStepRecord, ...]
+
+
+class RunTaskRequest(BaseModel):
+    """Advance a task with explicit approvals for named step IDs only."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    task_id: UUID
+    approved_steps: tuple[UUID, ...] = ()
