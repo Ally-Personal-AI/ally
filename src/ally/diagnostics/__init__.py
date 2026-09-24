@@ -1,5 +1,11 @@
 """Hardware and deployment diagnostics."""
 
+from ally.diagnostics.candidates import (
+    CandidateEvidence,
+    CandidateEvidenceComparison,
+    build_candidate_evidence,
+    compare_candidate_evidence,
+)
 from ally.diagnostics.hardware import HardwareProfile, collect_hardware_profile
 from ally.diagnostics.runtime_privacy import (
     NetworkObservationMethod,
@@ -29,6 +35,8 @@ from ally.diagnostics.validation import (
 )
 
 __all__ = [
+    "CandidateEvidence",
+    "CandidateEvidenceComparison",
     "EvaluationSuiteProfile",
     "HardwareProfile",
     "LocalModelValidationReport",
@@ -43,9 +51,11 @@ __all__ = [
     "RuntimeProfile",
     "ValidationComparison",
     "ValidationReportError",
+    "build_candidate_evidence",
     "build_runtime_privacy_report",
     "build_service_health",
     "collect_hardware_profile",
+    "compare_candidate_evidence",
     "compare_validation_reports",
     "load_runtime_privacy_report",
     "load_validation_report",
