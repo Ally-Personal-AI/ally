@@ -23,6 +23,7 @@ from ally.application import (
     ApplicationUnavailableError,
     ApproveTaskStepRequest,
     ChatTurnRequest,
+    DesktopNotificationResultRequest,
     KnowledgeTextIngestRequest,
     RunTaskRequest,
     SelectRuntimeProfileRequest,
@@ -31,7 +32,7 @@ from ally.application import (
 from ally.composition import build_default_application
 from ally.runtime_profiles import InferenceTargetError
 
-BRIDGE_PROTOCOL_VERSION = 5
+BRIDGE_PROTOCOL_VERSION = 6
 MAX_REQUEST_BYTES = 1024 * 1024
 
 BridgeMethod = Literal[
@@ -60,6 +61,8 @@ BridgeMethod = Literal[
     "attention.get",
     "attention.mark_handled",
     "attention.delivery_history",
+    "attention.notification_result",
+    "service.prepare_proactive",
     "service.health",
 ]
 BridgeErrorCode = Literal[
