@@ -7,9 +7,10 @@ from ally.egress.models import (
     EgressDataClass,
     EgressDecision,
     EgressExecution,
-    EgressField,
     EgressFieldManifest,
+    EgressFieldSpec,
     EgressInspection,
+    EgressOperationSpec,
     EgressRequest,
     EgressStatus,
 )
@@ -24,9 +25,10 @@ __all__ = [
     "EgressDecision",
     "EgressExecution",
     "EgressExecutor",
-    "EgressField",
     "EgressFieldManifest",
+    "EgressFieldSpec",
     "EgressInspection",
+    "EgressOperationSpec",
     "EgressRequest",
     "EgressStatus",
 ]
