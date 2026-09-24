@@ -6,12 +6,19 @@ from typing import Protocol
 
 from pydantic import JsonValue
 
+from ally.egress.models import EgressOperationSpec
+
 
 class EgressAdapter(Protocol):
     """A concrete external service reachable only after egress policy."""
 
     @property
     def service(self) -> str:
+        ...
+
+    @property
+    def operations(self) -> tuple[EgressOperationSpec, ...]:
+        """Trusted classification schemas for supported operations."""
         ...
 
     def send(
