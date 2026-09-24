@@ -164,10 +164,19 @@ def test_synthetic_workflow_command_uses_safe_summary_only(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    def provider_factory(
+        *,
+        base_url: str,
+        model: str,
+    ) -> DeterministicWorkflowProvider:
+        assert base_url == "http://127.0.0.1:8080/v1"
+        assert model == "synthetic-model"
+        return DeterministicWorkflowProvider()
+
     monkeypatch.setattr(
         validate_commands,
         "OpenAICompatibleProvider",
-        lambda **_: DeterministicWorkflowProvider(),
+        provider_factory,
     )
 
     result = validate_commands.run_synthetic_workflow_validation(
