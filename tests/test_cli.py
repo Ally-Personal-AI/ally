@@ -490,6 +490,14 @@ def test_attention_deliver_parser_defaults_to_console() -> None:
     assert args.limit == 50
 
 
+def test_attention_health_parser_defaults_to_auto() -> None:
+    args = build_parser().parse_args(["attention", "health"])
+
+    assert args.attention_command == "health"
+    assert args.sink == "auto"
+    assert args.json_output is False
+
+
 def test_attention_history_parser_accepts_status_filter() -> None:
     args = build_parser().parse_args(
         ["attention", "history", "--status", "failed"]
@@ -508,7 +516,7 @@ def test_service_cycle_parser_has_bounded_defaults() -> None:
     assert args.at is None
     assert args.schedule_limit == 100
     assert args.delivery_limit == 50
-    assert args.sink == "console"
+    assert args.sink == "auto"
     assert args.lease_seconds == 300
     assert args.json_output is False
 
