@@ -304,6 +304,33 @@ def run_workflows(root: Path) -> None:
             and session_state["profile"]["state"] == "passed",
             "validation-session evidence derivation",
         )
+
+        installed_profile = json.loads(cli(
+            "profiles", "install",
+            str(profile_path),
+            str(report_path), str(privacy_path), str(workflow_path),
+            "--json",
+        ))
+        profile_id = installed_profile["profile_id"]
+        selected = json.loads(cli(
+            "profiles", "select", profile_id, "--json",
+        ))
+        require(
+            selected["selected"] is True and selected["profile_id"] == profile_id,
+            "runtime profile active selection",
+        )
+        active_profile = json.loads(cli("profiles", "active", "--json"))
+        require(
+            active_profile["profile_id"] == profile_id
+            and active_profile["model"] == "synthetic",
+            "active runtime profile resolution",
+        )
+        require(
+            '"active": true' in cli("profiles", "installed", "--json").lower(),
+            "installed runtime profile listing",
+        )
+        cli("profiles", "deselect")
+        cli("profiles", "remove", profile_id)
     finally:
         server.shutdown()
         thread.join(timeout=5)
