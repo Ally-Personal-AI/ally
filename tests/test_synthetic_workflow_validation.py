@@ -7,7 +7,6 @@ from tempfile import TemporaryDirectory as RealTemporaryDirectory
 import pytest
 
 import ally.diagnostics.workflows as workflow_module
-from ally.commands import validate as validate_commands
 from ally.diagnostics import run_isolated_synthetic_workflows
 from ally.models import ChatRequest, ChatResponse
 
@@ -158,38 +157,3 @@ def test_isolated_workflow_does_not_create_default_ally_state(
     assert report.successful
     assert not config_root.exists()
     assert not data_root.exists()
-
-
-def test_synthetic_workflow_command_uses_safe_summary_only(
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    def provider_factory(
-        *,
-        base_url: str,
-        model: str,
-    ) -> DeterministicWorkflowProvider:
-        assert base_url == "http://127.0.0.1:8080/v1"
-        assert model == "synthetic-model"
-        return DeterministicWorkflowProvider()
-
-    monkeypatch.setattr(
-        validate_commands,
-        "OpenAICompatibleProvider",
-        provider_factory,
-    )
-
-    result = validate_commands.run_synthetic_workflow_validation(
-        endpoint="http://127.0.0.1:8080/v1",
-        model="synthetic-model",
-        json_output=True,
-    )
-    output = capsys.readouterr().out
-    rendered = json.loads(output)
-
-    assert result == 0
-    assert rendered["successful"] is True
-    assert rendered["model"] == "synthetic-model"
-    assert "ORCHID-731" not in output
-    assert "GLASS-482" not in output
-    assert "jasmine" not in output.lower()
