@@ -3,13 +3,13 @@ import Testing
 @testable import AllyDesktopCore
 
 @Test func decodesBridgeInfoEnvelope() throws {
-    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":3,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap"]}}"#.utf8)
+    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":4,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap"]}}"#.utf8)
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let envelope = try decoder.decode(BridgeEnvelope<BridgeInfo>.self, from: data)
 
     #expect(envelope.ok)
-    #expect(envelope.result?.protocolVersion == 3)
+    #expect(envelope.result?.protocolVersion == 4)
     #expect(envelope.result?.transport == "stdio")
     #expect(envelope.result?.capabilities == ["bootstrap"])
 }
@@ -98,4 +98,21 @@ import Testing
 
     #expect(hit.result?.id == "00000000-0000-0000-0000-000000000022")
     #expect(hit.result?.score == 0.75)
+}
+
+
+@Test func decodesValidatedRuntimeProfileCatalog() throws {
+    let data = Data(#"{"id":"1","ok":true,"result":{"items":[{"profile_id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","generated_at":"2026-09-24T00:00:00Z","ally_version":"0.1.0.dev0","model":"synthetic-model","runtime_name":"synthetic-runtime","runtime_version":"1.0","model_source":"synthetic-source","quantization":"Q4_K_M","precision":"mixed","model_size_bytes":null,"context_length":32768,"apple_model":"Mac17,1","apple_chip":"Apple M5 Max","total_memory_bytes":137438953472,"time_to_first_token_ms":120.0,"generation_tokens_per_second":40.0,"maximum_tested_context_tokens":16384,"capability_evidence_name":"capability.json","capability_evidence_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","privacy_evidence_name":"privacy.json","privacy_evidence_sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","workflow_evidence_name":"workflows.json","workflow_evidence_sha256":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","active":true}],"active_profile_id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}"#.utf8)
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    let envelope = try decoder.decode(
+        BridgeEnvelope<RuntimeProfileCatalogView>.self,
+        from: data
+    )
+
+    #expect(envelope.result?.items.count == 1)
+    #expect(envelope.result?.items[0].active == true)
+    #expect(envelope.result?.items[0].model == "synthetic-model")
+    #expect(envelope.result?.items[0].appleChip == "Apple M5 Max")
+    #expect(envelope.result?.activeProfileId == String(repeating: "a", count: 64))
 }
