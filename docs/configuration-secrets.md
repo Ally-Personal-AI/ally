@@ -96,10 +96,11 @@ and 2 on an operational error.
 
 The adapter and CLI are covered by deterministic simulated-Keychain tests on
 Linux and macOS CI. macOS CI also exercises a synthetic item through the real
-Security framework on its ephemeral runner. Persistence and OS access-prompt
-behavior against the dedicated machine's actual login Keychain remain part of
-the first-machine acceptance run; see
-[Apple Silicon first-machine validation](hardware/apple-silicon-validation.md).
+Security framework on its ephemeral runner. Persistence and OS access-prompt behavior against the dedicated machine's
+actual login Keychain remain part of first-machine acceptance; begin with
+[Unified First-Machine Acceptance](hardware/first-machine-acceptance.md) and use
+[Apple Silicon First-Machine Validation](hardware/apple-silicon-validation.md)
+for the detailed validation sequence.
 
 ## Deliberate omissions
 
