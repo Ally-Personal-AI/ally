@@ -38,7 +38,8 @@ not a process dump.
 ## Recording a candidate
 
 Start one OpenAI-compatible server on loopback, obtain its exact version and
-runtime-native measurements, then run:
+runtime-native measurements, then run. Local-model validation is intentionally
+loopback-only and cannot target an external inference provider:
 
 ```bash
 uv run ally validate local-model \
@@ -92,7 +93,8 @@ the complete evidence described in the first-machine runbook.
 ## Evidence boundaries
 
 Generated reports remain local and are ignored by Git. Frozen evaluation cases
-contain synthetic data. If a candidate was tested with personal prompts,
-private documents, credentials, or private model URLs, do not treat the report
-as repository-safe even if those inputs are not expected to appear in normal
-output.
+contain synthetic data. Private user prompts/documents must not be used with an
+external model during validation or evaluation. If a local candidate was tested
+with personal prompts, private documents, credentials, or private model URLs,
+do not treat the report as repository-safe even if those inputs are not
+expected to appear in normal output.
