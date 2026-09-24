@@ -62,6 +62,34 @@ class SQLiteAttentionDeliveryStore:
             return None
         return self._from_row(cast(DeliveryRow, row))
 
+    def list_for_event(
+        self,
+        event_id: UUID,
+    ) -> tuple[AttentionDeliveryRecord, ...]:
+        with self._database.connect() as connection:
+            rows = cast(
+                list[DeliveryRow],
+                connection.execute(
+                    """
+                    SELECT
+                        id,
+                        event_id,
+                        sink_id,
+                        status,
+                        attempts,
+                        last_error,
+                        created_at,
+                        updated_at,
+                        delivered_at
+                    FROM attention_deliveries
+                    WHERE event_id = ?
+                    ORDER BY updated_at DESC, sink_id ASC
+                    """,
+                    (str(event_id),),
+                ).fetchall(),
+            )
+        return tuple(self._from_row(row) for row in rows)
+
     def record_attempt(
         self,
         *,
