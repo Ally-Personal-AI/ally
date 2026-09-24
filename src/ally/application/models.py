@@ -9,7 +9,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ally.conversations import Conversation, ConversationMessage
 from ally.knowledge import KnowledgeChunk, KnowledgeRevision, KnowledgeSource
-from ally.memory import MemoryKind, MemoryPrivacy, MemoryRecord
+from ally.memory import (
+    MemoryKind,
+    MemoryPrivacy,
+    MemoryRecord,
+    MemorySourceType,
+)
 from ally.models import ChatResponse
 from ally.runtime_profiles import ResolvedInferenceTarget
 
@@ -77,6 +82,20 @@ class RememberMemoryRequest(BaseModel):
     privacy: MemoryPrivacy = "private"
 
 
+class MemoryProposalRequest(BaseModel):
+    """Reviewable model memory-extraction request."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    text: str = Field(min_length=1)
+    source_type: MemorySourceType = "user"
+    source_id: str | None = None
+    source_uri: str | None = None
+    privacy: MemoryPrivacy = "private"
+    development_endpoint: str | None = None
+    development_model: str | None = None
+
+
 class SupersedeMemoryRequest(BaseModel):
     """Explicit correction of one durable memory."""
 
@@ -84,6 +103,17 @@ class SupersedeMemoryRequest(BaseModel):
 
     memory_id: UUID
     content: str = Field(min_length=1)
+
+
+class KnowledgeTextIngestRequest(BaseModel):
+    """In-memory text ingestion for desktop/mobile presentation layers."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    uri: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    text: str = Field(min_length=1)
+    media_type: str = Field(default="text/plain", min_length=1)
 
 
 class KnowledgeIngestResult(BaseModel):
