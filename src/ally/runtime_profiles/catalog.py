@@ -60,15 +60,22 @@ class RuntimeProfileCatalog:
         self.selection_path = self.root / "active.json"
 
     def _ensure_root(self) -> None:
-        if self.root.exists() and self.root.is_symlink():
-            raise RuntimeProfileCatalogError(
-                "runtime profile catalog root must not be a symlink"
-            )
-        self.root.mkdir(parents=True, exist_ok=True)
         try:
-            self.root.chmod(0o700)
-        except OSError:
-            pass
+            if self.root.exists() and self.root.is_symlink():
+                raise RuntimeProfileCatalogError(
+                    "runtime profile catalog root must not be a symlink"
+                )
+            self.root.mkdir(parents=True, exist_ok=True)
+            try:
+                self.root.chmod(0o700)
+            except OSError:
+                pass
+        except RuntimeProfileCatalogError:
+            raise
+        except OSError as exc:
+            raise RuntimeProfileCatalogError(
+                "runtime profile catalog is unavailable"
+            ) from exc
 
     def _profile_path(self, profile_id: str) -> Path:
         if (
@@ -138,51 +145,72 @@ class RuntimeProfileCatalog:
 
         temporary = self.root / f".{profile.profile_id}.{uuid4().hex}.tmp"
         try:
-            temporary.write_text(
-                json.dumps(profile.model_dump(mode="json"), indent=2, sort_keys=True)
-                + "\n",
-                encoding="utf-8",
-            )
             try:
-                temporary.chmod(0o600)
-            except OSError:
-                pass
-            try:
-                os.link(temporary, destination)
-            except FileExistsError as exc:
+                temporary.write_text(
+                    json.dumps(
+                        profile.model_dump(mode="json"),
+                        indent=2,
+                        sort_keys=True,
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+                try:
+                    temporary.chmod(0o600)
+                except OSError:
+                    pass
+                try:
+                    os.link(temporary, destination)
+                except FileExistsError as exc:
+                    raise RuntimeProfileCatalogError(
+                        "runtime profile appeared concurrently during installation"
+                    ) from exc
+                try:
+                    destination.chmod(0o600)
+                except OSError:
+                    pass
+            except RuntimeProfileCatalogError:
+                raise
+            except OSError as exc:
                 raise RuntimeProfileCatalogError(
-                    "runtime profile appeared concurrently during installation"
+                    "runtime profile could not be installed"
                 ) from exc
+        finally:
             try:
-                destination.chmod(0o600)
+                temporary.unlink(missing_ok=True)
             except OSError:
                 pass
-        finally:
-            temporary.unlink(missing_ok=True)
         return destination
 
     def list(self) -> tuple[ValidatedRuntimeProfile, ...]:
         """Load every installed profile strictly in deterministic ID order."""
 
-        if not self.root.exists():
-            return ()
-        if self.root.is_symlink():
-            raise RuntimeProfileCatalogError(
-                "runtime profile catalog root must not be a symlink"
-            )
-        profiles: list[ValidatedRuntimeProfile] = []
-        for path in sorted(self.root.glob("[0-9a-f]" * 64 + ".json")):
-            if path.is_symlink():
+        try:
+            if not self.root.exists():
+                return ()
+            if self.root.is_symlink():
                 raise RuntimeProfileCatalogError(
-                    "installed runtime profiles must not be symlinks"
+                    "runtime profile catalog root must not be a symlink"
                 )
-            try:
-                profiles.append(load_validated_runtime_profile(path))
-            except ValidatedRuntimeProfileError as exc:
-                raise RuntimeProfileCatalogError(
-                    "installed runtime profile is invalid"
-                ) from exc
-        return tuple(profiles)
+            profiles: list[ValidatedRuntimeProfile] = []
+            for path in sorted(self.root.glob("[0-9a-f]" * 64 + ".json")):
+                if path.is_symlink():
+                    raise RuntimeProfileCatalogError(
+                        "installed runtime profiles must not be symlinks"
+                    )
+                try:
+                    profiles.append(load_validated_runtime_profile(path))
+                except ValidatedRuntimeProfileError as exc:
+                    raise RuntimeProfileCatalogError(
+                        "installed runtime profile is invalid"
+                    ) from exc
+            return tuple(profiles)
+        except RuntimeProfileCatalogError:
+            raise
+        except OSError as exc:
+            raise RuntimeProfileCatalogError(
+                "runtime profile catalog could not be read"
+            ) from exc
 
     def get(self, profile_id: str) -> ValidatedRuntimeProfile:
         """Load one installed profile by deterministic ID."""
@@ -211,30 +239,48 @@ class RuntimeProfileCatalog:
 
         profile = self.get(profile_id)
         path = self._profile_path(profile.profile_id)
+        try:
+            digest = _sha256(path)
+        except OSError as exc:
+            raise RuntimeProfileCatalogError(
+                "runtime profile could not be read for selection"
+            ) from exc
         selection = ActiveRuntimeProfileSelection(
             selected_at=datetime.now(UTC),
             profile_id=profile.profile_id,
-            profile_sha256=_sha256(path),
+            profile_sha256=digest,
         )
         self._ensure_root()
         temporary = self.root / f".active.json.{uuid4().hex}.tmp"
         try:
-            temporary.write_text(
-                json.dumps(selection.model_dump(mode="json"), indent=2, sort_keys=True)
-                + "\n",
-                encoding="utf-8",
-            )
             try:
-                temporary.chmod(0o600)
-            except OSError:
-                pass
-            os.replace(temporary, self.selection_path)
-            try:
-                self.selection_path.chmod(0o600)
-            except OSError:
-                pass
+                temporary.write_text(
+                    json.dumps(
+                        selection.model_dump(mode="json"),
+                        indent=2,
+                        sort_keys=True,
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+                try:
+                    temporary.chmod(0o600)
+                except OSError:
+                    pass
+                os.replace(temporary, self.selection_path)
+                try:
+                    self.selection_path.chmod(0o600)
+                except OSError:
+                    pass
+            except OSError as exc:
+                raise RuntimeProfileCatalogError(
+                    "active runtime profile selection could not be written"
+                ) from exc
         finally:
-            temporary.unlink(missing_ok=True)
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
         return selection
 
     def _load_selection(self) -> ActiveRuntimeProfileSelection:
@@ -287,14 +333,21 @@ class RuntimeProfileCatalog:
     def deselect(self) -> bool:
         """Clear active selection without deleting any installed profile."""
 
-        if self.selection_path.is_symlink():
+        try:
+            if self.selection_path.is_symlink():
+                raise RuntimeProfileCatalogError(
+                    "active runtime profile selection must not be a symlink"
+                )
+            if not self.selection_path.exists():
+                return False
+            self.selection_path.unlink()
+            return True
+        except RuntimeProfileCatalogError:
+            raise
+        except OSError as exc:
             raise RuntimeProfileCatalogError(
-                "active runtime profile selection must not be a symlink"
-            )
-        if not self.selection_path.exists():
-            return False
-        self.selection_path.unlink()
-        return True
+                "active runtime profile selection could not be cleared"
+            ) from exc
 
     def remove(self, profile_id: str) -> bool:
         """Remove an inactive installed profile only."""
@@ -310,10 +363,15 @@ class RuntimeProfileCatalog:
             raise RuntimeProfileCatalogError(
                 "installed runtime profile must not be a symlink"
             )
-        if not path.exists():
-            return False
-        path.unlink()
-        return True
+        try:
+            if not path.exists():
+                return False
+            path.unlink()
+            return True
+        except OSError as exc:
+            raise RuntimeProfileCatalogError(
+                "runtime profile could not be removed"
+            ) from exc
 
 
 def default_runtime_profile_catalog() -> RuntimeProfileCatalog:
