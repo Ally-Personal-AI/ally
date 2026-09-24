@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from contextlib import AbstractContextManager
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
+from ally import __version__
 from ally.application import (
     AllyApplication,
     ApplicationNotFoundError,
@@ -14,12 +16,24 @@ from ally.application import (
     KnowledgeTextIngestRequest,
     MemoryProposalRequest,
     RememberMemoryRequest,
+    SelectRuntimeProfileRequest,
     SupersedeMemoryRequest,
+)
+from ally.diagnostics import (
+    EvaluationSuiteProfile,
+    HardwareProfile,
+    PerformanceObservations,
+    RuntimeProfile,
 )
 from ally.models import ChatRequest, ChatResponse
 from ally.runtime_profiles import (
+    EvidenceReference,
     InferenceTargetError,
     ResolvedInferenceTarget,
+    RuntimeProfileCatalog,
+    ValidatedRuntimeProfile,
+    resolve_inference_target,
+    runtime_profile_id,
 )
 from ally.storage.sqlite import (
     SQLiteConversationStore,
@@ -88,6 +102,7 @@ def _application(
         [str | None, str | None],
         ResolvedInferenceTarget,
     ] = _target,
+    runtime_profiles: RuntimeProfileCatalog | None = None,
 ) -> tuple[AllyApplication, SQLiteUserInstructionsStore]:
     database = SQLiteDatabase(tmp_path / "ally.sqlite3")
     instructions = SQLiteUserInstructionsStore(database)
@@ -106,9 +121,80 @@ def _application(
             instructions=instructions,
             target_resolver=resolver,
             provider_factory=provider_factory,
+            runtime_profiles=runtime_profiles,
         ),
         instructions,
     )
+
+
+def _installed_runtime_profile(
+    tmp_path: Path,
+) -> tuple[RuntimeProfileCatalog, ValidatedRuntimeProfile]:
+    catalog = RuntimeProfileCatalog(tmp_path / "runtime-profiles")
+    runtime = RuntimeProfile(
+        name="synthetic-runtime",
+        version="1.0",
+        model_source="synthetic-source",
+        quantization="Q4_K_M",
+        precision="mixed",
+        context_length=32768,
+    )
+    hardware = HardwareProfile(
+        system="Darwin",
+        release="25.0",
+        machine="arm64",
+        processor="arm",
+        python_version="3.12.11",
+        logical_cpu_count=16,
+        total_memory_bytes=128 * 1024**3,
+        apple_model="Mac17,1",
+        apple_chip="Apple M5 Max",
+    )
+    suite = EvaluationSuiteProfile(
+        core_sha256="a" * 64,
+        provider_sha256="b" * 64,
+        behavioral_sha256="c" * 64,
+    )
+    observations = PerformanceObservations(
+        time_to_first_token_ms=125.0,
+        generation_tokens_per_second=42.5,
+        maximum_tested_context_tokens=16384,
+    )
+    capability = EvidenceReference(name="capability.json", sha256="d" * 64)
+    privacy = EvidenceReference(name="privacy.json", sha256="e" * 64)
+    workflows = EvidenceReference(name="workflows.json", sha256="f" * 64)
+    profile_id = runtime_profile_id(
+        ally_version=__version__,
+        endpoint="http://127.0.0.1:8080/v1",
+        model="synthetic-model",
+        runtime=runtime,
+        hardware=hardware,
+        evaluation_suite=suite,
+        observations=observations,
+        capability_evidence=capability,
+        privacy_evidence=privacy,
+        workflow_evidence=workflows,
+    )
+    profile = ValidatedRuntimeProfile(
+        profile_id=profile_id,
+        generated_at=datetime(2026, 9, 24, tzinfo=UTC),
+        ally_version=__version__,
+        endpoint="http://127.0.0.1:8080/v1",
+        model="synthetic-model",
+        runtime=runtime,
+        hardware=hardware,
+        evaluation_suite=suite,
+        observations=observations,
+        capability_evidence=capability,
+        privacy_evidence=privacy,
+        workflow_evidence=workflows,
+    )
+    catalog.root.mkdir(parents=True)
+    (catalog.root / f"{profile.profile_id}.json").write_text(
+        profile.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return catalog, profile
 
 
 def test_application_chat_composes_instructions_grounding_and_persistence(
@@ -235,6 +321,71 @@ def test_application_runtime_status_is_payload_free_and_typed(
     assert status.state == "unavailable"
     assert status.error_code == "active_profile_unavailable"
     assert "PRIVATE" not in status.model_dump_json()
+
+
+def test_application_runtime_profile_catalog_selection_is_validated_and_path_free(
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider([])
+    catalog, profile = _installed_runtime_profile(tmp_path)
+
+    def resolver(
+        endpoint: str | None,
+        model: str | None,
+    ) -> ResolvedInferenceTarget:
+        return resolve_inference_target(
+            development_endpoint=endpoint,
+            development_model=model,
+            active_profile_resolver=catalog.active,
+        )
+
+    app, _ = _application(
+        tmp_path,
+        provider=provider,
+        resolver=resolver,
+        runtime_profiles=catalog,
+    )
+
+    initial = app.runtime_profile_catalog()
+    assert initial.active_profile_id is None
+    assert len(initial.items) == 1
+    assert initial.items[0].profile_id == profile.profile_id
+    assert initial.items[0].active is False
+    assert initial.items[0].apple_chip == "Apple M5 Max"
+    assert "127.0.0.1" not in initial.model_dump_json()
+    assert app.runtime_status().state == "unavailable"
+
+    selected = app.select_runtime_profile(
+        SelectRuntimeProfileRequest(profile_id=profile.profile_id)
+    )
+    assert selected.active_profile_id == profile.profile_id
+    assert selected.items[0].active is True
+    status = app.runtime_status()
+    assert status.state == "ready"
+    assert status.target is not None
+    assert status.target.profile_id == profile.profile_id
+
+    deselected = app.deselect_runtime_profile()
+    assert deselected.active_profile_id is None
+    assert deselected.items[0].active is False
+    assert app.runtime_status().state == "unavailable"
+
+
+def test_application_runtime_profile_selection_rejects_uninstalled_profile(
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider([])
+    catalog, _ = _installed_runtime_profile(tmp_path)
+    app, _ = _application(
+        tmp_path,
+        provider=provider,
+        runtime_profiles=catalog,
+    )
+
+    with pytest.raises(ApplicationStateError, match="selection failed"):
+        app.select_runtime_profile(
+            SelectRuntimeProfileRequest(profile_id="0" * 64)
+        )
 
 
 def test_application_memory_lifecycle_matches_domain_semantics(

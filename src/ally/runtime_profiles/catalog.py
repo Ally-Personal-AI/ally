@@ -192,11 +192,16 @@ class RuntimeProfileCatalog:
                         "installed runtime profiles must not be symlinks"
                     )
                 try:
-                    profiles.append(load_validated_runtime_profile(path))
+                    profile = load_validated_runtime_profile(path)
                 except ValidatedRuntimeProfileError as exc:
                     raise RuntimeProfileCatalogError(
                         "installed runtime profile is invalid"
                     ) from exc
+                if path.stem != profile.profile_id:
+                    raise RuntimeProfileCatalogError(
+                        "installed runtime profile ID does not match its filename"
+                    )
+                profiles.append(profile)
             return tuple(profiles)
         except RuntimeProfileCatalogError:
             raise

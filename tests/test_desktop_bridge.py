@@ -3,19 +3,35 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from contextlib import AbstractContextManager
+from datetime import UTC, datetime
 from io import StringIO
 from pathlib import Path
 
 from pydantic import JsonValue
 
+from ally import __version__
 from ally.application import (
     AllyApplication,
     ApplicationOperations,
     RememberMemoryRequest,
 )
 from ally.desktop.bridge import MAX_REQUEST_BYTES, handle_request_json, serve
+from ally.diagnostics import (
+    EvaluationSuiteProfile,
+    HardwareProfile,
+    PerformanceObservations,
+    RuntimeProfile,
+)
 from ally.models import ChatRequest, ChatResponse, ModelProvider
-from ally.runtime_profiles import InferenceTargetError, ResolvedInferenceTarget
+from ally.runtime_profiles import (
+    EvidenceReference,
+    InferenceTargetError,
+    ResolvedInferenceTarget,
+    RuntimeProfileCatalog,
+    ValidatedRuntimeProfile,
+    resolve_inference_target,
+    runtime_profile_id,
+)
 from ally.security.tool_policy import DefaultToolPolicy
 from ally.service import ServiceHealthReport
 from ally.storage.sqlite import (
@@ -100,6 +116,7 @@ def _application(
         [str | None, str | None],
         ResolvedInferenceTarget,
     ] = _target,
+    runtime_profiles: RuntimeProfileCatalog | None = None,
 ) -> AllyApplication:
     database = SQLiteDatabase(tmp_path / "ally.sqlite3")
 
@@ -116,7 +133,75 @@ def _application(
         instructions=SQLiteUserInstructionsStore(database),
         target_resolver=resolver,
         provider_factory=provider_factory,
+        runtime_profiles=runtime_profiles,
     )
+
+
+def _installed_runtime_profile(
+    tmp_path: Path,
+) -> tuple[RuntimeProfileCatalog, ValidatedRuntimeProfile]:
+    catalog = RuntimeProfileCatalog(tmp_path / "runtime-profiles")
+    runtime = RuntimeProfile(
+        name="synthetic-runtime",
+        version="1.0",
+        context_length=32768,
+    )
+    hardware = HardwareProfile(
+        system="Darwin",
+        release="25.0",
+        machine="arm64",
+        processor="arm",
+        python_version="3.12.11",
+        logical_cpu_count=16,
+        total_memory_bytes=128 * 1024**3,
+        apple_model="Mac17,1",
+        apple_chip="Apple M5 Max",
+    )
+    suite = EvaluationSuiteProfile(
+        core_sha256="a" * 64,
+        provider_sha256="b" * 64,
+        behavioral_sha256="c" * 64,
+    )
+    observations = PerformanceObservations(
+        time_to_first_token_ms=120.0,
+        generation_tokens_per_second=40.0,
+        maximum_tested_context_tokens=16384,
+    )
+    capability = EvidenceReference(name="capability.json", sha256="d" * 64)
+    privacy = EvidenceReference(name="privacy.json", sha256="e" * 64)
+    workflows = EvidenceReference(name="workflows.json", sha256="f" * 64)
+    profile_id = runtime_profile_id(
+        ally_version=__version__,
+        endpoint="http://127.0.0.1:8080/v1",
+        model="synthetic-model",
+        runtime=runtime,
+        hardware=hardware,
+        evaluation_suite=suite,
+        observations=observations,
+        capability_evidence=capability,
+        privacy_evidence=privacy,
+        workflow_evidence=workflows,
+    )
+    profile = ValidatedRuntimeProfile(
+        profile_id=profile_id,
+        generated_at=datetime(2026, 9, 24, tzinfo=UTC),
+        ally_version=__version__,
+        endpoint="http://127.0.0.1:8080/v1",
+        model="synthetic-model",
+        runtime=runtime,
+        hardware=hardware,
+        evaluation_suite=suite,
+        observations=observations,
+        capability_evidence=capability,
+        privacy_evidence=privacy,
+        workflow_evidence=workflows,
+    )
+    catalog.root.mkdir(parents=True)
+    (catalog.root / f"{profile.profile_id}.json").write_text(
+        profile.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return catalog, profile
 
 
 def _task_application(
@@ -426,6 +511,82 @@ def test_bridge_knowledge_text_ingest_detail_and_search_are_local_contracts(
     assert not path_attempt.ok
     assert path_attempt.error is not None
     assert path_attempt.error.code == "invalid_request"
+
+
+def test_bridge_runtime_profile_selection_accepts_only_installed_ids(
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider([])
+    catalog, profile = _installed_runtime_profile(tmp_path)
+
+    def resolver(
+        endpoint: str | None,
+        model: str | None,
+    ) -> ResolvedInferenceTarget:
+        return resolve_inference_target(
+            development_endpoint=endpoint,
+            development_model=model,
+            active_profile_resolver=catalog.active,
+        )
+
+    app = _application(
+        tmp_path,
+        provider=provider,
+        resolver=resolver,
+        runtime_profiles=catalog,
+    )
+
+    listed = handle_request_json(app, _request("runtime.profiles"))
+    assert listed.ok
+    assert isinstance(listed.result, dict)
+    items = listed.result["items"]
+    assert isinstance(items, list)
+    assert len(items) == 1
+    item = items[0]
+    assert isinstance(item, dict)
+    assert item["profile_id"] == profile.profile_id
+    assert item["active"] is False
+    assert "endpoint" not in item
+
+    rejected = handle_request_json(
+        app,
+        _request(
+            "runtime.select_profile",
+            {
+                "profile_id": "0" * 64,
+                "endpoint": "http://127.0.0.1:9999/v1",
+            },
+        ),
+    )
+    assert not rejected.ok
+    assert rejected.error is not None
+    assert rejected.error.code == "invalid_request"
+
+    selected = handle_request_json(
+        app,
+        _request(
+            "runtime.select_profile",
+            {"profile_id": profile.profile_id},
+        ),
+    )
+    assert selected.ok
+    assert isinstance(selected.result, dict)
+    assert selected.result["active_profile_id"] == profile.profile_id
+
+    bootstrap = handle_request_json(app, _request("bootstrap"))
+    assert bootstrap.ok
+    assert isinstance(bootstrap.result, dict)
+    runtime = bootstrap.result["runtime"]
+    assert isinstance(runtime, dict)
+    assert runtime["state"] == "ready"
+    target = runtime["target"]
+    assert isinstance(target, dict)
+    assert target["profile_id"] == profile.profile_id
+
+    deselected = handle_request_json(app, _request("runtime.deselect_profile"))
+    assert deselected.ok
+    assert isinstance(deselected.result, dict)
+    assert deselected.result["active_profile_id"] is None
 
 
 def test_bridge_task_approval_is_exactly_one_paused_step(

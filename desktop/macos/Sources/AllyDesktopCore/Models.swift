@@ -233,3 +233,40 @@ public struct KnowledgeIngestResult: Decodable, Sendable, Equatable {
     public let source: KnowledgeSourceSummary
     public let revision: KnowledgeRevisionSummary
 }
+
+
+public struct RuntimeProfileSummary: Decodable, Sendable, Equatable, Identifiable {
+    public let profileId: String
+    public let generatedAt: String
+    public let allyVersion: String
+    public let model: String
+    public let runtimeName: String
+    public let runtimeVersion: String
+    public let modelSource: String?
+    public let quantization: String?
+    public let precision: String?
+    public let modelSizeBytes: Int?
+    public let contextLength: Int?
+    public let appleModel: String?
+    public let appleChip: String?
+    public let totalMemoryBytes: Int?
+    public let timeToFirstTokenMs: Double?
+    public let generationTokensPerSecond: Double?
+    public let maximumTestedContextTokens: Int?
+    public let capabilityEvidenceName: String
+    public let capabilityEvidenceSha256: String
+    public let privacyEvidenceName: String
+    public let privacyEvidenceSha256: String
+    public let workflowEvidenceName: String
+    public let workflowEvidenceSha256: String
+    public let active: Bool
+
+    public var id: String {
+        profileId
+    }
+}
+
+public struct RuntimeProfileCatalogView: Decodable, Sendable, Equatable {
+    public let items: [RuntimeProfileSummary]
+    public let activeProfileId: String?
+}

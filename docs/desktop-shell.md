@@ -53,16 +53,37 @@ The first shell includes:
 - searchable knowledge sources with revision/chunk detail and pasted-text ingestion;
 - task summary/status inspection;
 - task detail with explicit one-step-at-a-time approval and failed-step retry;
-- private-runtime readiness; and
+- private-runtime readiness and validated-profile catalog/selection;
 - proactive-service health and attention counts.
 
-This is still an incremental #66 product surface. Validated-profile management,
-full attention history/detail, modern bundled notification authorization,
+This is still an incremental #66 product surface. Full attention history/detail,
+modern bundled notification authorization,
 polished empty/error states, and release packaging remain follow-on work.
+
+## Validated runtime selection boundary
+
+Desktop protocol v4 exposes only the installed validated-profile catalog and
+exact profile selection/deselection:
+
+- the desktop cannot install a profile or supply evidence-file paths;
+- it cannot supply a raw endpoint, model name, or runtime coordinate;
+- the application catalog returns path-free qualification metadata and evidence
+  digests for inspection;
+- selecting requires the exact deterministic ID of an already-installed
+  validated profile;
+- active selection remains hash-bound to the exact installed profile bytes; and
+- catalog browsing now also rejects installed filenames that do not match the
+  profile's self-derived identity.
+
+The default composition gives the application facade and private-inference
+resolver the same `RuntimeProfileCatalog` instance. A profile selected in the
+native UI therefore becomes the same active profile used by daily private chat.
+If the selection or installed profile is missing, changed, or invalid, inference
+fails closed instead of silently falling back.
 
 ## Memory and knowledge boundary
 
-Desktop protocol v3 exposes explicit local state-management operations without
+Desktop protocol v4 retains the v3 memory/knowledge operations and exposes explicit local state-management operations without
 granting broader filesystem or model authority:
 
 - memory correction calls `AllyApplication.supersede_memory()`, preserving the
@@ -82,7 +103,7 @@ correction/retraction preserve local history.
 
 ## Task approval boundary
 
-Desktop protocol v3 retains the v2 task contract and deliberately separates task progression from approval:
+Desktop protocol v4 retains the exact-step task contract and deliberately separates task progression from approval:
 
 - `task.run` accepts only a task ID and cannot carry approvals;
 - `task.approve_step` accepts exactly one task ID plus one step ID;

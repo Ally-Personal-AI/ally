@@ -6,6 +6,7 @@ import AllyDesktopCore
 @MainActor
 final class AppModel: ObservableObject {
     @Published var snapshot: BootstrapSnapshot?
+    @Published var runtimeProfiles: RuntimeProfileCatalogView?
     @Published var memories: [MemorySummary] = []
     @Published var memoryDetail: MemorySummary?
     @Published var memorySearchResults: [MemorySummary] = []
@@ -51,9 +52,48 @@ final class AppModel: ObservableObject {
             self.snapshot = try await snapshot
             self.memories = try await memories
             self.knowledge = try await knowledge
-            self.errorMessage = nil
+            do {
+                self.runtimeProfiles = try await client.call("runtime.profiles")
+                self.errorMessage = nil
+            } catch {
+                self.runtimeProfiles = nil
+                self.errorMessage = error.localizedDescription
+            }
         } catch {
             self.errorMessage = error.localizedDescription
+        }
+    }
+
+    func selectRuntimeProfile(_ profileID: String) async {
+        guard let client else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let updated: RuntimeProfileCatalogView = try await client.call(
+                "runtime.select_profile",
+                params: ["profile_id": .string(profileID)]
+            )
+            runtimeProfiles = updated
+            snapshot = try await client.call("bootstrap")
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func deselectRuntimeProfile() async {
+        guard let client else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let updated: RuntimeProfileCatalogView = try await client.call(
+                "runtime.deselect_profile"
+            )
+            runtimeProfiles = updated
+            snapshot = try await client.call("bootstrap")
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 

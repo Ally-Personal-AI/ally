@@ -11,6 +11,7 @@ same privacy, persistence, grounding, and model-selection behavior.
 The first application slice exposes:
 
 - runtime inference readiness and resolved target provenance;
+- installed validated-runtime catalog inspection plus exact select/deselect;
 - conversation creation/listing/detail;
 - private chat turns with persistent history;
 - scoped global/project/conversation/task/session user instructions;
@@ -72,8 +73,10 @@ desktop chat does not expose development endpoint/model overrides: private user
 data can only route through the active validated runtime profile. Desktop
 knowledge ingestion accepts bounded text plus metadata, not an arbitrary
 filesystem path. Memory corrections/retractions delegate to the existing
-provenance-preserving application methods. Bridge errors use stable sanitized
-codes rather than arbitrary exception text.
+provenance-preserving application methods. Runtime selection accepts only the
+deterministic ID of an already-installed validated profile; it does not expose
+profile installation, evidence paths, endpoints, or model-name overrides.
+Bridge errors use stable sanitized codes rather than arbitrary exception text.
 
 The SwiftUI shell may format, navigate, and collect explicit user intent, but
 domain state, grounding, model selection, and approval authority remain on the
@@ -121,7 +124,8 @@ adapters:
 - SQLite conversation/memory/knowledge/instruction stores;
 - default user-owned data path;
 - current loopback OpenAI-compatible provider; and
-- validated inference target resolver.
+- one shared Ally-owned validated runtime-profile catalog; and
+- validated inference target resolution bound to that same catalog.
 
 The concrete composition edge is replaceable without changing the public
 application contract.

@@ -29,6 +29,9 @@ from ally.application.models import (
     RememberMemoryRequest,
     RunTaskRequest,
     RuntimeInferenceStatus,
+    RuntimeProfileCatalogView,
+    RuntimeProfileSummary,
+    SelectRuntimeProfileRequest,
     ServiceHealthBootstrapSection,
     ServiceHistoryBootstrapSection,
     SupersedeMemoryRequest,
@@ -64,6 +67,9 @@ from ally.runtime import PersistentConversationRuntime
 from ally.runtime_profiles import (
     InferenceTargetError,
     ResolvedInferenceTarget,
+    RuntimeProfileCatalog,
+    RuntimeProfileCatalogError,
+    ValidatedRuntimeProfile,
 )
 from ally.service import ServiceCycleRunRecord, ServiceHealthReport
 from ally.tasks import TaskPlan, TaskRecord, TaskStepRecord
@@ -91,6 +97,7 @@ class AllyApplication:
         target_resolver: InferenceTargetResolver,
         provider_factory: ProviderFactory,
         operations: ApplicationOperations | None = None,
+        runtime_profiles: RuntimeProfileCatalog | None = None,
     ) -> None:
         self._conversations = conversations
         self._memories = memories
@@ -99,6 +106,7 @@ class AllyApplication:
         self._target_resolver = target_resolver
         self._provider_factory = provider_factory
         self._operations = operations
+        self._runtime_profiles = runtime_profiles
 
     def resolve_inference_target(
         self,
@@ -227,6 +235,59 @@ class AllyApplication:
             service_history=service_history,
             service_health=service_health,
         )
+
+    def runtime_profile_catalog(self) -> RuntimeProfileCatalogView:
+        """Return only installed evidence-backed profiles and exact active state."""
+
+        catalog = self._require_runtime_profiles()
+        try:
+            selection = catalog.selection()
+            active_profile_id: str | None = None
+            if selection is not None:
+                active_profile_id = catalog.active().profile_id
+            profiles = catalog.list()
+        except RuntimeProfileCatalogError as exc:
+            raise ApplicationStateError(
+                "validated runtime profile catalog is unavailable or invalid"
+            ) from exc
+
+        return RuntimeProfileCatalogView(
+            items=tuple(
+                self._runtime_profile_summary(
+                    profile,
+                    active=profile.profile_id == active_profile_id,
+                )
+                for profile in profiles
+            ),
+            active_profile_id=active_profile_id,
+        )
+
+    def select_runtime_profile(
+        self,
+        request: SelectRuntimeProfileRequest,
+    ) -> RuntimeProfileCatalogView:
+        """Select one exact installed profile; never accept raw runtime coordinates."""
+
+        catalog = self._require_runtime_profiles()
+        try:
+            catalog.select(request.profile_id)
+        except RuntimeProfileCatalogError as exc:
+            raise ApplicationStateError(
+                "validated runtime profile selection failed"
+            ) from exc
+        return self.runtime_profile_catalog()
+
+    def deselect_runtime_profile(self) -> RuntimeProfileCatalogView:
+        """Clear active inference selection without deleting installed evidence."""
+
+        catalog = self._require_runtime_profiles()
+        try:
+            catalog.deselect()
+        except RuntimeProfileCatalogError as exc:
+            raise ApplicationStateError(
+                "validated runtime profile selection could not be cleared"
+            ) from exc
+        return self.runtime_profile_catalog()
 
     def create_conversation(self, *, title: str | None = None) -> Conversation:
         return self._conversations.create(title=title)
@@ -561,6 +622,50 @@ class AllyApplication:
 
     def service_health(self) -> ServiceHealthReport:
         return self._require_operations().service_health()
+
+    def _require_runtime_profiles(self) -> RuntimeProfileCatalog:
+        if self._runtime_profiles is None:
+            raise ApplicationUnavailableError(
+                "validated runtime profile catalog is not available"
+            )
+        return self._runtime_profiles
+
+    @staticmethod
+    def _runtime_profile_summary(
+        profile: ValidatedRuntimeProfile,
+        *,
+        active: bool,
+    ) -> RuntimeProfileSummary:
+        return RuntimeProfileSummary(
+            profile_id=profile.profile_id,
+            generated_at=profile.generated_at,
+            ally_version=profile.ally_version,
+            model=profile.model,
+            runtime_name=profile.runtime.name,
+            runtime_version=profile.runtime.version,
+            model_source=profile.runtime.model_source,
+            quantization=profile.runtime.quantization,
+            precision=profile.runtime.precision,
+            model_size_bytes=profile.runtime.model_size_bytes,
+            context_length=profile.runtime.context_length,
+            apple_model=profile.hardware.apple_model,
+            apple_chip=profile.hardware.apple_chip,
+            total_memory_bytes=profile.hardware.total_memory_bytes,
+            time_to_first_token_ms=profile.observations.time_to_first_token_ms,
+            generation_tokens_per_second=(
+                profile.observations.generation_tokens_per_second
+            ),
+            maximum_tested_context_tokens=(
+                profile.observations.maximum_tested_context_tokens
+            ),
+            capability_evidence_name=profile.capability_evidence.name,
+            capability_evidence_sha256=profile.capability_evidence.sha256,
+            privacy_evidence_name=profile.privacy_evidence.name,
+            privacy_evidence_sha256=profile.privacy_evidence.sha256,
+            workflow_evidence_name=profile.workflow_evidence.name,
+            workflow_evidence_sha256=profile.workflow_evidence.sha256,
+            active=active,
+        )
 
     def _require_operations(self) -> ApplicationOperations:
         if self._operations is None:
