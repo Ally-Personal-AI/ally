@@ -12,6 +12,8 @@ from ally.diagnostics import (
     ArtifactFingerprint,
     CandidateEvidence,
     FirstMachineReadinessReport,
+    FunctionalWorkflowEvidenceError,
+    FunctionalWorkflowQualificationReport,
     LocalModelValidationReport,
     NetworkObservationMethod,
     PerformanceObservations,
@@ -24,17 +26,21 @@ from ally.diagnostics import (
     SyntheticWorkflowReport,
     ValidationReportError,
     build_candidate_evidence,
+    build_functional_workflow_report,
     build_runtime_privacy_report,
     collect_first_machine_readiness,
     collect_hardware_profile,
     compare_candidate_evidence,
     compare_validation_reports,
     fingerprint_artifact,
+    load_functional_workflow_report,
     load_runtime_privacy_report,
     load_validation_report,
     run_isolated_synthetic_workflows,
     run_local_model_validation,
+    verify_functional_workflow_source,
     verify_runtime_privacy_source,
+    write_functional_workflow_report,
     write_runtime_privacy_report,
     write_validation_report,
 )
@@ -632,3 +638,122 @@ def run_synthetic_workflow_validation(
         print(f"Total duration: {report.duration_ms:.1f} ms")
 
     return 0 if report.successful else 1
+
+
+
+def run_functional_workflow_qualification(
+    *,
+    validation_report: str,
+    output: str,
+) -> int:
+    """Run disposable workflows and bind them to exact capability evidence."""
+
+    try:
+        validation_path = Path(validation_report)
+        validation = load_validation_report(validation_path)
+        with OpenAICompatibleProvider(
+            base_url=validation.endpoint,
+            model=validation.model,
+        ) as provider:
+            workflow = run_isolated_synthetic_workflows(
+                provider=provider,
+                model=validation.model,
+            )
+        report = build_functional_workflow_report(
+            validation_path=validation_path,
+            workflow=workflow,
+        )
+        destination = write_functional_workflow_report(report, Path(output))
+    except (
+        FileExistsError,
+        FunctionalWorkflowEvidenceError,
+        ModelProviderError,
+        OSError,
+        ValidationReportError,
+        ValueError,
+    ) as exc:
+        print(f"Functional workflow error: {exc}")
+        return 2
+
+    print(f"Functional workflow report: {destination}")
+    print(
+        "Functionally qualified: "
+        f"{'yes' if report.qualified_functionally else 'no'}"
+    )
+    for check in report.checks:
+        suffix = "" if check.error_class is None else f" error={check.error_class}"
+        print(f"{check.id}: {check.status}{suffix}")
+    return 0 if report.qualified_functionally else 1
+
+
+def run_show_functional_workflow_report(
+    *,
+    report_path: str,
+    json_output: bool,
+) -> int:
+    """Inspect immutable functional workflow evidence."""
+
+    try:
+        report: FunctionalWorkflowQualificationReport = (
+            load_functional_workflow_report(Path(report_path))
+        )
+    except FunctionalWorkflowEvidenceError as exc:
+        print(f"Functional workflow error: {exc}")
+        return 2
+
+    if json_output:
+        rendered = report.model_dump(mode="json")
+        rendered["qualified_functionally"] = report.qualified_functionally
+        print(json.dumps(rendered, indent=2, sort_keys=True))
+    else:
+        print(
+            "Functionally qualified: "
+            f"{'yes' if report.qualified_functionally else 'no'}"
+        )
+        print(f"Runtime: {report.runtime.name} {report.runtime.version}")
+        print(f"Model: {report.model}")
+        print(f"Source validation SHA-256: {report.source_validation_sha256}")
+        for check in report.checks:
+            suffix = (
+                ""
+                if check.error_class is None
+                else f" error={check.error_class}"
+            )
+            print(f"{check.id}: {check.status}{suffix}")
+    return 0 if report.qualified_functionally else 1
+
+
+def run_verify_functional_workflow_report(
+    *,
+    report_path: str,
+    validation_report: str,
+    json_output: bool,
+) -> int:
+    """Verify functional evidence against its exact capability report."""
+
+    try:
+        report = load_functional_workflow_report(Path(report_path))
+        verify_functional_workflow_source(report, Path(validation_report))
+    except (FunctionalWorkflowEvidenceError, ValidationReportError) as exc:
+        print(f"Functional workflow verification error: {exc}")
+        return 2
+
+    if json_output:
+        print(
+            json.dumps(
+                {
+                    "source_matches": True,
+                    "qualified_functionally": report.qualified_functionally,
+                    "source_validation_sha256": report.source_validation_sha256,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    else:
+        print("Source matches: yes")
+        print(
+            "Functionally qualified: "
+            f"{'yes' if report.qualified_functionally else 'no'}"
+        )
+    return 0 if report.qualified_functionally else 1
