@@ -2,7 +2,9 @@ from pathlib import Path
 
 import pytest
 
+import ally.commands.chat as chat_module
 from ally.commands.chat import run_chat
+from ally.runtime_profiles import InferenceTargetError
 from ally.security.network import private_grounding_allowed
 
 
@@ -45,3 +47,30 @@ def test_private_chat_rejects_remote_endpoint_before_inference(
     output = capsys.readouterr().out
     assert result == 2
     assert "development inference override" in output
+
+
+
+def test_chat_target_failure_precedes_private_state_access(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def fail_target(**_: object) -> object:
+        raise InferenceTargetError(
+            "active validated runtime profile is unavailable or invalid"
+        )
+
+    def forbidden_store() -> object:
+        raise AssertionError("conversation store must not be opened")
+
+    monkeypatch.setattr(chat_module, "resolve_inference_target", fail_target)
+    monkeypatch.setattr(chat_module, "build_conversation_store", forbidden_store)
+
+    result = chat_module.run_chat(
+        development_endpoint=None,
+        development_model=None,
+        prompt="Private prompt.",
+        conversation_id=None,
+    )
+
+    assert result == 2
+    assert "Inference target error:" in capsys.readouterr().out
