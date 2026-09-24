@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from uuid import UUID
 
 from pydantic import JsonValue
 
@@ -12,7 +14,12 @@ from ally.application import (
     BootstrapLimits,
     RunTaskRequest,
 )
-from ally.conversations import ConversationStore
+from ally.conversations import (
+    Conversation,
+    ConversationMessage,
+    ConversationStore,
+    NewConversationMessage,
+)
 from ally.events import NewEvent
 from ally.models import ChatRequest, ChatResponse, ModelProvider
 from ally.runtime_profiles import InferenceTargetError, ResolvedInferenceTarget
@@ -98,7 +105,10 @@ def _provider(
 def _build_application(
     tmp_path: Path,
     *,
-    target_resolver=_ready_target,
+    target_resolver: Callable[
+        [str | None, str | None],
+        ResolvedInferenceTarget,
+    ] = _ready_target,
     conversations: ConversationStore | None = None,
     include_operations: bool = True,
 ) -> tuple[
@@ -271,19 +281,26 @@ class FailingConversationStore:
     def __init__(self, delegate: ConversationStore) -> None:
         self._delegate = delegate
 
-    def create(self, *, title: str | None = None):
+    def create(self, *, title: str | None = None) -> Conversation:
         return self._delegate.create(title=title)
 
-    def get(self, conversation_id):
+    def get(self, conversation_id: UUID) -> Conversation | None:
         return self._delegate.get(conversation_id)
 
-    def list(self, *, limit: int = 50):
+    def list(self, *, limit: int = 50) -> tuple[Conversation, ...]:
         raise RuntimeError("PRIVATE-DB-PATH=/secret/location")
 
-    def list_messages(self, conversation_id):
+    def list_messages(
+        self,
+        conversation_id: UUID,
+    ) -> tuple[ConversationMessage, ...]:
         return self._delegate.list_messages(conversation_id)
 
-    def append_messages(self, conversation_id, messages):
+    def append_messages(
+        self,
+        conversation_id: UUID,
+        messages: Sequence[NewConversationMessage],
+    ) -> tuple[ConversationMessage, ...]:
         return self._delegate.append_messages(conversation_id, messages)
 
 
