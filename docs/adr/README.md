@@ -46,6 +46,7 @@ supersede previous ADRs rather than silently rewriting project history.
 37. [Model and runtime artifacts are fingerprinted in validation evidence](0037-model-runtime-artifacts-are-fingerprinted.md)
 38. [Production candidates require functional workflow evidence](0038-production-candidates-require-functional-workflow-evidence.md)
 39. [Production runtime selection uses validated runtime profiles](0039-production-runtime-selection-uses-validated-profiles.md)
+40. [Validation sessions derive state from evidence](0040-validation-sessions-derive-state-from-evidence.md)
 
 ## Adding an ADR
 
