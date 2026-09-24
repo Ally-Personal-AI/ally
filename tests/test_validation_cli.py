@@ -74,3 +74,20 @@ def test_validate_runtime_privacy_show_parser_supports_json() -> None:
     assert args.validate_command == "runtime-privacy-show"
     assert args.report == "privacy.json"
     assert args.json_output is True
+
+
+def test_validate_runtime_privacy_verify_parser_supports_json() -> None:
+    args = build_parser().parse_args(
+        [
+            "validate",
+            "runtime-privacy-verify",
+            "privacy.json",
+            "validation.json",
+            "--json",
+        ]
+    )
+
+    assert args.validate_command == "runtime-privacy-verify"
+    assert args.report == "privacy.json"
+    assert args.validation_report == "validation.json"
+    assert args.json_output is True
