@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sys
 from uuid import UUID
 
 from ally.commands._storage import (
