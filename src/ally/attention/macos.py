@@ -155,6 +155,11 @@ class NativeMacOSNotificationBackend:
             ctypes.c_void_p,
             ctypes.c_void_p,
         )(address)
+        self._send_void = ctypes.CFUNCTYPE(
+            None,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+        )(address)
         self._send_void_arg = ctypes.CFUNCTYPE(
             None,
             ctypes.c_void_p,
@@ -296,7 +301,7 @@ class NativeMacOSNotificationBackend:
                     ctypes.c_void_p(notification_ref),
                 )
             finally:
-                self._send_object(
+                self._send_void(
                     ctypes.c_void_p(notification_ref),
                     ctypes.c_void_p(self._selector("release")),
                 )
