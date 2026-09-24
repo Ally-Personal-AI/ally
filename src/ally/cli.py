@@ -163,13 +163,18 @@ def build_parser() -> argparse.ArgumentParser:
     subcommands = parser.add_subparsers(dest="command")
     subcommands.add_parser("doctor", help="Show local Ally environment information.")
 
-    chat = subcommands.add_parser("chat", help="Chat with a local inference server.")
-    chat.add_argument(
-        "--endpoint",
-        default="http://127.0.0.1:8080/v1",
-        help="OpenAI-compatible base URL. Defaults to local llama.cpp-style endpoint.",
+    chat = subcommands.add_parser(
+        "chat",
+        help="Chat using the active validated runtime profile.",
     )
-    chat.add_argument("--model", required=True, help="Model identifier exposed by the server.")
+    chat.add_argument(
+        "--development-endpoint",
+        help="Explicit loopback endpoint for development/candidate testing only.",
+    )
+    chat.add_argument(
+        "--development-model",
+        help="Explicit model for development/candidate testing only.",
+    )
     chat.add_argument("--prompt", help="Run one prompt and exit instead of interactive chat.")
     chat.add_argument(
         "--conversation",
@@ -327,10 +332,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Ask a model for reviewable memory candidates without storing them.",
     )
     memory_propose.add_argument("text")
-    memory_propose.add_argument("--model", required=True)
     memory_propose.add_argument(
-        "--endpoint",
-        default="http://127.0.0.1:8080/v1",
+        "--development-endpoint",
+        help="Explicit loopback endpoint for development/candidate testing only.",
+    )
+    memory_propose.add_argument(
+        "--development-model",
+        help="Explicit model for development/candidate testing only.",
     )
     memory_propose.add_argument(
         "--source-type",
@@ -1346,10 +1354,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     plan_propose.add_argument("--goal", required=True)
     plan_propose.add_argument(
-        "--endpoint",
-        default="http://127.0.0.1:8080/v1",
+        "--development-endpoint",
+        help="Explicit loopback endpoint for development/candidate testing only.",
     )
-    plan_propose.add_argument("--model", required=True)
+    plan_propose.add_argument(
+        "--development-model",
+        help="Explicit model for development/candidate testing only.",
+    )
 
     return parser
 
@@ -1371,8 +1382,8 @@ def _run_command(argv: Sequence[str] | None) -> int:
 
     if args.command == "chat":
         return run_chat(
-            endpoint=cast(str, args.endpoint),
-            model=cast(str, args.model),
+            development_endpoint=cast(str | None, args.development_endpoint),
+            development_model=cast(str | None, args.development_model),
             prompt=cast(str | None, args.prompt),
             conversation_id=cast(str | None, args.conversation),
             instruction_project=cast(str | None, args.instruction_project),
@@ -1465,8 +1476,14 @@ def _run_command(argv: Sequence[str] | None) -> int:
             return run_retract_memory(memory_id=cast(str, args.memory_id))
         if args.memory_command == "propose":
             return run_propose_memories(
-                endpoint=cast(str, args.endpoint),
-                model=cast(str, args.model),
+                development_endpoint=cast(
+                    str | None,
+                    args.development_endpoint,
+                ),
+                development_model=cast(
+                    str | None,
+                    args.development_model,
+                ),
                 text=cast(str, args.text),
                 source_type=cast(MemorySourceType, args.source_type),
                 source_id=cast(str | None, args.source_id),
@@ -1936,8 +1953,14 @@ def _run_command(argv: Sequence[str] | None) -> int:
 
     if args.command == "plan" and args.plan_command == "propose":
         return run_propose_plan(
-            endpoint=cast(str, args.endpoint),
-            model=cast(str, args.model),
+            development_endpoint=cast(
+                str | None,
+                args.development_endpoint,
+            ),
+            development_model=cast(
+                str | None,
+                args.development_model,
+            ),
             goal=cast(str, args.goal),
         )
 
