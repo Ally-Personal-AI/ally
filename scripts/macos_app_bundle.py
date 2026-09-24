@@ -213,7 +213,6 @@ def assemble(
             "bridge_protocol_version": protocol_version,
             "helper_relative_path": helper_relative_path,
             "helper_sha256": sha256(helper_destination),
-            "app_executable_sha256": sha256(app_destination),
             "source_revision": source_revision,
         }
         manifest_destination.write_text(
@@ -286,8 +285,6 @@ def verify(app: Path) -> dict[str, Any]:
             raise BundleError(f"release manifest mismatch: {key}")
     if manifest.get("helper_sha256") != sha256(helper):
         raise BundleError("desktop helper hash does not match release manifest")
-    if manifest.get("app_executable_sha256") != sha256(app_executable):
-        raise BundleError("app executable hash does not match release manifest")
 
     forbidden_names = {".ally", "backups", "data", "models", "secrets"}
     embedded_forbidden = [
@@ -299,6 +296,38 @@ def verify(app: Path) -> dict[str, Any]:
         raise BundleError("release bundle contains a user-data/runtime directory")
 
     return manifest
+
+
+def refresh_helper_hash(app: Path) -> str:
+    """Refresh the manifest after signing the embedded helper, before app signing."""
+
+    root = app.expanduser().resolve(strict=True)
+    contract = release_contract()
+    manifest_path = root / str(contract["manifest_relative_path"])
+    helper = root / str(contract["helper_relative_path"])
+    if not helper.is_file() or not os.access(helper, os.X_OK):
+        raise BundleError("desktop helper is missing or not executable")
+
+    manifest = _load_json_object(manifest_path)
+    expected_identity = str(contract["bundle_identifier"])
+    if (
+        manifest.get("schema_version") != _MANIFEST_SCHEMA_VERSION
+        or manifest.get("bundle_identifier") != expected_identity
+        or manifest.get("ally_version") != ally_version()
+        or manifest.get("bridge_protocol_version")
+        != int(contract["bridge_protocol_version"])
+        or manifest.get("helper_relative_path")
+        != str(contract["helper_relative_path"])
+    ):
+        raise BundleError("release manifest contract cannot be refreshed safely")
+
+    digest = sha256(helper)
+    manifest["helper_sha256"] = digest
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return digest
 
 
 def _parser() -> argparse.ArgumentParser:
