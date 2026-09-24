@@ -13,8 +13,10 @@ The most important rule is dependency direction:
 | Path | Responsibility |
 | --- | --- |
 | `src/ally/cli.py` | Argument parsing and top-level CLI dispatch only. |
-| `src/ally/commands/` | Human-facing composition. Builds dependencies, calls runtime/domain APIs, and formats output. |
-| `src/ally/runtime/` | Conversation application workflows, including persistent and grounded conversation orchestration. |
+| `src/ally/commands/` | CLI presentation adapters and output formatting. |
+| `src/ally/application/` | UI-neutral typed daily-use services shared by CLI and future local interfaces. |
+| `src/ally/composition/` | Reusable concrete dependency assembly for application/presentation surfaces. |
+| `src/ally/runtime/` | Provider-neutral runtime workflows, including persistent and grounded conversation orchestration. |
 | `src/ally/service/` | Bounded proactive service-cycle logic, lifecycle metadata, and runtime coordination contracts. |
 | `src/ally/conversations/` | Conversation domain models and persistence contract. |
 | `src/ally/memory/` | Long-term memory models, retrieval, proposal extraction, and persistence contract. |
@@ -44,13 +46,16 @@ The most important rule is dependency direction:
 A useful mental model is:
 
 ```text
-CLI / future UI
+CLI / future desktop / local clients
       |
       v
-commands / composition / diagnostics
+presentation adapters
       |
       v
-runtime + service workflows
+application services
+      |
+      v
+composition + runtime/service workflows
       |
       v
 domain capabilities and Ally-owned protocols
@@ -79,9 +84,10 @@ high-value rules:
 2. reusable packages do not import `ally.cli`;
 3. core/domain packages do not import `ally.storage.sqlite`.
 
-Concrete storage is composed at infrastructure/application edges. Diagnostics
-and portability are explicit exceptions because inspecting or moving the
-physical local database is their job.
+Concrete storage is composed at explicit infrastructure/composition edges.
+`ally.application` remains protocol-based; `ally.composition`, diagnostics,
+portability, commands that have not yet migrated, and storage itself are the
+reviewed concrete-adapter edges.
 
 These tests are guardrails, not a complete dependency graph. Add a new rule only
 when it protects a durable architectural property and can be explained simply.
@@ -92,12 +98,15 @@ Use these questions in order:
 
 1. **Is this argument parsing or user-facing formatting?** Put it in
    `cli.py` or `commands/`.
-2. **Is this a reusable Ally concept or workflow?** Put it in the corresponding
-   domain/runtime package behind an Ally-owned interface.
-3. **Is this a vendor, database, operating-system, or network implementation?**
+2. **Is this a daily-use workflow shared across interfaces?** Put UI-neutral
+   orchestration in `application/`.
+3. **Is this concrete dependency assembly?** Put it in `composition/`.
+4. **Is this a reusable domain concept or lower-level runtime?** Put it in the
+   corresponding domain/runtime package behind an Ally-owned interface.
+5. **Is this a vendor, database, operating-system, or network implementation?**
    Put it behind the relevant interface in an adapter/infrastructure package.
-4. **Is this a hard-to-reverse architectural choice?** Add or update an ADR.
-5. **Does this introduce private fixture data?** Stop. Tests and examples must
+6. **Is this a hard-to-reverse architectural choice?** Add or update an ADR.
+7. **Does this introduce private fixture data?** Stop. Tests and examples must
    remain synthetic or appropriately licensed public data.
 
 ## Adding a new subsystem
