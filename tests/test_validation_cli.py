@@ -96,13 +96,14 @@ def test_validate_runtime_privacy_verify_parser_supports_json() -> None:
 
 
 
-def test_validate_candidate_parser_accepts_exact_pair() -> None:
+def test_validate_candidate_parser_accepts_exact_evidence_set() -> None:
     args = build_parser().parse_args(
         [
             "validate",
             "candidate",
             "validation.json",
             "privacy.json",
+            "workflows.json",
             "--json",
         ]
     )
@@ -110,28 +111,31 @@ def test_validate_candidate_parser_accepts_exact_pair() -> None:
     assert args.validate_command == "candidate"
     assert args.validation_report == "validation.json"
     assert args.privacy_report == "privacy.json"
+    assert args.workflow_report == "workflows.json"
     assert args.json_output is True
 
 
-def test_validate_compare_candidates_parser_accepts_repeated_pairs() -> None:
+def test_validate_compare_candidates_parser_accepts_repeated_evidence_sets() -> None:
     args = build_parser().parse_args(
         [
             "validate",
             "compare-candidates",
-            "--pair",
+            "--candidate",
             "a-validation.json",
             "a-privacy.json",
-            "--pair",
+            "a-workflows.json",
+            "--candidate",
             "b-validation.json",
             "b-privacy.json",
+            "b-workflows.json",
             "--json",
         ]
     )
 
     assert args.validate_command == "compare-candidates"
-    assert args.pairs == [
-        ["a-validation.json", "a-privacy.json"],
-        ["b-validation.json", "b-privacy.json"],
+    assert args.evidence_sets == [
+        ["a-validation.json", "a-privacy.json", "a-workflows.json"],
+        ["b-validation.json", "b-privacy.json", "b-workflows.json"],
     ]
     assert args.json_output is True
 
@@ -174,13 +178,36 @@ def test_validate_readiness_parser_supports_json() -> None:
     assert args.json_output is True
 
 
-def test_validate_workflows_parser_defaults_to_loopback() -> None:
+def test_validate_workflows_parser_uses_capability_report_source() -> None:
     args = build_parser().parse_args(
-        ["validate", "workflows", "--model", "example", "--json"]
+        ["validate", "workflows", "validation.json", "--json"]
     )
 
     assert args.command == "validate"
     assert args.validate_command == "workflows"
-    assert args.endpoint == "http://127.0.0.1:8080/v1"
-    assert args.model == "example"
+    assert args.validation_report == "validation.json"
+    assert args.output == "validation/ally-functional-workflows.json"
     assert args.json_output is True
+
+
+def test_validate_workflows_show_and_verify_parsers_support_json() -> None:
+    show = build_parser().parse_args(
+        ["validate", "workflows-show", "workflows.json", "--json"]
+    )
+    verify = build_parser().parse_args(
+        [
+            "validate",
+            "workflows-verify",
+            "workflows.json",
+            "validation.json",
+            "--json",
+        ]
+    )
+
+    assert show.validate_command == "workflows-show"
+    assert show.report == "workflows.json"
+    assert show.json_output is True
+    assert verify.validate_command == "workflows-verify"
+    assert verify.report == "workflows.json"
+    assert verify.validation_report == "validation.json"
+    assert verify.json_output is True

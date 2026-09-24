@@ -68,19 +68,20 @@ uv run ally validate runtime-privacy-verify \
 The verifier checks the source SHA-256 plus the copied Ally version,
 runtime/model identity, hardware profile, and source success state.
 
-For selection, inspect the verified pair as one candidate:
+Runtime privacy is one of three production gates. After creating the
+source-bound functional workflow artifact, inspect the complete evidence set:
 
 ```bash
 uv run ally validate candidate \
   validation/<candidate>.json \
-  validation/<candidate>-privacy.json
+  validation/<candidate>-privacy.json \
+  validation/<candidate>-workflows.json
 ```
 
-When comparing more than one candidate, use `ally validate compare-candidates`
-so Ally verifies each capability/privacy pairing before showing performance,
-behavior, and privacy evidence together. A candidate is marked
-production-eligible only when its capability report passed and its privacy
-artifact is qualified.
+When comparing candidates, `ally validate compare-candidates` verifies both
+secondary artifacts against each exact capability report. A candidate is marked
+production-eligible only when capability, privacy, and functional workflow
+qualification all pass.
 
 ## Qualification rule
 

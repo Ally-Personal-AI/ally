@@ -210,15 +210,50 @@ def run_workflows(root: Path) -> None:
             json.dumps(workflow_plan),
             json.dumps(workflow_memory),
         ))
+        workflow_path = root / "workflows.json"
         workflow_summary = json.loads(cli(
             "validate", "workflows",
-            "--endpoint", endpoint,
-            "--model", "synthetic",
+            str(report_path),
+            "--output", str(workflow_path),
             "--json",
         ))
         require(
-            workflow_summary["successful"] is True and not responses,
+            workflow_summary["qualified_for_candidate_use"] is True
+            and not responses,
             "isolated synthetic workflow validation",
+        )
+        require(
+            '"source_matches": true' in cli(
+                "validate", "workflows-verify",
+                str(workflow_path), str(report_path), "--json",
+            ).lower(),
+            "functional workflow source verification",
+        )
+
+        privacy_path = root / "privacy.json"
+        cli(
+            "validate", "runtime-privacy", str(report_path),
+            "--isolation-mode", "host_offline",
+            "--network-observation", "system_tools",
+            "--inference-with-egress-blocked", "pass",
+            "--synthetic-chat", "pass",
+            "--synthetic-planning", "pass",
+            "--synthetic-memory-proposal", "pass",
+            "--synthetic-grounding", "pass",
+            "--no-cloud-auth-required", "pass",
+            "--no-cloud-fallback-observed", "pass",
+            "--no-prompt-telemetry-observed", "pass",
+            "--no-unexpected-outbound-connections", "pass",
+            "--output", str(privacy_path),
+        )
+        candidate_summary = json.loads(cli(
+            "validate", "candidate",
+            str(report_path), str(privacy_path), str(workflow_path),
+            "--json",
+        ))
+        require(
+            candidate_summary["production_eligible"] is True,
+            "three-artifact candidate eligibility",
         )
     finally:
         server.shutdown()

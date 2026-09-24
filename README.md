@@ -376,15 +376,19 @@ It checks the target platform, privacy configuration, packaged evaluation suites
 state/path boundaries, and native-attention API readiness without contacting a
 model or mutating Ally state.
 
-Once a candidate local model is running, exercise Ally's functional boundaries
-without touching future personal state:
+Once a candidate capability report exists and the same local model server is
+still running, exercise Ally's functional boundaries without touching future
+personal state:
 
 ```bash
-uv run ally validate workflows --model <model-id>
+uv run ally validate workflows \
+  validation/<candidate>.json \
+  --output validation/<candidate>-workflows.json
 ```
 
-That workflow uses a disposable SQLite workspace and retains only payload-free
-check results.
+The workflow uses a disposable SQLite workspace and writes only source-bound,
+payload-free evidence. Production eligibility requires this workflow artifact,
+the capability artifact, and a separately qualified runtime-privacy artifact.
 
 See [Apple Silicon First-Machine Validation](docs/hardware/apple-silicon-validation.md) for the full procedure and exit criteria.
 

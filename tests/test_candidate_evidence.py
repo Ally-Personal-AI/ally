@@ -16,13 +16,18 @@ from ally.diagnostics import (
     LocalModelValidationReport,
     RuntimePrivacyChecks,
     RuntimeProfile,
+    SyntheticWorkflowCheck,
+    SyntheticWorkflowReport,
     build_candidate_evidence,
+    build_functional_workflow_report,
     build_runtime_privacy_report,
     compare_candidate_evidence,
+    write_functional_workflow_report,
     write_runtime_privacy_report,
     write_validation_report,
 )
 from ally.diagnostics.runtime_privacy import RuntimePrivacyEvidenceError
+from ally.diagnostics.workflows import FunctionalWorkflowEvidenceError
 from ally.evals import EvalResult, EvalSummary
 
 
@@ -83,7 +88,7 @@ def _validation(
     )
 
 
-def _checks(*, qualified: bool = True) -> RuntimePrivacyChecks:
+def _privacy_checks(*, qualified: bool = True) -> RuntimePrivacyChecks:
     value = "pass" if qualified else "not_run"
     return RuntimePrivacyChecks(
         inference_with_egress_blocked=value,
@@ -98,15 +103,38 @@ def _checks(*, qualified: bool = True) -> RuntimePrivacyChecks:
     )
 
 
-def _pair(
+def _workflow(
+    *,
+    model: str,
+    qualified: bool = True,
+) -> SyntheticWorkflowReport:
+    return SyntheticWorkflowReport(
+        generated_at=datetime(2026, 9, 24, tzinfo=UTC),
+        ally_version=__version__,
+        provider="synthetic",
+        model=model,
+        checks=(
+            SyntheticWorkflowCheck(
+                id="conversation.persistence",
+                status="passed" if qualified else "failed",
+                duration_ms=10.0,
+                error_class=None if qualified else "AssertionError",
+            ),
+        ),
+        duration_ms=10.0,
+    )
+
+
+def _evidence_set(
     tmp_path: Path,
     *,
     stem: str,
     model: str,
     successful: bool = True,
     privacy_qualified: bool = True,
+    workflow_qualified: bool = True,
     hardware: HardwareProfile | None = None,
-) -> tuple[Path, Path]:
+) -> tuple[Path, Path, Path]:
     validation_path = write_validation_report(
         _validation(model=model, successful=successful, hardware=hardware),
         tmp_path / f"{stem}-validation.json",
@@ -115,22 +143,30 @@ def _pair(
         validation_path=validation_path,
         isolation_mode="host_offline",
         network_observation="system_tools",
-        checks=_checks(qualified=privacy_qualified),
+        checks=_privacy_checks(qualified=privacy_qualified),
     )
     privacy_path = write_runtime_privacy_report(
         privacy,
         tmp_path / f"{stem}-privacy.json",
     )
-    return validation_path, privacy_path
+    workflow = build_functional_workflow_report(
+        validation_path=validation_path,
+        workflow=_workflow(model=model, qualified=workflow_qualified),
+    )
+    workflow_path = write_functional_workflow_report(
+        workflow,
+        tmp_path / f"{stem}-workflows.json",
+    )
+    return validation_path, privacy_path, workflow_path
 
 
-def test_candidate_pair_requires_exact_matching_evidence(tmp_path: Path) -> None:
-    validation_a, privacy_a = _pair(
+def test_candidate_requires_exact_matching_evidence_set(tmp_path: Path) -> None:
+    validation_a, privacy_a, workflow_a = _evidence_set(
         tmp_path,
         stem="a",
         model="model-a",
     )
-    validation_b, _ = _pair(
+    validation_b, privacy_b, _ = _evidence_set(
         tmp_path,
         stem="b",
         model="model-b",
@@ -139,6 +175,7 @@ def test_candidate_pair_requires_exact_matching_evidence(tmp_path: Path) -> None
     candidate = build_candidate_evidence(
         validation_path=validation_a,
         privacy_path=privacy_a,
+        workflow_path=workflow_a,
     )
     assert candidate.production_eligible is True
 
@@ -146,13 +183,21 @@ def test_candidate_pair_requires_exact_matching_evidence(tmp_path: Path) -> None
         build_candidate_evidence(
             validation_path=validation_b,
             privacy_path=privacy_a,
+            workflow_path=workflow_a,
+        )
+
+    with pytest.raises(FunctionalWorkflowEvidenceError, match="does not match"):
+        build_candidate_evidence(
+            validation_path=validation_b,
+            privacy_path=privacy_b,
+            workflow_path=workflow_a,
         )
 
 
 def test_privacy_unqualified_candidate_is_not_production_eligible(
     tmp_path: Path,
 ) -> None:
-    validation, privacy = _pair(
+    validation, privacy, workflow = _evidence_set(
         tmp_path,
         stem="candidate",
         model="model",
@@ -162,17 +207,41 @@ def test_privacy_unqualified_candidate_is_not_production_eligible(
     candidate = build_candidate_evidence(
         validation_path=validation,
         privacy_path=privacy,
+        workflow_path=workflow,
     )
 
     assert candidate.capability_successful is True
     assert candidate.privacy_qualified is False
+    assert candidate.workflow_qualified is True
+    assert candidate.production_eligible is False
+
+
+def test_workflow_unqualified_candidate_is_not_production_eligible(
+    tmp_path: Path,
+) -> None:
+    validation, privacy, workflow = _evidence_set(
+        tmp_path,
+        stem="candidate",
+        model="model",
+        workflow_qualified=False,
+    )
+
+    candidate = build_candidate_evidence(
+        validation_path=validation,
+        privacy_path=privacy,
+        workflow_path=workflow,
+    )
+
+    assert candidate.capability_successful is True
+    assert candidate.privacy_qualified is True
+    assert candidate.workflow_qualified is False
     assert candidate.production_eligible is False
 
 
 def test_failed_capability_candidate_is_not_production_eligible(
     tmp_path: Path,
 ) -> None:
-    validation, privacy = _pair(
+    validation, privacy, workflow = _evidence_set(
         tmp_path,
         stem="candidate",
         model="model",
@@ -182,35 +251,39 @@ def test_failed_capability_candidate_is_not_production_eligible(
     candidate = build_candidate_evidence(
         validation_path=validation,
         privacy_path=privacy,
+        workflow_path=workflow,
     )
 
     assert candidate.capability_successful is False
     assert candidate.privacy_qualified is False
+    assert candidate.workflow_qualified is False
     assert candidate.production_eligible is False
 
 
-def test_candidate_comparison_is_neutral_and_surfaces_ineligible_state(
+def test_candidate_comparison_surfaces_all_eligibility_dimensions(
     tmp_path: Path,
 ) -> None:
-    a_validation, a_privacy = _pair(
+    a_validation, a_privacy, a_workflow = _evidence_set(
         tmp_path,
         stem="a",
         model="model-a",
     )
-    b_validation, b_privacy = _pair(
+    b_validation, b_privacy, b_workflow = _evidence_set(
         tmp_path,
         stem="b",
         model="model-b",
-        privacy_qualified=False,
+        workflow_qualified=False,
     )
     candidates = (
         build_candidate_evidence(
             validation_path=a_validation,
             privacy_path=a_privacy,
+            workflow_path=a_workflow,
         ),
         build_candidate_evidence(
             validation_path=b_validation,
             privacy_path=b_privacy,
+            workflow_path=b_workflow,
         ),
     )
 
@@ -221,11 +294,11 @@ def test_candidate_comparison_is_neutral_and_surfaces_ineligible_state(
     assert comparison.same_ally_version
     assert comparison.candidates[0].production_eligible is True
     assert comparison.candidates[1].production_eligible is False
-    assert any("privacy-qualified" in warning for warning in comparison.warnings)
+    assert any("functional workflow" in warning for warning in comparison.warnings)
 
 
 def test_candidate_comparison_warns_when_hardware_differs(tmp_path: Path) -> None:
-    first_validation, first_privacy = _pair(
+    first = _evidence_set(
         tmp_path,
         stem="a",
         model="model-a",
@@ -233,7 +306,7 @@ def test_candidate_comparison_warns_when_hardware_differs(tmp_path: Path) -> Non
     different_hardware = _hardware().model_copy(
         update={"total_memory_bytes": 64 * 1024**3}
     )
-    second_validation, second_privacy = _pair(
+    second = _evidence_set(
         tmp_path,
         stem="b",
         model="model-b",
@@ -243,12 +316,14 @@ def test_candidate_comparison_warns_when_hardware_differs(tmp_path: Path) -> Non
     comparison = compare_candidate_evidence(
         (
             build_candidate_evidence(
-                validation_path=first_validation,
-                privacy_path=first_privacy,
+                validation_path=first[0],
+                privacy_path=first[1],
+                workflow_path=first[2],
             ),
             build_candidate_evidence(
-                validation_path=second_validation,
-                privacy_path=second_privacy,
+                validation_path=second[0],
+                privacy_path=second[1],
+                workflow_path=second[2],
             ),
         )
     )
@@ -257,12 +332,11 @@ def test_candidate_comparison_warns_when_hardware_differs(tmp_path: Path) -> Non
     assert any("Hardware profiles differ" in warning for warning in comparison.warnings)
 
 
-
 def test_candidate_command_reports_verified_eligibility(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    validation, privacy = _pair(
+    validation, privacy, workflow = _evidence_set(
         tmp_path,
         stem="candidate",
         model="model",
@@ -271,6 +345,7 @@ def test_candidate_command_reports_verified_eligibility(
     result = run_show_candidate_evidence(
         validation_report=str(validation),
         privacy_report=str(privacy),
+        workflow_report=str(workflow),
         json_output=False,
     )
     output = capsys.readouterr().out
@@ -279,26 +354,28 @@ def test_candidate_command_reports_verified_eligibility(
     assert "Production eligible: yes" in output
     assert "Capability validation: pass" in output
     assert "Runtime privacy: qualified" in output
+    assert "Functional workflows: qualified" in output
 
 
-def test_candidate_command_rejects_mismatched_pair(
+def test_candidate_command_rejects_mismatched_workflow(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    _, privacy_a = _pair(
+    validation_a, privacy_a, _ = _evidence_set(
         tmp_path,
         stem="a",
         model="model-a",
     )
-    validation_b, _ = _pair(
+    _, _, workflow_b = _evidence_set(
         tmp_path,
         stem="b",
         model="model-b",
     )
 
     result = run_show_candidate_evidence(
-        validation_report=str(validation_b),
+        validation_report=str(validation_a),
         privacy_report=str(privacy_a),
+        workflow_report=str(workflow_b),
         json_output=False,
     )
 
@@ -306,26 +383,26 @@ def test_candidate_command_rejects_mismatched_pair(
     assert "Candidate evidence error:" in capsys.readouterr().out
 
 
-def test_candidate_comparison_command_shows_privacy_eligibility(
+def test_candidate_comparison_command_shows_workflow_eligibility(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    a_validation, a_privacy = _pair(
+    first = _evidence_set(
         tmp_path,
         stem="a",
         model="model-a",
     )
-    b_validation, b_privacy = _pair(
+    second = _evidence_set(
         tmp_path,
         stem="b",
         model="model-b",
-        privacy_qualified=False,
+        workflow_qualified=False,
     )
 
     result = run_compare_candidate_evidence(
-        pairs=(
-            (str(a_validation), str(a_privacy)),
-            (str(b_validation), str(b_privacy)),
+        evidence_sets=(
+            tuple(str(path) for path in first),
+            tuple(str(path) for path in second),
         ),
         json_output=False,
     )
@@ -333,5 +410,5 @@ def test_candidate_comparison_command_shows_privacy_eligibility(
 
     assert result == 0
     assert output.count("Production eligible:") == 2
-    assert "Privacy: unqualified" in output
+    assert "Workflows: unqualified" in output
     assert "No default is selected automatically" in output

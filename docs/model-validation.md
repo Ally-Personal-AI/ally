@@ -108,11 +108,14 @@ or required external egress. Before a candidate becomes eligible for private
 daily use, create the separate fail-closed runtime privacy artifact described in
 [Runtime Privacy Qualification](runtime-privacy-qualification.md).
 
-For production selection, use `ally validate candidate` or
-`ally validate compare-candidates` rather than mentally pairing artifacts.
-Those commands verify that each privacy artifact belongs to the exact
-capability report and expose production eligibility without computing a
-composite score or selecting a winner.
+For production selection, also create the source-bound
+[Functional Workflow Qualification](functional-workflow-validation.md) artifact.
+Then use `ally validate candidate` or `ally validate compare-candidates`
+rather than mentally matching artifacts. Those commands verify that both the
+privacy and workflow artifacts belong to the exact capability report.
+Production eligibility requires capability success, privacy qualification, and
+functional workflow qualification, without computing a composite score or
+selecting a winner.
 
 ## Evidence boundaries
 
