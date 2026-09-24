@@ -14,13 +14,16 @@ The repository now separates interface/composition code, reusable domain/runtime
 code, and concrete adapters.
 
 ```text
-CLI / future UI
+CLI / future desktop / local clients
       |
       v
-commands / composition / diagnostics
+presentation adapters
       |
       v
-runtime + service workflows
+application services
+      |
+      v
+composition + runtime/service workflows
       |
       v
 domain capabilities and Ally-owned protocols
@@ -63,7 +66,11 @@ trying to freeze every internal package relationship.
 
 Some packages intentionally sit at the edge of Core:
 
-- `commands/` assembles dependencies for human-facing operations;
+- `application/` exposes typed UI-neutral daily-use workflows over Ally-owned
+  protocols;
+- `composition/` assembles concrete stores/providers for presentation layers;
+- `commands/` formats CLI input/output and increasingly delegates to
+  `application/`;
 - `diagnostics/` inspects physical runtime state read-only;
 - `portability/` moves/validates the concrete user-owned database;
 - `service/macos_launchd.py` is an opt-in OS composition adapter around the
@@ -147,8 +154,11 @@ decisions.
 The first implementation is Python 3.12. The primary executable interface is the
 `ally` CLI.
 
-A future web/desktop interface should call the same Core/runtime boundaries
-rather than move domain logic into presentation code.
+The shared [Application Facade](application-facade.md) is the interface-neutral
+daily-use composition boundary. The CLI and future desktop/mobile surfaces are
+peer presentation adapters over it. UI code should not shell out to the CLI or
+take ownership of conversation grounding, memory, model selection, permissions,
+or persistence semantics.
 
 ## Repository strategy
 
