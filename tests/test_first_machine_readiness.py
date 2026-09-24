@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Literal
 
 import pytest
 
@@ -11,7 +12,6 @@ from ally.config import AllyPaths
 from ally.configuration import AllyConfig
 from ally.diagnostics import (
     EvaluationSuiteCounts,
-    FirstMachineReadinessReport,
     HardwareProfile,
     build_first_machine_readiness,
     collect_first_machine_readiness,
@@ -38,12 +38,17 @@ def hardware(
 
 
 def notification(
-    authorization: str = "authorized",
+    authorization: Literal[
+        "authorized",
+        "denied",
+        "not_determined",
+        "unobservable",
+    ] = "authorized",
 ) -> MacOSNotificationStatus:
     return MacOSNotificationStatus(
         supported=True,
         api_available=True,
-        authorization=authorization,  # type: ignore[arg-type]
+        authorization=authorization,
     )
 
 
