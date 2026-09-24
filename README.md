@@ -366,9 +366,11 @@ All privacy checks default to `not_run`, so the example above remains
 unqualified until each check is explicitly recorded as passed. See
 [Runtime Privacy Qualification](docs/runtime-privacy-qualification.md).
 
-On the dedicated machine, begin with the non-mutating readiness preflight:
+On the dedicated machine, create a resumable validation session and begin with
+the non-mutating readiness preflight:
 
 ```bash
+uv run ally validation-session init candidate-a --directory validation/candidate-a
 uv run ally validate readiness
 ```
 

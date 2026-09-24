@@ -122,6 +122,12 @@ from ally.commands.validate import (
     run_verify_functional_workflow_report,
     run_verify_runtime_privacy_report,
 )
+from ally.commands.validation_sessions import (
+    run_init_validation_session,
+    run_refresh_validation_session,
+    run_show_validation_session,
+    run_verify_validation_session,
+)
 from ally.diagnostics import NetworkObservationMethod, RuntimeIsolationMode
 from ally.events import (
     ATTENTION_CLASSES,
@@ -976,6 +982,63 @@ def build_parser() -> argparse.ArgumentParser:
     profile_verify.add_argument("workflow_report")
     profile_verify.add_argument("--json", action="store_true", dest="json_output")
 
+    validation_session = subcommands.add_parser(
+        "validation-session",
+        help="Coordinate resumable candidate validation from immutable evidence.",
+    )
+    validation_session_commands = validation_session.add_subparsers(
+        dest="validation_session_command"
+    )
+
+    session_init = validation_session_commands.add_parser(
+        "init",
+        help="Create an immutable validation-session plan.",
+    )
+    session_init.add_argument("candidate_label")
+    session_init.add_argument(
+        "--directory",
+        required=True,
+        help="Dedicated directory for the session manifest and evidence artifacts.",
+    )
+    session_init.add_argument(
+        "--capability-artifact",
+        default="capability.json",
+    )
+    session_init.add_argument(
+        "--privacy-artifact",
+        default="privacy.json",
+    )
+    session_init.add_argument(
+        "--workflow-artifact",
+        default="workflows.json",
+    )
+    session_init.add_argument(
+        "--profile-artifact",
+        default="profile.json",
+    )
+    session_init.add_argument("--json", action="store_true", dest="json_output")
+
+    session_show = validation_session_commands.add_parser(
+        "show",
+        help="Inspect the immutable validation-session plan.",
+    )
+    session_show.add_argument("session")
+    session_show.add_argument("--json", action="store_true", dest="json_output")
+
+    session_refresh = validation_session_commands.add_parser(
+        "refresh",
+        help="Recompute live stage state from readiness and exact evidence.",
+    )
+    session_refresh.add_argument("session")
+    session_refresh.add_argument("--json", action="store_true", dest="json_output")
+
+    session_verify = validation_session_commands.add_parser(
+        "verify",
+        help="Require every validation stage and the runtime profile to verify.",
+    )
+    session_verify.add_argument("session")
+    session_verify.add_argument("--json", action="store_true", dest="json_output")
+
     validate = subcommands.add_parser(
         "validate",
         help="Run reproducible machine and local-model validation.",
@@ -1638,6 +1701,33 @@ def _run_command(argv: Sequence[str] | None) -> int:
                 validation_report=cast(str, args.validation_report),
                 privacy_report=cast(str, args.privacy_report),
                 workflow_report=cast(str, args.workflow_report),
+                json_output=cast(bool, args.json_output),
+            )
+
+    if args.command == "validation-session":
+        if args.validation_session_command == "init":
+            return run_init_validation_session(
+                candidate_label=cast(str, args.candidate_label),
+                directory=cast(str, args.directory),
+                capability_artifact=cast(str, args.capability_artifact),
+                privacy_artifact=cast(str, args.privacy_artifact),
+                workflow_artifact=cast(str, args.workflow_artifact),
+                profile_artifact=cast(str, args.profile_artifact),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.validation_session_command == "show":
+            return run_show_validation_session(
+                session_path=cast(str, args.session),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.validation_session_command == "refresh":
+            return run_refresh_validation_session(
+                session_path=cast(str, args.session),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.validation_session_command == "verify":
+            return run_verify_validation_session(
+                session_path=cast(str, args.session),
                 json_output=cast(bool, args.json_output),
             )
 

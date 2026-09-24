@@ -86,6 +86,11 @@ composition should consume those profiles rather than arbitrary endpoint/model
 pairs, preserving the evidence boundary between experimentation and approved
 daily-use inference.
 
+Long-running candidate qualification is coordinated by
+[Validation Sessions](validation-sessions.md). Session manifests store only the
+plan; status is always re-derived from live readiness and the exact evidence
+artifacts, so orchestration never becomes an alternate authority layer.
+
 ```text
 Ally Core
    |

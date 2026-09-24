@@ -35,6 +35,22 @@ cd ally
 uv sync --extra dev
 ```
 
+Create a dedicated validation session for each candidate so progress can be
+resumed safely across process exits or reboots:
+
+```bash
+uv run ally validation-session init candidate-a \
+  --directory validation/candidate-a
+```
+
+Use the artifact names planned by that session for all commands below. At any
+point, inspect live derived progress with:
+
+```bash
+uv run ally validation-session refresh \
+  validation/candidate-a/session.json
+```
+
 Before any mutable acceptance step, run the read-only first-machine preflight:
 
 ```bash
@@ -332,6 +348,16 @@ uv run ally profiles verify \
 
 Do not configure daily-use runtime selection directly from raw endpoint/model
 strings after a validated profile exists.
+
+Finally, require the session itself to re-derive a complete state:
+
+```bash
+uv run ally validation-session verify \
+  validation/candidate-a/session.json
+```
+
+This verification does not trust cached checkboxes; it re-validates current
+readiness plus every evidence/profile artifact.
 
 Capability-only `ally validate compare` remains useful during exploratory
 testing. See [Local-model Validation Evidence](../model-validation.md) and

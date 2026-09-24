@@ -262,3 +262,56 @@ def test_profiles_show_and_verify_parsers() -> None:
     assert verify.privacy_report == "privacy.json"
     assert verify.workflow_report == "workflows.json"
     assert verify.json_output is True
+
+
+
+def test_validation_session_init_parser_requires_directory() -> None:
+    args = build_parser().parse_args(
+        [
+            "validation-session",
+            "init",
+            "candidate-a",
+            "--directory",
+            "validation/candidate-a",
+            "--json",
+        ]
+    )
+
+    assert args.command == "validation-session"
+    assert args.validation_session_command == "init"
+    assert args.candidate_label == "candidate-a"
+    assert args.directory == "validation/candidate-a"
+    assert args.capability_artifact == "capability.json"
+    assert args.privacy_artifact == "privacy.json"
+    assert args.workflow_artifact == "workflows.json"
+    assert args.profile_artifact == "profile.json"
+    assert args.json_output is True
+
+
+def test_validation_session_show_refresh_verify_parsers() -> None:
+    show = build_parser().parse_args(
+        ["validation-session", "show", "validation/candidate/session.json"]
+    )
+    refresh = build_parser().parse_args(
+        [
+            "validation-session",
+            "refresh",
+            "validation/candidate/session.json",
+            "--json",
+        ]
+    )
+    verify = build_parser().parse_args(
+        [
+            "validation-session",
+            "verify",
+            "validation/candidate/session.json",
+            "--json",
+        ]
+    )
+
+    assert show.validation_session_command == "show"
+    assert show.session == "validation/candidate/session.json"
+    assert refresh.validation_session_command == "refresh"
+    assert refresh.json_output is True
+    assert verify.validation_session_command == "verify"
+    assert verify.json_output is True

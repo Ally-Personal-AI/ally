@@ -278,6 +278,32 @@ def run_workflows(root: Path) -> None:
             and verified_profile["production_eligible"] is True,
             "validated runtime profile verification",
         )
+
+        session_summary = json.loads(cli(
+            "validation-session", "init", "synthetic-candidate",
+            "--directory", str(root),
+            "--capability-artifact", report_path.name,
+            "--privacy-artifact", privacy_path.name,
+            "--workflow-artifact", workflow_path.name,
+            "--profile-artifact", profile_path.name,
+            "--json",
+        ))
+        require(
+            session_summary["candidate_label"] == "synthetic-candidate",
+            "validation-session initialization",
+        )
+        session_state = json.loads(cli(
+            "validation-session", "refresh",
+            str(root / "session.json"),
+            "--json",
+        ))
+        require(
+            session_state["capability"]["state"] == "passed"
+            and session_state["workflows"]["state"] == "passed"
+            and session_state["privacy"]["state"] == "passed"
+            and session_state["profile"]["state"] == "passed",
+            "validation-session evidence derivation",
+        )
     finally:
         server.shutdown()
         thread.join(timeout=5)
