@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Protocol
 
+from ally.attention.notifications import render_notification
 from ally.attention.sinks import DELIVERABLE_ATTENTION_CLASSES
 from ally.events import AttentionClass, EventRecord
 
@@ -28,7 +29,6 @@ _CORE_FOUNDATION = Path(
 )
 _OBJC = Path("/usr/lib/libobjc.A.dylib")
 _UTF8_ENCODING = 0x08000100
-_MAX_NOTIFICATION_TEXT = 500
 
 
 class MacOSNotificationError(RuntimeError):
@@ -75,28 +75,10 @@ class MacOSNotificationBackend(Protocol):
     def status(self) -> MacOSNotificationStatus: ...
 
 
-def _bounded_text(value: str) -> str:
-    compact = " ".join(value.split()).strip()
-    if len(compact) <= _MAX_NOTIFICATION_TEXT:
-        return compact
-    return compact[: _MAX_NOTIFICATION_TEXT - 1].rstrip() + "…"
-
-
 def render_macos_notification(event: EventRecord) -> tuple[str, str]:
-    """Render only explicit user-facing text, never an arbitrary payload dump."""
+    """Backward-compatible wrapper around backend-neutral rendering."""
 
-    title = "Ally"
-    if event.attention == "interrupt":
-        title = "Ally — Important"
-
-    body: str | None = None
-    for key in ("summary", "message"):
-        value = event.payload.get(key)
-        if isinstance(value, str) and value.strip():
-            body = value
-            break
-
-    return title, _bounded_text(body or event.type)
+    return render_notification(event)
 
 
 class NativeMacOSNotificationBackend:
@@ -348,7 +330,7 @@ class MacOSNotificationSink:
     ) -> None:
         if self._backend.contains(delivery_key):
             return
-        title, body = render_macos_notification(event)
+        title, body = render_notification(event)
         self._backend.deliver(
             identifier=delivery_key,
             title=title,
