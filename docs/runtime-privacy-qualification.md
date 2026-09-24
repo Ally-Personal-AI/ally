@@ -56,6 +56,18 @@ uv run ally validate runtime-privacy-show \
 
 Use `--json` for machine-readable inspection.
 
+Before treating the pair as release/selection evidence, verify that the privacy
+artifact still matches the exact capability report:
+
+```bash
+uv run ally validate runtime-privacy-verify \
+  validation/<candidate>-privacy.json \
+  validation/<candidate>.json
+```
+
+The verifier checks the source SHA-256 plus the copied Ally version,
+runtime/model identity, hardware profile, and source success state.
+
 ## Qualification rule
 
 A runtime privacy artifact is qualified only when all of these are true:
