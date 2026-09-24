@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import cast
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 _ENTRYPOINT = _REPOSITORY_ROOT / "scripts/ally_desktop_bridge_entry.py"
@@ -148,12 +149,12 @@ def _bridge_call(helper: Path, method: str) -> dict[str, object]:
     if len(result.stdout.encode("utf-8")) > _MAXIMUM_SMOKE_RESPONSE_BYTES:
         raise HelperBuildError("frozen helper smoke response exceeded the desktop bound")
     try:
-        payload = json.loads(result.stdout)
+        payload_value = json.loads(result.stdout)
     except json.JSONDecodeError as exc:
         raise HelperBuildError("frozen helper returned invalid JSON") from exc
-    if not isinstance(payload, dict):
+    if not isinstance(payload_value, dict):
         raise HelperBuildError("frozen helper response must be a JSON object")
-    return payload
+    return cast(dict[str, object], payload_value)
 
 
 def verify(helper: Path) -> None:
@@ -165,9 +166,10 @@ def verify(helper: Path) -> None:
     info = _bridge_call(resolved, "bridge.info")
     if info.get("ok") is not True:
         raise HelperBuildError("frozen helper bridge.info failed")
-    result = info.get("result")
-    if not isinstance(result, dict):
+    result_value = info.get("result")
+    if not isinstance(result_value, dict):
         raise HelperBuildError("frozen helper bridge.info result is invalid")
+    result = cast(dict[str, object], result_value)
     if result.get("protocol_version") != _EXPECTED_PROTOCOL_VERSION:
         raise HelperBuildError("frozen helper protocol version does not match desktop")
 
