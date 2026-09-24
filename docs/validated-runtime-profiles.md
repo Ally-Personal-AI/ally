@@ -41,10 +41,13 @@ fingerprints, and performance observations.
 
 ## Identity
 
-Profile identity is deterministic from the SHA-256 digests of the exact
-capability, privacy, and functional-workflow artifacts. Running profile creation
-again over the same evidence yields the same profile ID, even though the profile
-creation timestamp differs.
+Profile identity is deterministic from the exact evidence digests **and** all
+operational metadata copied from capability evidence: Ally version, endpoint,
+model/runtime identity, hardware, evaluation fingerprints, and performance
+observations. The creation timestamp is intentionally excluded.
+
+This makes a metadata-only edit invalidate the profile before selection while
+still yielding the same profile ID when the exact qualified evidence is rebuilt.
 
 ## Privacy
 
