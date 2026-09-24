@@ -80,7 +80,10 @@ class ValidationArtifactPlan(BaseModel):
                 or value in {".", ".."}
                 or "/" in value
                 or "\\" in value
-                or any(ord(character) < 32 or ord(character) == 127 for character in value)
+                or any(
+                    ord(character) < 32 or ord(character) == 127
+                    for character in value
+                )
             ):
                 raise ValueError("session artifact names must be printable leaf filenames")
         values = tuple(self.model_dump(mode="python").values())
