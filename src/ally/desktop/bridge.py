@@ -23,6 +23,7 @@ from ally.application import (
     ApplicationUnavailableError,
     ApproveTaskStepRequest,
     ChatTurnRequest,
+    CompleteDesktopProactiveRequest,
     DesktopNotificationResultRequest,
     KnowledgeTextIngestRequest,
     RunTaskRequest,
@@ -63,6 +64,7 @@ BridgeMethod = Literal[
     "attention.delivery_history",
     "attention.notification_result",
     "service.prepare_proactive",
+    "service.complete_proactive",
     "service.health",
 ]
 BridgeErrorCode = Literal[
@@ -199,8 +201,15 @@ class _DesktopProactiveParams(BaseModel):
 
 
 class _NotificationResultParams(_AttentionEventParams):
+    run_id: UUID
     delivery_key: str = Field(min_length=1, max_length=512)
     succeeded: bool
+
+
+class _CompleteProactiveParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    run_id: UUID
 
 
 class _TaskParams(BaseModel):
@@ -263,6 +272,7 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                 "attention.delivery_history",
                 "attention.notification_result",
                 "service.prepare_proactive",
+                "service.complete_proactive",
                 "service.health",
             ],
         }
@@ -500,6 +510,7 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
         return _json_value(
             app.record_desktop_notification_result(
                 DesktopNotificationResultRequest(
+                    run_id=params.run_id,
                     event_id=params.event_id,
                     delivery_key=params.delivery_key,
                     succeeded=params.succeeded,
@@ -516,6 +527,17 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
             app.prepare_desktop_proactive(
                 schedule_limit=params.schedule_limit,
                 delivery_limit=params.delivery_limit,
+            ).model_dump(mode="json")
+        )
+
+    if request.method == "service.complete_proactive":
+        params = cast(
+            _CompleteProactiveParams,
+            _validate_params(_CompleteProactiveParams, request.params),
+        )
+        return _json_value(
+            app.complete_desktop_proactive(
+                CompleteDesktopProactiveRequest(run_id=params.run_id)
             ).model_dump(mode="json")
         )
 
