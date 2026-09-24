@@ -8,7 +8,7 @@ import pytest
 
 from ally.commands import validate as validate_commands
 from ally.diagnostics import run_isolated_synthetic_workflows
-from ally.diagnostics import workflows as workflow_module
+import ally.diagnostics.workflows as workflow_module
 from ally.models import ChatRequest, ChatResponse
 
 
