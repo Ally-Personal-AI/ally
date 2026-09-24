@@ -8,7 +8,6 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from ally.conversations import Conversation, ConversationMessage
-from ally.tasks import TaskRecord, TaskStepRecord
 from ally.knowledge import KnowledgeChunk, KnowledgeRevision, KnowledgeSource
 from ally.memory import (
     MemoryKind,
@@ -17,6 +16,7 @@ from ally.memory import (
 )
 from ally.models import ChatResponse
 from ally.runtime_profiles import ResolvedInferenceTarget
+from ally.tasks import TaskRecord, TaskStepRecord
 
 
 class ApplicationError(ValueError):
