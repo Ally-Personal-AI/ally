@@ -37,8 +37,8 @@ from ally.scheduler import SchedulerRuntime
 from ally.security.tool_policy import DefaultToolPolicy
 from ally.service import (
     DesktopProactiveCoordinator,
-    SQLiteServiceLeaseStore,
     ServiceHealthReport,
+    SQLiteServiceLeaseStore,
 )
 from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
