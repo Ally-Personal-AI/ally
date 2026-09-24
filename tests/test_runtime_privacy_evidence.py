@@ -12,6 +12,7 @@ from ally import __version__
 from ally.commands.validate import (
     run_runtime_privacy_qualification,
     run_show_runtime_privacy_report,
+    run_verify_runtime_privacy_report,
 )
 from ally.diagnostics import (
     EvaluationSuiteProfile,
@@ -272,3 +273,68 @@ def test_runtime_privacy_command_and_show_report_qualified_path(
     assert rendered["qualified_for_private_inference"] is True
     assert rendered["isolation_mode"] == "host_offline"
     assert rendered["network_observation"] == "external_monitor"
+
+
+def test_runtime_privacy_verify_rejects_wrong_source_report(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    first_validation = write_validation_report(
+        validation_report(),
+        tmp_path / "validation-a.json",
+    )
+    second = validation_report().model_copy(update={"model": "different-model"})
+    second_validation = write_validation_report(
+        second,
+        tmp_path / "validation-b.json",
+    )
+    privacy = build_runtime_privacy_report(
+        validation_path=first_validation,
+        isolation_mode="host_offline",
+        network_observation="system_tools",
+        checks=all_passed_checks(),
+    )
+    privacy_path = write_runtime_privacy_report(
+        privacy,
+        tmp_path / "privacy.json",
+    )
+
+    result = run_verify_runtime_privacy_report(
+        report_path=str(privacy_path),
+        validation_report=str(second_validation),
+        json_output=False,
+    )
+
+    assert result == 2
+    assert "does not match the source validation digest" in capsys.readouterr().out
+
+
+def test_runtime_privacy_verify_accepts_exact_source_pair(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    validation_path = write_validation_report(
+        validation_report(),
+        tmp_path / "validation.json",
+    )
+    privacy = build_runtime_privacy_report(
+        validation_path=validation_path,
+        isolation_mode="host_offline",
+        network_observation="system_tools",
+        checks=all_passed_checks(),
+    )
+    privacy_path = write_runtime_privacy_report(
+        privacy,
+        tmp_path / "privacy.json",
+    )
+
+    result = run_verify_runtime_privacy_report(
+        report_path=str(privacy_path),
+        validation_report=str(validation_path),
+        json_output=True,
+    )
+    rendered = json.loads(capsys.readouterr().out)
+
+    assert result == 0
+    assert rendered["source_matches"] is True
+    assert rendered["qualified_for_private_inference"] is True
