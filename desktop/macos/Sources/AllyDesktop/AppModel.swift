@@ -6,6 +6,7 @@ import AllyDesktopCore
 @MainActor
 final class AppModel: ObservableObject {
     @Published var snapshot: BootstrapSnapshot?
+    @Published var runtimeProfiles: RuntimeProfileCatalogView?
     @Published var memories: [MemorySummary] = []
     @Published var memoryDetail: MemorySummary?
     @Published var memorySearchResults: [MemorySummary] = []
