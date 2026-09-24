@@ -4,6 +4,11 @@ Ally's launch-agent adapter makes the bounded proactive cycle recurrent without
 putting daemon behavior into Ally Core. It is present but disabled until the
 user explicitly installs it.
 
+The launch agent invokes `ally service cycle --json`. The service cycle
+defaults to the `auto` attention sink, which selects native Notification
+Center on macOS. Notification delivery remains behind the durable attention
+contract; the launch agent does not own notification state.
+
 ## Inspect before installing
 
 ```bash
@@ -49,13 +54,16 @@ The implementation and mocked lifecycle are hardware-independent. Before
 calling the service production-ready, verify on the dedicated Mac:
 
 1. inspect and install as the intended login user;
-2. confirm a successful cycle and health report;
+2. confirm a successful cycle, service health report, and
+   `ally attention health --sink macos`;
 3. log out and in, then confirm the agent loads and cycles resume;
 4. restart the Mac and repeat the check;
 5. exercise a cycle failure and confirm later cycles recover;
 6. confirm overlapping invocations are rejected by the runtime lease;
 7. inspect stdout/stderr growth and choose a log-retention policy; and
-8. uninstall and confirm the agent is unloaded while data and logs remain.
+8. confirm synthetic native notifications survive login/restart without
+   duplicate delivery; and
+9. uninstall and confirm the agent is unloaded while data and logs remain.
 
 Record the exact Ally version, Python path, macOS version, commands, timestamps,
 and observed results in the hardware acceptance evidence.
