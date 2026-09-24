@@ -83,7 +83,11 @@ A static repository test rejects imports of common network transport libraries
 outside two reviewed package areas:
 
 - `ally.models.providers`; and
-- `ally.egress`.
+- `ally.egress.adapters`.
+
+The egress models, policy, executor, inspection, and audit packages remain
+transport-independent. Concrete email/calendar/web/API transports must live
+under `ally.egress.adapters`.
 
 This is a defense against network access gradually appearing in unrelated
 commands, tools, skills, memory code, or domain packages.
