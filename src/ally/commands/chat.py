@@ -22,7 +22,6 @@ from ally.memory.retrieval import LexicalMemoryRetriever, MemoryContextProvider
 from ally.models.errors import ModelProviderError
 from ally.models.providers import OpenAICompatibleProvider
 from ally.runtime import PersistentConversationRuntime
-from ally.security.network import private_grounding_allowed
 
 
 def _parse_conversation_id(value: str | None) -> UUID | None:
@@ -58,8 +57,6 @@ def run_chat(
     endpoint: str,
     model: str,
     prompt: str | None,
-    allow_remote: bool,
-    allow_private_context_remote: bool,
     conversation_id: str | None,
     instruction_project: str | None = None,
     instruction_task: str | None = None,
@@ -68,19 +65,7 @@ def run_chat(
     try:
         conversation_store = build_conversation_store()
 
-        private_context_allowed = private_grounding_allowed(
-            endpoint,
-            allow_remote_private_context=allow_private_context_remote,
-        )
-        context_provider: ContextProvider | None = None
-        if private_context_allowed:
-            context_provider = _build_private_context_provider()
-        elif allow_remote:
-            print(
-                "Private instructions, memory, and document grounding are disabled "
-                "for remote inference. Use --allow-private-context-remote to opt in.",
-                file=sys.stderr,
-            )
+        context_provider: ContextProvider | None = _build_private_context_provider()
 
         identifier = _parse_conversation_id(conversation_id)
 
@@ -91,27 +76,22 @@ def run_chat(
             if conversation is None:
                 raise ValueError(f"Conversation not found: {identifier}")
 
-        rendered_instructions: str | None = None
-        if private_context_allowed:
-            instruction_context = InstructionContext(
-                project_key=instruction_project,
-                conversation_key=str(conversation.id),
-                task_key=instruction_task,
-                session_instructions=session_instructions,
-            )
-            profiles = build_user_instructions_store().resolve(instruction_context)
-            contributions = instruction_contributions(
-                profiles,
-                session_instructions=instruction_context.session_instructions,
-            )
-            rendered_instructions = (
-                render_instruction_contributions(contributions) or None
-            )
+        instruction_context = InstructionContext(
+            project_key=instruction_project,
+            conversation_key=str(conversation.id),
+            task_key=instruction_task,
+            session_instructions=session_instructions,
+        )
+        profiles = build_user_instructions_store().resolve(instruction_context)
+        contributions = instruction_contributions(
+            profiles,
+            session_instructions=instruction_context.session_instructions,
+        )
+        rendered_instructions = render_instruction_contributions(contributions) or None
 
         with OpenAICompatibleProvider(
             base_url=endpoint,
             model=model,
-            allow_remote=allow_remote,
         ) as provider:
             runtime = PersistentConversationRuntime(
                 provider,
