@@ -13,6 +13,8 @@ raw token rate.
 - runtime name and exact version;
 - optional public model source, quantization, precision, context length, and
   explicit non-secret runtime parameters;
+- optional path-free SHA-256 fingerprints for exact model weight/shard files
+  and runtime binary/package artifacts;
 - content fingerprints for the core, provider, and behavioral evaluation files;
 - a non-sensitive machine profile;
 - complete core, provider, and behavioral evaluation results;
@@ -53,6 +55,8 @@ uv run ally validate local-model \
   --model-size-bytes <bytes> \
   --context-length <tokens> \
   --runtime-parameter <name>=<value> \
+  --model-artifact /path/to/model-or-shard.gguf \
+  --runtime-artifact /path/to/runtime-binary \
   --model-load-ms <milliseconds> \
   --time-to-first-token-ms <milliseconds> \
   --prompt-tokens-per-second <rate> \
@@ -67,6 +71,14 @@ uv run ally validate local-model \
 Performance flags are optional because runtimes expose different telemetry.
 Use runtime-native measurements rather than estimates. Omit a field instead of
 inventing a value.
+
+Artifact flags are also optional but strongly preferred for production
+candidates. Repeat `--model-artifact` for sharded weights and
+`--runtime-artifact` for multiple stable runtime files. Ally streams SHA-256
+hashing and stores only leaf filenames, sizes, and hashes—never the local
+filesystem path. When model artifacts are supplied, Ally derives
+`model_size_bytes` from their total size; an explicitly supplied conflicting
+size is rejected.
 
 ## Comparing candidates
 
