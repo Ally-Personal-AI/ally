@@ -6,14 +6,14 @@ from contextlib import AbstractContextManager
 from io import StringIO
 from pathlib import Path
 
+from pydantic import JsonValue
+
 from ally.application import AllyApplication, ApplicationOperations
 from ally.desktop.bridge import MAX_REQUEST_BYTES, handle_request_json, serve
 from ally.models import ChatRequest, ChatResponse, ModelProvider
+from ally.runtime_profiles import InferenceTargetError, ResolvedInferenceTarget
 from ally.security.tool_policy import DefaultToolPolicy
 from ally.service import ServiceHealthReport
-from ally.runtime_profiles import InferenceTargetError, ResolvedInferenceTarget
-from pydantic import JsonValue
-
 from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
     SQLiteConversationStore,
