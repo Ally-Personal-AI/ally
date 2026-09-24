@@ -108,7 +108,7 @@ class AllyApplication:
         conversation = self._conversations.get(conversation_id)
         if conversation is None:
             raise ApplicationNotFoundError(
-                f"conversation not found: {conversation_id}"
+                f"Conversation not found: {conversation_id}"
             )
         return ConversationView(
             conversation=conversation,
@@ -131,7 +131,7 @@ class AllyApplication:
             conversation = self._conversations.get(request.conversation_id)
             if conversation is None:
                 raise ApplicationNotFoundError(
-                    f"conversation not found: {request.conversation_id}"
+                    f"Conversation not found: {request.conversation_id}"
                 )
 
         instructions = self._render_instructions(
@@ -154,7 +154,7 @@ class AllyApplication:
         refreshed = self._conversations.get(conversation.id)
         if refreshed is None:
             raise ApplicationNotFoundError(
-                f"conversation not found after response: {conversation.id}"
+                f"Conversation not found after response: {conversation.id}"
             )
         return ChatTurnResult(
             conversation=refreshed,
@@ -223,7 +223,7 @@ class AllyApplication:
     def memory(self, memory_id: UUID) -> MemoryRecord:
         record = self._memories.get(memory_id)
         if record is None:
-            raise ApplicationNotFoundError(f"memory not found: {memory_id}")
+            raise ApplicationNotFoundError(f"Memory not found: {memory_id}")
         return record
 
     def remember(self, request: RememberMemoryRequest) -> MemoryRecord:
@@ -279,7 +279,7 @@ class AllyApplication:
         source = self._knowledge.get_source(source_id)
         if source is None:
             raise ApplicationNotFoundError(
-                f"knowledge source not found: {source_id}"
+                f"Knowledge source not found: {source_id}"
             )
         return KnowledgeSourceView(
             source=source,
