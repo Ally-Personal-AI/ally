@@ -12,11 +12,45 @@ def test_config_defaults_are_local_and_non_secret() -> None:
     assert config.schema_version == 1
     assert config.inference.endpoint == "http://127.0.0.1:8080/v1"
     assert config.inference.model is None
-    assert config.privacy.allow_remote_inference is False
-    assert config.privacy.allow_private_context_remote is False
+    assert config.privacy.private_inference_local_only is True
     assert "secret" not in config.model_dump_json().casefold()
     assert "token" not in config.model_dump_json().casefold()
     assert "api_key" not in config.model_dump_json().casefold()
+
+
+def test_config_rejects_remote_private_inference_endpoint() -> None:
+    with pytest.raises(ValidationError, match="loopback"):
+        AllyConfig.model_validate(
+            {
+                "schema_version": 1,
+                "inference": {
+                    "endpoint": "https://example.com/v1",
+                },
+            }
+        )
+
+
+def test_legacy_remote_privacy_opt_in_fails_closed() -> None:
+    with pytest.raises(ValidationError, match="no longer supported"):
+        AllyConfig.model_validate(
+            {
+                "schema_version": 1,
+                "privacy": {
+                    "allow_remote_inference": True,
+                },
+            }
+        )
+
+    compatible = AllyConfig.model_validate(
+        {
+            "schema_version": 1,
+            "privacy": {
+                "allow_remote_inference": False,
+                "allow_private_context_remote": False,
+            },
+        }
+    )
+    assert compatible.privacy.private_inference_local_only is True
 
 
 def test_file_config_store_round_trips_atomically(tmp_path: Path) -> None:
