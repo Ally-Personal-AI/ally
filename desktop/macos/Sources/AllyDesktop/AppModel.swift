@@ -52,7 +52,13 @@ final class AppModel: ObservableObject {
             self.snapshot = try await snapshot
             self.memories = try await memories
             self.knowledge = try await knowledge
-            self.errorMessage = nil
+            do {
+                self.runtimeProfiles = try await client.call("runtime.profiles")
+                self.errorMessage = nil
+            } catch {
+                self.runtimeProfiles = nil
+                self.errorMessage = error.localizedDescription
+            }
         } catch {
             self.errorMessage = error.localizedDescription
         }
