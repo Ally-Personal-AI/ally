@@ -64,12 +64,19 @@ jobs:
         run: swift test --package-path desktop/macos
       - name: Build native macOS release executable
         run: swift build --package-path desktop/macos -c release
+      - name: Build standalone desktop helper
+        run: |
+          set -euo pipefail
+          uv run \
+            --with pyinstaller==6.22.3 \
+            --with pyinstaller-hooks-contrib==2026.7 \
+            python scripts/build_macos_desktop_helper.py build \
+              --output "$RUNNER_TEMP/ally-desktop-bridge" \
+              --clean
       - name: Assemble and verify release bundle structure
         run: |
           set -euo pipefail
           BIN_DIR="$(swift build --package-path desktop/macos -c release --show-bin-path)"
-          cp "$BIN_DIR/AllyDesktop" "$RUNNER_TEMP/ally-desktop-bridge"
-          chmod +x "$RUNNER_TEMP/ally-desktop-bridge"
           python scripts/macos_app_bundle.py assemble \
             --app-executable "$BIN_DIR/AllyDesktop" \
             --helper "$RUNNER_TEMP/ally-desktop-bridge" \
