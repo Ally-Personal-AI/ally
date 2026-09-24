@@ -39,8 +39,10 @@ class PrivacyDefaults(BaseModel):
             return value
         raw = cast(dict[object, object], value)
         if not all(isinstance(key, str) for key in raw):
-            return value
-        data = {cast(str, key): item for key, item in raw.items()}
+            raise ValueError("privacy configuration keys must be strings")
+        data: dict[str, object] = {
+            cast(str, key): item for key, item in raw.items()
+        }
         for field in ("allow_remote_inference", "allow_private_context_remote"):
             if field not in data:
                 continue
