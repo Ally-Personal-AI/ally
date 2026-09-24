@@ -111,6 +111,58 @@ class SQLiteServiceCycleRunStore:
 
         return record
 
+    def update_running_progress(
+        self,
+        run_id: UUID,
+        *,
+        scheduled_events: int | None = None,
+        delivery_attempts_delta: int = 0,
+        delivery_failures_delta: int = 0,
+    ) -> ServiceCycleRunRecord:
+        if scheduled_events is not None and scheduled_events < 0:
+            raise ValueError("scheduled_events cannot be negative")
+        if delivery_attempts_delta < 0 or delivery_failures_delta < 0:
+            raise ValueError("delivery progress deltas cannot be negative")
+        if delivery_failures_delta > delivery_attempts_delta:
+            raise ValueError(
+                "delivery failure delta cannot exceed attempt delta"
+            )
+
+        current = self.get(run_id)
+        if current is None:
+            raise KeyError(f"Unknown service cycle run: {run_id}")
+        if current.status != "running":
+            raise ServiceRunConflictError(
+                f"service cycle is no longer running: {run_id}"
+            )
+
+        with self._database.connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE service_cycle_runs
+                SET
+                    scheduled_events = COALESCE(?, scheduled_events),
+                    delivery_attempts = delivery_attempts + ?,
+                    delivery_failures = delivery_failures + ?
+                WHERE id = ?
+                  AND status = 'running'
+                """,
+                (
+                    scheduled_events,
+                    delivery_attempts_delta,
+                    delivery_failures_delta,
+                    str(run_id),
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise ServiceRunConflictError(
+                    f"service cycle is no longer running: {run_id}"
+                )
+
+        loaded = self.get(run_id)
+        assert loaded is not None
+        return loaded
+
     def finish(
         self,
         run_id: UUID,
