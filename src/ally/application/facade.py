@@ -10,6 +10,7 @@ from uuid import UUID
 
 from ally.application.models import (
     ApplicationNotFoundError,
+    ApplicationUnavailableError,
     ChatTurnRequest,
     ChatTurnResult,
     ConversationView,
@@ -19,8 +20,10 @@ from ally.application.models import (
     KnowledgeTextIngestRequest,
     MemoryProposalRequest,
     RememberMemoryRequest,
+    RunTaskRequest,
     RuntimeInferenceStatus,
     SupersedeMemoryRequest,
+    TaskView,
 )
 from ally.context import CompositeContextProvider, ContextProvider
 from ally.conversations import Conversation, ConversationStore
@@ -43,12 +46,17 @@ from ally.memory import (
     NewMemory,
 )
 from ally.memory.retrieval import LexicalMemoryRetriever, MemoryContextProvider
+from ally.attention import AttentionDeliveryRecord, AttentionDeliveryStatus
+from ally.events import AttentionClass, EventRecord
 from ally.models import ModelProvider
 from ally.runtime import PersistentConversationRuntime
+from ally.application.operations import ApplicationOperations
 from ally.runtime_profiles import (
     InferenceTargetError,
     ResolvedInferenceTarget,
 )
+from ally.service import ServiceCycleRunRecord, ServiceHealthReport
+from ally.tasks import TaskPlan, TaskRecord, TaskStepRecord
 
 InferenceTargetResolver = Callable[
     [str | None, str | None],
@@ -72,6 +80,7 @@ class AllyApplication:
         instructions: UserInstructionsStore,
         target_resolver: InferenceTargetResolver,
         provider_factory: ProviderFactory,
+        operations: ApplicationOperations | None = None,
     ) -> None:
         self._conversations = conversations
         self._memories = memories
@@ -79,6 +88,7 @@ class AllyApplication:
         self._instructions = instructions
         self._target_resolver = target_resolver
         self._provider_factory = provider_factory
+        self._operations = operations
 
     def resolve_inference_target(
         self,
@@ -321,6 +331,94 @@ class AllyApplication:
     def ingest_knowledge_file(self, path: Path) -> KnowledgeIngestResult:
         source, revision = TextKnowledgeIngestor(self._knowledge).ingest_file(path)
         return KnowledgeIngestResult(source=source, revision=revision)
+
+    def create_task(self, plan: TaskPlan) -> TaskView:
+        operations = self._require_operations()
+        task, steps = operations.tasks.create(plan)
+        return TaskView(task=task, steps=steps)
+
+    def list_tasks(self, *, limit: int = 50) -> tuple[TaskRecord, ...]:
+        return self._require_operations().tasks.list(limit=limit)
+
+    def task(self, task_id: UUID) -> TaskView:
+        operations = self._require_operations()
+        task = operations.tasks.get(task_id)
+        if task is None:
+            raise ApplicationNotFoundError(f"Task not found: {task_id}")
+        return TaskView(
+            task=task,
+            steps=operations.tasks.list_steps(task_id),
+        )
+
+    def run_task(self, request: RunTaskRequest) -> TaskView:
+        operations = self._require_operations()
+        try:
+            operations.task_runner.run(
+                request.task_id,
+                approved_steps=request.approved_steps,
+            )
+        except KeyError as exc:
+            raise ApplicationNotFoundError(
+                f"Task not found: {request.task_id}"
+            ) from exc
+        return self.task(request.task_id)
+
+    def retry_task_step(
+        self,
+        *,
+        task_id: UUID,
+        step_id: UUID,
+    ) -> TaskStepRecord:
+        operations = self._require_operations()
+        try:
+            return operations.tasks.retry_failed_step(task_id, step_id)
+        except KeyError as exc:
+            raise ApplicationNotFoundError(
+                f"Task or step not found: {task_id}/{step_id}"
+            ) from exc
+
+    def pending_attention(
+        self,
+        *,
+        limit: int = 50,
+    ) -> tuple[EventRecord, ...]:
+        attentions: tuple[AttentionClass, ...] = (
+            "interrupt",
+            "notify",
+            "mention_later",
+        )
+        return self._require_operations().events.pending_attention(
+            attentions=attentions,
+            limit=limit,
+        )
+
+    def attention_history(
+        self,
+        *,
+        limit: int = 50,
+        status: AttentionDeliveryStatus | None = None,
+    ) -> tuple[AttentionDeliveryRecord, ...]:
+        return self._require_operations().attention_deliveries.list(
+            limit=limit,
+            status=status,
+        )
+
+    def service_history(
+        self,
+        *,
+        limit: int = 50,
+    ) -> tuple[ServiceCycleRunRecord, ...]:
+        return self._require_operations().service_runs.list(limit=limit)
+
+    def service_health(self) -> ServiceHealthReport:
+        return self._require_operations().service_health()
+
+    def _require_operations(self) -> ApplicationOperations:
+        if self._operations is None:
+            raise ApplicationUnavailableError(
+                "operational application services are not composed"
+            )
+        return self._operations
 
     def _private_context_provider(self) -> ContextProvider:
         return CompositeContextProvider(
