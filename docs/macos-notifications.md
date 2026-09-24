@@ -1,116 +1,164 @@
 # macOS Native Attention
 
-Ally's proactive attention runtime can deliver user-facing events through macOS
-Notification Center while preserving the same durable delivery state used by
-other sinks.
+Ally has two macOS notification paths with deliberately different status.
 
-## Current adapter
+## Signed desktop path
 
-During Ally's CLI/launch-agent phase, the native sink uses Foundation's
-`NSUserNotificationCenter` through a narrow ctypes/Objective-C bridge.
+The production desktop direction is app-owned modern User Notifications.
 
-This API is deprecated by Apple, but unlike the modern
-`UNUserNotificationCenter` path it does not require Ally to already have a
-bundled desktop application. The deprecated API is isolated behind
-`MacOSNotificationSink` and can be replaced without changing event,
-delivery-history, retry, or service-cycle contracts.
+The signed Swift app:
 
-The future bundled desktop shell should replace this backend with
-`UNUserNotificationCenter`, which provides first-class notification
-authorization state and is the long-term platform API.
+1. checks `UNUserNotificationCenter` authorization;
+2. asks Ally Core/bridge to prepare one bounded proactive cycle;
+3. receives only payload-minimized notification candidates;
+4. checks the app's already-delivered and pending request identifiers;
+5. schedules missing notifications with the deterministic delivery key;
+6. acknowledges each exact native result back to Ally; and
+7. completes the durable service-cycle record from Ally-owned counters.
 
-## Delivery identity and retries
-
-The sink ID is:
+The sink identity remains:
 
 ```text
 macos.notification
 ```
 
-Ally derives a stable notification identifier from the sink ID and event UUID.
-Before native delivery, the adapter checks Notification Center's delivered
-notifications for that identifier. This provides a second duplicate-suppression
-layer in addition to Ally's durable successful-delivery record.
+Keeping the same durable sink ID preserves delivery history across the migration
+from the old Python adapter.
 
-A successful delivery is still terminal only for the event/sink pair. It does
-not mark the underlying Ally event handled.
+The bridge cannot accept a caller-selected notification title, body, identifier,
+sink, sound, event payload, attempt count, or failure count.
+
+### Duplicate suppression
+
+Each candidate uses:
+
+```text
+attention:macos.notification:<event-uuid>
+```
+
+as its `UNNotificationRequest.identifier`.
+
+Before adding a request, the app checks both pending requests and notifications
+still visible in Notification Center. If the identifier is already present, the
+app reports success back to Ally instead of scheduling a second alert.
+
+SQLite success remains the durable source of truth. Notification Center lookup
+is a recovery layer for the case where OS delivery succeeded but the app exited
+before Ally persisted the acknowledgement.
+
+### Authorization
+
+Notification permission is explicit and independent from background-service
+registration.
+
+The desktop uses `UNUserNotificationCenter.notificationSettings()` before
+delivery and requests alert/sound permission only after an explicit user action.
+Denied or unavailable delivery becomes an explicit failed attempt in Ally's
+durable history rather than disappearing.
+
+### Background proactivity
+
+The current signed-app background model uses `SMAppService.mainApp` as an
+explicit launch-at-login registration.
+
+This intentionally keeps one signed application identity responsible for:
+
+- notification authorization;
+- `UNUserNotificationCenter` delivery;
+- proactive-cycle orchestration; and
+- the desktop UI.
+
+If macOS reports `requiresApproval`, Ally directs the user to Login Items
+settings.
+
+This is a conservative release-stage design: proactivity continues while the
+main Ally app process is running and Ally can launch at login when the user opts
+in. A future quit-resistant background agent should be introduced only after its
+cross-process identity/notification behavior can be validated on the dedicated
+Mac.
 
 ## Notification text privacy
 
 Notification Center is an intentional user-facing disclosure surface. Content
 may be visible on the desktop or lock screen according to the user's macOS
-notification-preview settings.
+preview settings.
 
-The native sink therefore never serializes the complete event payload.
-
-It renders:
+Both modern and legacy adapters share one backend-neutral renderer. It emits:
 
 - title `Ally`, or `Ally — Important` for interrupt attention;
-- the first non-empty string in explicit payload field `summary` or
-  `message`; otherwise
+- the first non-empty explicit string field `summary` or `message`; otherwise
 - the event type.
 
-Rendered text is whitespace-normalized and bounded to 500 characters.
-Nested payloads, arbitrary fields, credentials, model context, memory, and
-document content are never implicitly copied into a notification.
+Text is whitespace-normalized and bounded to 500 characters.
 
-Delivery failures persist only the exception class through the existing
-attention runtime. Native error details and notification text are not copied to
-delivery history or service lifecycle logs.
+Nested payloads, arbitrary fields, credentials, model context, memories, and
+document content are never implicitly copied into notification candidates.
 
-## Sink selection
+Delivery history persists only safe error classes / fixed safe error labels, not
+notification text or arbitrary native exception messages.
 
-Manual delivery remains console-first unless explicitly selected:
+## Durable lifecycle
+
+Preparing a cycle with notification candidates leaves the service-cycle record
+`running`.
+
+Each exact native acknowledgement increments durable attempt/failure counters.
+Only `service.complete_proactive` may move the run to:
+
+- `succeeded` when all acknowledged delivery attempts succeeded; or
+- `degraded` when one or more native delivery attempts failed.
+
+The completion call accepts only the run ID. It cannot supply metrics.
+
+If Ally exits before completion, the next lease-protected cycle marks the old
+run `interrupted`. Notification identifiers can then reconcile already
+scheduled/delivered requests without duplicate alerts.
+
+Delivery success still does **not** mark the underlying event handled.
+
+## Legacy CLI compatibility
+
+The old CLI/launch-agent adapter remains isolated in
+`ally.attention.macos` and uses deprecated
+`NSUserNotificationCenter`.
+
+It exists for compatibility and deterministic migration testing only. The signed
+desktop release path does not import or call that backend.
+
+Manual legacy commands remain available:
 
 ```bash
 ally attention deliver --sink macos
-```
-
-Inspect payload-free readiness:
-
-```bash
 ally attention health --sink macos
-ally attention health --sink macos --json
 ```
 
-The bounded proactive service defaults to `--sink auto`:
+The legacy health adapter still reports authorization as `unobservable`.
 
-- macOS -> native Notification Center;
-- other platforms -> console.
-
-The opt-in macOS launch agent invokes that same default service-cycle path.
-
-## Authorization limitation
-
-The CLI-compatible legacy native API does not expose the modern notification
-authorization state reliably. Health therefore reports authorization as
-`unobservable` and a degraded state until dedicated-machine acceptance
-confirms notifications are visible and correctly configured.
-
-The health contract already supports `authorized`, `denied`,
-`not_determined`, and `unobservable` states so the future bundled
-`UNUserNotificationCenter` backend can report denial directly without
-changing the command contract.
-
-Do not infer permission from a successful API call alone.
-
-For the overall dedicated-machine order and stop conditions, start with
-[Unified First-Machine Acceptance](hardware/first-machine-acceptance.md).
+Do not use the deprecated adapter as evidence that the signed desktop
+notification identity is accepted. Dedicated-machine acceptance must exercise
+the bundled app.
 
 ## Dedicated-machine acceptance
 
 Before closing the native-attention milestone:
 
-1. run `ally attention health --sink macos`;
-2. emit synthetic mention-later, notify, and interrupt events;
-3. deliver through the native sink and confirm one user-visible notification per
-   event;
-4. retry the same events and confirm successful deliveries are not duplicated;
-5. change notification settings/preview settings and document observed behavior;
-6. verify notification content contains only the explicit synthetic summary;
-7. confirm failed attempts persist only safe exception classes;
-8. restart/login and confirm the managed service continues native delivery.
+1. install the signed/notarized `Ally.app`;
+2. request notification permission from the app and record the resulting
+   authorization state;
+3. create synthetic mention-later, notify, and interrupt events;
+4. run an app-owned proactive cycle and verify exactly one visible notification
+   per event;
+5. interrupt the app after native delivery but before acknowledgement and
+   confirm restart reconciliation does not duplicate the alert;
+6. deny notification permission and confirm failed delivery is recorded without
+   leaking native error details;
+7. verify only the explicit synthetic summary appears in notification content;
+8. enable/disable background proactivity and verify `SMAppService` state tracks
+   Login Items settings;
+9. restart/login and verify the signed app identity retains the intended
+   notification/background authorization; and
+10. confirm legacy launchd/NSUserNotificationCenter delivery is not active in
+    the accepted desktop configuration.
 
-Permission-denial behavior must be observed on the dedicated machine. The
-future bundled desktop backend should then replace the legacy adapter with
-modern authorization-aware User Notifications.
+For the overall order and stop conditions, start with
+[Unified First-Machine Acceptance](hardware/first-machine-acceptance.md).
