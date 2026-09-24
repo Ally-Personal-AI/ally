@@ -83,29 +83,37 @@ def test_private_inference_commands_reject_remote_endpoints(
     remote = "https://example.com/v1"
 
     for arguments in (
-        ["chat", "--model", "example", "--endpoint", remote, "--prompt", "Private"],
+        [
+            "chat",
+            "--development-model",
+            "example",
+            "--development-endpoint",
+            remote,
+            "--prompt",
+            "Private",
+        ],
         [
             "memory",
             "propose",
             "Private source text.",
-            "--model",
+            "--development-model",
             "example",
-            "--endpoint",
+            "--development-endpoint",
             remote,
         ],
         [
             "plan",
             "propose",
-            "--model",
+            "--development-model",
             "example",
-            "--endpoint",
+            "--development-endpoint",
             remote,
             "--goal",
             "Private goal",
         ],
     ):
         output = invoke(capsys, arguments, expected=2)
-        assert "loopback-only" in output
+        assert "development inference override" in output
 
 
 def test_memory_knowledge_and_conversation_commands(
