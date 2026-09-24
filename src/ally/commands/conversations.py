@@ -28,10 +28,12 @@ def run_list_conversations(*, limit: int) -> int:
 def run_show_conversation(*, conversation_id: str) -> int:
     try:
         identifier = UUID(conversation_id)
-        view = build_default_application().conversation(identifier)
     except ValueError:
         print(f"Invalid conversation ID: {conversation_id}")
         return 2
+
+    try:
+        view = build_default_application().conversation(identifier)
     except ApplicationNotFoundError as exc:
         print(exc)
         return 2
