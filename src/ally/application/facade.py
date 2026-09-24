@@ -82,6 +82,8 @@ from ally.service import (
     DesktopProactivePreparation,
     ServiceCycleRunRecord,
     ServiceHealthReport,
+    ServiceLeaseUnavailableError,
+    ServiceRunConflictError,
 )
 from ally.tasks import TaskPlan, TaskRecord, TaskStepRecord
 
@@ -688,10 +690,15 @@ class AllyApplication:
             raise ApplicationUnavailableError(
                 "desktop proactive coordinator is not available"
             )
-        return coordinator.prepare(
-            schedule_limit=schedule_limit,
-            delivery_limit=delivery_limit,
-        )
+        try:
+            return coordinator.prepare(
+                schedule_limit=schedule_limit,
+                delivery_limit=delivery_limit,
+            )
+        except (ServiceLeaseUnavailableError, ServiceRunConflictError) as exc:
+            raise ApplicationStateError(
+                "desktop proactive cycle is already active or stale"
+            ) from exc
 
     def record_desktop_notification_result(
         self,
@@ -714,7 +721,11 @@ class AllyApplication:
             )
         except KeyError as exc:
             raise ApplicationNotFoundError(
-                f"Attention event not found: {request.event_id}"
+                "Attention event or proactive run was not found"
+            ) from exc
+        except (ServiceLeaseUnavailableError, ServiceRunConflictError) as exc:
+            raise ApplicationStateError(
+                "desktop notification acknowledgement is stale"
             ) from exc
 
     def complete_desktop_proactive(
@@ -734,6 +745,10 @@ class AllyApplication:
         except KeyError as exc:
             raise ApplicationNotFoundError(
                 f"Service run not found: {request.run_id}"
+            ) from exc
+        except (ServiceLeaseUnavailableError, ServiceRunConflictError) as exc:
+            raise ApplicationStateError(
+                "desktop proactive completion is stale"
             ) from exc
 
     def service_history(
