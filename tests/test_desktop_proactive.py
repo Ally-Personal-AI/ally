@@ -5,10 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from ally.service import DESKTOP_NOTIFICATION_SINK_ID
 from ally.events import EventRuntime, NewEvent
 from ally.scheduler import SchedulerRuntime
-from ally.service import DesktopProactiveCoordinator, SQLiteServiceLeaseStore
+from ally.service import (
+    DESKTOP_NOTIFICATION_SINK_ID,
+    DesktopProactiveCoordinator,
+    SQLiteServiceLeaseStore,
+)
 from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
     SQLiteDatabase,
@@ -231,7 +234,9 @@ def test_next_prepare_interrupts_unfinished_native_delivery_run(
     assert recorded.status == "succeeded"
 
     second = coordinator.prepare()
-    repaired = coordinator._runs.get(first.run.id)  # noqa: SLF001
+    repaired = SQLiteServiceCycleRunStore(
+        SQLiteDatabase(tmp_path / "ally.sqlite3")
+    ).get(first.run.id)
 
     assert repaired is not None
     assert repaired.status == "interrupted"
