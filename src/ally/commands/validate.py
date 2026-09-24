@@ -10,8 +10,8 @@ from pydantic import ValidationError
 
 from ally.diagnostics import (
     LocalModelValidationReport,
-    PerformanceObservations,
     NetworkObservationMethod,
+    PerformanceObservations,
     RuntimeIsolationMode,
     RuntimeParameter,
     RuntimePrivacyChecks,
