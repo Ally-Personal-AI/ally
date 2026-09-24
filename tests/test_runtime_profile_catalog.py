@@ -173,6 +173,19 @@ def test_catalog_installs_lists_and_idempotently_reinstalls(
     assert profiles[0].model == "synthetic-model"
 
 
+def test_catalog_list_rejects_filename_profile_identity_mismatch(
+    tmp_path: Path,
+) -> None:
+    bundle = _qualified_bundle(tmp_path / "evidence")
+    catalog = RuntimeProfileCatalog(tmp_path / "catalog")
+    installed = _install(catalog, bundle)
+    wrong_path = installed.with_name("f" * 64 + ".json")
+    installed.rename(wrong_path)
+
+    with pytest.raises(RuntimeProfileCatalogError, match="filename"):
+        catalog.list()
+
+
 def test_catalog_rejects_profile_with_different_evidence(tmp_path: Path) -> None:
     first = _qualified_bundle(tmp_path / "a", model="model-a")
     second = _qualified_bundle(tmp_path / "b", model="model-b")
