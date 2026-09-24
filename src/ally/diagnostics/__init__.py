@@ -43,7 +43,6 @@ from ally.diagnostics.validation import (
     run_local_model_validation,
     write_validation_report,
 )
-
 from ally.diagnostics.workflows import (
     SyntheticWorkflowCheck,
     SyntheticWorkflowReport,
