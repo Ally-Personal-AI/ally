@@ -30,6 +30,16 @@ class ServiceCycleRunStore(Protocol):
     ) -> ServiceCycleRunRecord:
         ...
 
+    def update_running_progress(
+        self,
+        run_id: UUID,
+        *,
+        scheduled_events: int | None = None,
+        delivery_attempts_delta: int = 0,
+        delivery_failures_delta: int = 0,
+    ) -> ServiceCycleRunRecord:
+        ...
+
     def finish(
         self,
         run_id: UUID,
