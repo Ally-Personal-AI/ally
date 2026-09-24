@@ -8,7 +8,7 @@ implementation of an earlier one.
 | Foundation | Implemented | local-first architecture, tested dependency boundaries, contributor map, locked dependencies, Linux quality CI + macOS portability smoke, coverage regression gate, automated dependency maintenance, security/data boundaries, ADRs |
 | Data portability | Implemented V1 | versioned integrity-checked SQLite backup/restore archives |
 | Configuration / secrets | Adapter implemented; machine acceptance pending | strict non-secret config, direct macOS Security-framework adapter, reference-only CLI, fail-closed tests |
-| Local conversation | Implemented | provider-neutral chat with local OpenAI-compatible adapter |
+| Local conversation | Implemented | provider-neutral private chat with a loopback-only OpenAI-compatible adapter and no remote escape hatch |
 | User instructions | Implemented V2 | global/project/conversation/task profiles, enable/disable, provenance-aware composition, and ephemeral session instructions |
 | Behavioral model qualification | Implemented V1 | separate refusal, instruction-following, calibration, moralizing, and paired viewpoint-symmetry evidence integrated into local-model validation |
 | Long-term memory | Implemented V1 | temporal/provenance-aware explicit memory and grounding |
@@ -18,7 +18,8 @@ implementation of an earlier one.
 | Reliable agency | Implemented core | persisted tasks, approval pauses, verification, retries |
 | Model plan proposals | Implemented boundary | strict TaskPlan proposals; no persistence or execution authority |
 | Model memory proposals | Implemented boundary | reviewable extraction bundles; explicit selected acceptance only |
-| Dedicated-hardware validation | Ready to run | versioned runtime/model evidence, neutral comparison, and first-machine runbook |
+| Private intelligence boundary | Implemented core; runtime isolation pending | private chat/planning/memory/grounding loopback-only; remote access limited to bundled synthetic/public evals; local runtime no-egress acceptance pending |
+| Dedicated-hardware validation | Ready to run | versioned runtime/model evidence, neutral comparison, behavioral qualification, and first-machine runbook |
 | Proactivity | Implemented substrate + macOS service adapter; machine acceptance pending | persisted events, deterministic attention, scheduling, delivery, restart-safe sources, bounded metadata-only filesystem observation, lease-protected cycle, portable lifecycle, structured read-only readiness, opt-in deterministic launch agent |
 | Voice | Not started | local ASR/TTS and conversational voice |
 | Multi-user households | Not started | identities, shared/private state, permissions |

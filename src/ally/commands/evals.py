@@ -12,7 +12,7 @@ from ally.evals.provider import ProviderResponseEvaluator
 from ally.evals.reporting import render_json_summary, render_text_summary
 from ally.evals.resources import evaluation_case_file
 from ally.models.errors import ModelProviderError
-from ally.models.providers import OpenAICompatibleProvider
+from ally.models.providers import OpenAICompatiblePublicProvider
 
 
 def _print_summary(*, summary: EvalSummary, json_output: bool) -> None:
@@ -42,19 +42,24 @@ def run_provider_evals(
     case_file: str | None,
     endpoint: str,
     model: str,
-    allow_remote: bool,
+    allow_remote_public: bool,
     json_output: bool,
 ) -> int:
     try:
+        if allow_remote_public and case_file is not None:
+            raise ValueError(
+                "Remote evaluation accepts only Ally's bundled synthetic/public suite; "
+                "custom case files must use a local provider."
+            )
         with evaluation_case_file("provider-smoke", case_file) as path:
             cases = load_eval_cases(path)
         registry = EvaluatorRegistry()
         register_builtin_evaluators(registry)
 
-        with OpenAICompatibleProvider(
+        with OpenAICompatiblePublicProvider(
             base_url=endpoint,
             model=model,
-            allow_remote=allow_remote,
+            allow_remote_public=allow_remote_public,
         ) as provider:
             registry.register(ProviderResponseEvaluator(provider))
             registry.register(TaskPlanProposalEvaluator(provider))
@@ -74,19 +79,24 @@ def run_behavior_evals(
     case_file: str | None,
     endpoint: str,
     model: str,
-    allow_remote: bool,
+    allow_remote_public: bool,
     json_output: bool,
 ) -> int:
     """Run the bundled behavioral qualification suite against one provider."""
 
     try:
+        if allow_remote_public and case_file is not None:
+            raise ValueError(
+                "Remote evaluation accepts only Ally's bundled synthetic/public suite; "
+                "custom case files must use a local provider."
+            )
         with evaluation_case_file("behavioral-qualification", case_file) as path:
             cases = load_eval_cases(path)
         registry = EvaluatorRegistry()
-        with OpenAICompatibleProvider(
+        with OpenAICompatiblePublicProvider(
             base_url=endpoint,
             model=model,
-            allow_remote=allow_remote,
+            allow_remote_public=allow_remote_public,
         ) as provider:
             register_behavioral_evaluators(registry, provider)
             summary = EvaluationRunner(registry).run(cases)

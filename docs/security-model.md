@@ -38,11 +38,25 @@ Backup V1 excludes both ordinary config and secret material.
 
 ## Inference transport
 
-Inference endpoints are loopback-only unless explicitly allowed otherwise.
-The HTTP adapter ignores inherited proxy and certificate environment settings;
+Private inference endpoints are loopback-only and have no remote override.
+Chat, conversation history, memory extraction, planning, retrieved personal
+context, and user instructions use the private provider.
+
+A separately named public-evaluation provider may contact a remote endpoint only
+for Ally's bundled synthetic/public frozen evaluation suites and only after an
+explicit `--allow-remote-public` opt-in. Custom case files are rejected for
+remote evaluation before network access.
+
+The HTTP adapters ignore inherited proxy and certificate environment settings;
 shell configuration cannot silently forward local prompts through a proxy.
-TLS uses the HTTP client's default certificate verification. Installed-package
-CI exercises real loopback requests with proxy variables deliberately present.
+Installed-package CI exercises real loopback requests with proxy variables
+deliberately present.
+
+Loopback constrains Ally's request destination, but a local model runtime is
+still independently executing software. Production runtime qualification must
+verify that the selected runtime can operate without external network access and
+does not export prompts through telemetry or other egress. See
+[Private Intelligence Boundary](private-intelligence-boundary.md).
 
 ## Validation evidence
 

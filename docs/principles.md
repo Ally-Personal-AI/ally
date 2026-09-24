@@ -17,3 +17,5 @@ These principles are architectural constraints, not marketing language.
 13. **User-directed behavior.** Durable user instructions shape Ally independently of the active model.
 14. **Low unnecessary refusal.** Ally should engage legitimate requests directly without application-level ideological or moralizing filters.
 15. **Reasoning is not authority.** Broad analysis and discussion never bypass deterministic privacy, permission, audit, or execution boundaries.
+
+16. **Private intelligence stays in the Ally trust domain.** Personal prompts, history, memory, documents, instructions, identifiers, and derived intelligence are not eligible for external model inference.

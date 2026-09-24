@@ -148,16 +148,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Resume an existing conversation UUID instead of creating a new one.",
     )
     chat.add_argument(
-        "--allow-remote",
-        action="store_true",
-        help="Explicitly allow a non-loopback inference endpoint.",
-    )
-    chat.add_argument(
-        "--allow-private-context-remote",
-        action="store_true",
-        help="Allow memory/document grounding to be sent to a remote endpoint.",
-    )
-    chat.add_argument(
         "--instruction-project",
         help="Optional project instruction-scope key for this chat.",
     )
@@ -314,7 +304,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--endpoint",
         default="http://127.0.0.1:8080/v1",
     )
-    memory_propose.add_argument("--allow-remote", action="store_true")
     memory_propose.add_argument(
         "--source-type",
         choices=MEMORY_SOURCE_TYPES,
@@ -456,7 +445,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="http://127.0.0.1:8080/v1",
     )
     eval_provider.add_argument("--model", required=True)
-    eval_provider.add_argument("--allow-remote", action="store_true")
+    eval_provider.add_argument(
+        "--allow-remote-public",
+        action="store_true",
+        help="Allow remote inference only for Ally's bundled synthetic/public suite.",
+    )
     eval_provider.add_argument("--json", action="store_true", dest="json_output")
 
     eval_behavior = eval_commands.add_parser(
@@ -473,7 +466,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="http://127.0.0.1:8080/v1",
     )
     eval_behavior.add_argument("--model", required=True)
-    eval_behavior.add_argument("--allow-remote", action="store_true")
+    eval_behavior.add_argument(
+        "--allow-remote-public",
+        action="store_true",
+        help="Allow remote inference only for Ally's bundled synthetic/public suite.",
+    )
     eval_behavior.add_argument("--json", action="store_true", dest="json_output")
 
     tools = subcommands.add_parser(
@@ -1015,11 +1012,6 @@ def build_parser() -> argparse.ArgumentParser:
         default="http://127.0.0.1:8080/v1",
     )
     plan_propose.add_argument("--model", required=True)
-    plan_propose.add_argument(
-        "--allow-remote",
-        action="store_true",
-        help="Explicitly allow a non-loopback inference endpoint.",
-    )
 
     return parser
 
@@ -1044,11 +1036,6 @@ def _run_command(argv: Sequence[str] | None) -> int:
             endpoint=cast(str, args.endpoint),
             model=cast(str, args.model),
             prompt=cast(str | None, args.prompt),
-            allow_remote=cast(bool, args.allow_remote),
-            allow_private_context_remote=cast(
-                bool,
-                args.allow_private_context_remote,
-            ),
             conversation_id=cast(str | None, args.conversation),
             instruction_project=cast(str | None, args.instruction_project),
             instruction_task=cast(str | None, args.instruction_task),
@@ -1147,7 +1134,6 @@ def _run_command(argv: Sequence[str] | None) -> int:
                 source_id=cast(str | None, args.source_id),
                 source_uri=cast(str | None, args.source_uri),
                 privacy=cast(MemoryPrivacy, args.privacy),
-                allow_remote=cast(bool, args.allow_remote),
                 output=cast(str | None, args.output),
             )
         if args.memory_command == "accept":
@@ -1201,7 +1187,7 @@ def _run_command(argv: Sequence[str] | None) -> int:
                 case_file=cast(str | None, args.case_file),
                 endpoint=cast(str, args.endpoint),
                 model=cast(str, args.model),
-                allow_remote=cast(bool, args.allow_remote),
+                allow_remote_public=cast(bool, args.allow_remote_public),
                 json_output=cast(bool, args.json_output),
             )
         if args.eval_command == "behavior":
@@ -1209,7 +1195,7 @@ def _run_command(argv: Sequence[str] | None) -> int:
                 case_file=cast(str | None, args.case_file),
                 endpoint=cast(str, args.endpoint),
                 model=cast(str, args.model),
-                allow_remote=cast(bool, args.allow_remote),
+                allow_remote_public=cast(bool, args.allow_remote_public),
                 json_output=cast(bool, args.json_output),
             )
 
@@ -1446,7 +1432,6 @@ def _run_command(argv: Sequence[str] | None) -> int:
             endpoint=cast(str, args.endpoint),
             model=cast(str, args.model),
             goal=cast(str, args.goal),
-            allow_remote=cast(bool, args.allow_remote),
         )
 
     parser.print_help()

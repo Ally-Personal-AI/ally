@@ -111,7 +111,6 @@ def run_local_model_validation_command(
             OpenAICompatibleProvider(
                 base_url=endpoint,
                 model=model,
-                allow_remote=False,
             ) as provider,
         ):
             report = run_local_model_validation(

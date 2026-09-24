@@ -15,7 +15,6 @@ def run_propose_plan(
     endpoint: str,
     model: str,
     goal: str,
-    allow_remote: bool,
 ) -> int:
     registry = build_default_tool_registry()
     specs = tuple(tool.spec for tool in registry.list())
@@ -24,7 +23,6 @@ def run_propose_plan(
         with OpenAICompatibleProvider(
             base_url=endpoint,
             model=model,
-            allow_remote=allow_remote,
         ) as provider:
             plan = ModelTaskPlanner(provider).propose(
                 goal=goal,

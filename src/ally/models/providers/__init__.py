@@ -1,5 +1,8 @@
 """Built-in model-provider adapters."""
 
-from ally.models.providers.openai_compatible import OpenAICompatibleProvider
+from ally.models.providers.openai_compatible import (
+    OpenAICompatibleProvider,
+    OpenAICompatiblePublicProvider,
+)
 
-__all__ = ["OpenAICompatibleProvider"]
+__all__ = ["OpenAICompatibleProvider", "OpenAICompatiblePublicProvider"]

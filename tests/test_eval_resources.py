@@ -59,3 +59,30 @@ def test_core_cli_defaults_and_explicit_override(
     custom = json.loads(capsys.readouterr().out)
     assert custom["total"] == custom["failed"] == 1
     assert "synthetic-override" in json.dumps(custom)
+
+
+@pytest.mark.parametrize("subcommand", ("provider", "behavior"))
+def test_remote_public_evaluation_rejects_custom_case_files_before_network(
+    subcommand: str,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    custom = tmp_path / "private-or-unknown.jsonl"
+    custom.write_text("{}\n", encoding="utf-8")
+
+    result = main(
+        [
+            "eval",
+            subcommand,
+            str(custom),
+            "--model",
+            "example",
+            "--endpoint",
+            "https://example.com/v1",
+            "--allow-remote-public",
+        ]
+    )
+
+    output = capsys.readouterr().out
+    assert result == 2
+    assert "bundled synthetic/public suite" in output

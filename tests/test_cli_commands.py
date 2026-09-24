@@ -77,6 +77,37 @@ def test_environment_configuration_evals_and_hardware_commands(
     assert "Local-first personal AI" in invoke(capsys, [])
 
 
+def test_private_inference_commands_reject_remote_endpoints(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    remote = "https://example.com/v1"
+
+    for arguments in (
+        ["chat", "--model", "example", "--endpoint", remote, "--prompt", "Private"],
+        [
+            "memory",
+            "propose",
+            "Private source text.",
+            "--model",
+            "example",
+            "--endpoint",
+            remote,
+        ],
+        [
+            "plan",
+            "propose",
+            "--model",
+            "example",
+            "--endpoint",
+            remote,
+            "--goal",
+            "Private goal",
+        ],
+    ):
+        output = invoke(capsys, arguments, expected=2)
+        assert "loopback-only" in output
+
+
 def test_memory_knowledge_and_conversation_commands(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],

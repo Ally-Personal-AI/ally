@@ -93,7 +93,8 @@ ModelProvider
 ```
 
 Hardware-specific choices remain evidence-driven and are intentionally deferred
-until first-machine validation.
+until first-machine validation. Private user data is not eligible for external
+model inference; see [Private Intelligence Boundary](private-intelligence-boundary.md).
 
 ## Persistence
 
@@ -108,8 +109,8 @@ state where appropriate.
 
 Security decisions are explicit architecture, not implementation detail:
 
-- remote inference requires explicit opt-in;
-- private grounding requires a separate opt-in for remote providers;
+- private inference is loopback-only in the current trust domain and has no remote override;
+- external model access is reserved for bundled synthetic/public evaluation data;
 - tool execution passes through deterministic policy;
 - model planning/memory extraction produce proposals, not automatic authority;
 - skill installation is non-executing;

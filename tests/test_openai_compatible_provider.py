@@ -3,7 +3,10 @@ import pytest
 
 from ally.models import ChatMessage, ChatRequest
 from ally.models.errors import ProviderConnectionError, ProviderResponseError
-from ally.models.providers import OpenAICompatibleProvider
+from ally.models.providers import (
+    OpenAICompatibleProvider,
+    OpenAICompatiblePublicProvider,
+)
 
 
 def test_provider_posts_to_versioned_chat_completions_path() -> None:
@@ -36,19 +39,27 @@ def test_provider_posts_to_versioned_chat_completions_path() -> None:
     assert response.provider == "openai-compatible"
 
 
-def test_provider_rejects_remote_endpoint_by_default() -> None:
-    with pytest.raises(ValueError, match="Remote inference endpoints"):
+def test_private_provider_rejects_remote_endpoint_without_override() -> None:
+    with pytest.raises(ValueError, match="loopback-only"):
         OpenAICompatibleProvider(
             base_url="https://example.com/v1",
             model="test-model",
         )
 
 
-def test_provider_can_explicitly_allow_remote_endpoint() -> None:
-    provider = OpenAICompatibleProvider(
+def test_public_provider_requires_explicit_remote_public_opt_in() -> None:
+    with pytest.raises(ValueError, match="allow_remote_public"):
+        OpenAICompatiblePublicProvider(
+            base_url="https://example.com/v1",
+            model="test-model",
+        )
+
+
+def test_public_provider_can_explicitly_use_remote_for_public_data() -> None:
+    provider = OpenAICompatiblePublicProvider(
         base_url="https://example.com/v1",
         model="test-model",
-        allow_remote=True,
+        allow_remote_public=True,
         transport=httpx.MockTransport(
             lambda request: httpx.Response(
                 200,

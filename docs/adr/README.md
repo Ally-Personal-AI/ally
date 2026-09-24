@@ -40,6 +40,7 @@ supersede previous ADRs rather than silently rewriting project history.
 31. [Behavior and user instructions are separate from authority](0031-behavior-and-user-instructions-are-separate-from-authority.md)
 32. [User instructions compose by explicit scope](0032-user-instructions-compose-by-explicit-scope.md)
 33. [Behavioral model qualification is multidimensional evidence](0033-behavioral-model-qualification-is-multidimensional-evidence.md)
+34. [Private Ally intelligence never uses external inference](0034-private-intelligence-never-uses-external-inference.md)
 
 ## Adding an ADR
 

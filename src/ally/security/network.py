@@ -26,8 +26,15 @@ def is_loopback_http_url(value: str) -> bool:
 def private_grounding_allowed(
     endpoint: str,
     *,
-    allow_remote_private_context: bool,
+    allow_remote_private_context: bool = False,
 ) -> bool:
-    """Return whether private memory/document grounding may be sent to an endpoint."""
+    """Compatibility helper for the hard private-intelligence boundary.
 
-    return is_loopback_http_url(endpoint) or allow_remote_private_context
+    Remote private grounding is never allowed. The legacy opt-in argument is
+    retained temporarily so old callers fail closed rather than regaining a
+    remote-data path.
+    """
+
+    if allow_remote_private_context:
+        return False
+    return is_loopback_http_url(endpoint)
