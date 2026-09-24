@@ -12,7 +12,6 @@ from ally.knowledge import KnowledgeChunk, KnowledgeRevision, KnowledgeSource
 from ally.memory import (
     MemoryKind,
     MemoryPrivacy,
-    MemoryRecord,
     MemorySourceType,
 )
 from ally.models import ChatResponse
