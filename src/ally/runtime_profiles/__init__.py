@@ -7,6 +7,12 @@ from ally.runtime_profiles.catalog import (
     default_runtime_profile_catalog,
     resolve_active_runtime_profile,
 )
+from ally.runtime_profiles.inference import (
+    InferenceTargetError,
+    InferenceTargetSource,
+    ResolvedInferenceTarget,
+    resolve_inference_target,
+)
 from ally.runtime_profiles.models import (
     EvidenceReference,
     ValidatedRuntimeProfile,
@@ -21,6 +27,9 @@ from ally.runtime_profiles.models import (
 __all__ = [
     "ActiveRuntimeProfileSelection",
     "EvidenceReference",
+    "InferenceTargetError",
+    "InferenceTargetSource",
+    "ResolvedInferenceTarget",
     "RuntimeProfileCatalog",
     "RuntimeProfileCatalogError",
     "ValidatedRuntimeProfile",
@@ -29,6 +38,7 @@ __all__ = [
     "default_runtime_profile_catalog",
     "load_validated_runtime_profile",
     "resolve_active_runtime_profile",
+    "resolve_inference_target",
     "runtime_profile_id",
     "verify_validated_runtime_profile",
     "write_validated_runtime_profile",

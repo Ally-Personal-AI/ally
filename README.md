@@ -58,31 +58,34 @@ the packaged release on Linux and macOS without a model server or dedicated hard
 
 ## Local inference
 
-Ally's first private inference adapter talks to an OpenAI-compatible HTTP endpoint. Private inference is restricted to loopback addresses with no remote override, so prompts, conversation history, memory, documents, instructions, and derived personal intelligence are not sent to an external model provider.
+Ally's private inference adapter talks only to loopback OpenAI-compatible HTTP
+endpoints. Normal daily use resolves the explicitly selected validated runtime
+profile, so prompts, conversation history, memory, documents, instructions, and
+derived personal intelligence cannot silently switch to an arbitrary model.
 
-Once a compatible local server is running:
+After validating, installing, and selecting a runtime profile:
 
 ```bash
-uv run ally chat --model <model-id>
+uv run ally profiles select <profile-id>
+uv run ally chat
 ```
 
-The default endpoint is:
-
-```text
-http://127.0.0.1:8080/v1
-```
-
-A different local endpoint can be selected explicitly:
+Candidate development remains possible through a clearly separate local-only
+override:
 
 ```bash
 uv run ally chat \
-  --endpoint http://127.0.0.1:11434/v1 \
-  --model <model-id>
+  --development-endpoint http://127.0.0.1:11434/v1 \
+  --development-model <model-id>
 ```
 
-Remote endpoints are rejected for private inference with no escape hatch.
+Both development fields are required together. Remote endpoints are rejected
+with no escape hatch, and daily commands never fall back from a missing or
+tampered active profile to default model coordinates.
+
 The inference adapter ignores environment proxy settings so ambient shell
-configuration cannot redirect local prompts.
+configuration cannot redirect local prompts. See
+[Daily Inference Target Resolution](docs/daily-inference.md).
 
 A separately named public-evaluation path may benchmark a remote model only with
 Ally's bundled synthetic/public fixtures and explicit
@@ -93,16 +96,16 @@ See [Private Intelligence Boundary](docs/private-intelligence-boundary.md).
 
 Chat sessions are stored locally in Ally's SQLite database under the operating system's application-data directory.
 
-Start a new conversation:
+Start a new conversation with the active validated profile:
 
 ```bash
-uv run ally chat --model <model-id>
+uv run ally chat
 ```
 
 Resume one:
 
 ```bash
-uv run ally chat --model <model-id> --conversation <conversation-uuid>
+uv run ally chat --conversation <conversation-uuid>
 ```
 
 Inspect local history without starting a model server:
@@ -141,11 +144,10 @@ uv run ally memory retract <memory-uuid>
 
 Superseded and retracted records remain available for audit/history but are excluded from active-memory queries.
 
-Ask a local model for reviewable candidates without writing them:
+Ask the active validated model for reviewable candidates without writing them:
 
 ```bash
 uv run ally memory propose "I prefer tea over coffee." \
-  --model <model-id> \
   --source-type user \
   --output proposal.json
 ```
@@ -296,11 +298,12 @@ See [Isolated Skill Execution](docs/skill-execution.md) for the exact security b
 
 ## Model plan proposals
 
-A model may propose a typed `TaskPlan`, but proposal is deliberately separate from persistence and execution.
+A model may propose a typed `TaskPlan`, but proposal is deliberately separate
+from persistence and execution. Daily planning uses the active validated
+runtime profile:
 
 ```bash
 uv run ally plan propose \
-  --model <model-id> \
   --goal "Inspect the local runtime"
 ```
 

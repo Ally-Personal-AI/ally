@@ -196,8 +196,6 @@ def test_instructions_parser_supports_scopes_and_session_chat() -> None:
     chat = parser.parse_args(
         [
             "chat",
-            "--model",
-            "example",
             "--instruction-project",
             "alpha",
             "--instruction-task",

@@ -3,18 +3,18 @@ import pytest
 from ally.cli import build_parser
 
 
-def test_chat_parser_defaults_to_loopback_endpoint() -> None:
-    args = build_parser().parse_args(["chat", "--model", "example"])
+def test_chat_parser_defaults_to_active_validated_profile() -> None:
+    args = build_parser().parse_args(["chat"])
 
     assert args.command == "chat"
-    assert args.endpoint == "http://127.0.0.1:8080/v1"
-    assert args.model == "example"
+    assert args.development_endpoint is None
+    assert args.development_model is None
     assert args.conversation is None
 
 
 def test_chat_parser_accepts_conversation_resume_id() -> None:
     args = build_parser().parse_args(
-        ["chat", "--model", "example", "--conversation", "abc"]
+        ["chat", "--conversation", "abc"]
     )
 
     assert args.conversation == "abc"
@@ -24,11 +24,11 @@ def test_chat_parser_rejects_legacy_remote_private_flags() -> None:
     parser = build_parser()
     with pytest.raises(SystemExit):
         parser.parse_args(
-            ["chat", "--model", "example", "--allow-remote"]
+            ["chat", "--allow-remote"]
         )
     with pytest.raises(SystemExit):
         parser.parse_args(
-            ["chat", "--model", "example", "--allow-private-context-remote"]
+            ["chat", "--allow-private-context-remote"]
         )
 
 
@@ -199,13 +199,11 @@ def test_skills_validate_parser_collects_available_tools() -> None:
     assert args.available_tools == ["system.info", "files.read"]
 
 
-def test_plan_propose_parser_defaults_to_loopback() -> None:
+def test_plan_propose_parser_defaults_to_active_validated_profile() -> None:
     args = build_parser().parse_args(
         [
             "plan",
             "propose",
-            "--model",
-            "example",
             "--goal",
             "Inspect runtime",
         ]
@@ -213,25 +211,23 @@ def test_plan_propose_parser_defaults_to_loopback() -> None:
 
     assert args.command == "plan"
     assert args.plan_command == "propose"
-    assert args.endpoint == "http://127.0.0.1:8080/v1"
-    assert args.model == "example"
+    assert args.development_endpoint is None
+    assert args.development_model is None
     assert args.goal == "Inspect runtime"
 
 
-def test_memory_propose_parser_has_local_safe_defaults() -> None:
+def test_memory_propose_parser_defaults_to_active_validated_profile() -> None:
     args = build_parser().parse_args(
         [
             "memory",
             "propose",
             "I prefer tea.",
-            "--model",
-            "example",
         ]
     )
 
     assert args.memory_command == "propose"
-    assert args.endpoint == "http://127.0.0.1:8080/v1"
-    assert args.model == "example"
+    assert args.development_endpoint is None
+    assert args.development_model is None
     assert args.text == "I prefer tea."
     assert args.source_type == "user"
     assert args.privacy == "private"
@@ -246,8 +242,6 @@ def test_private_model_commands_reject_legacy_remote_flags() -> None:
             [
                 "plan",
                 "propose",
-                "--model",
-                "example",
                 "--goal",
                 "Inspect runtime",
                 "--allow-remote",
@@ -260,8 +254,6 @@ def test_private_model_commands_reject_legacy_remote_flags() -> None:
                 "memory",
                 "propose",
                 "Private source.",
-                "--model",
-                "example",
                 "--allow-remote",
             ]
         )
@@ -692,3 +684,57 @@ def test_eval_behavior_parser_defaults_to_loopback() -> None:
     assert args.model == "example"
     assert args.allow_remote_public is False
     assert args.case_file is None
+
+
+def test_private_model_commands_accept_explicit_development_override() -> None:
+    chat = build_parser().parse_args(
+        [
+            "chat",
+            "--development-endpoint",
+            "http://127.0.0.1:9999/v1",
+            "--development-model",
+            "candidate-model",
+        ]
+    )
+    plan = build_parser().parse_args(
+        [
+            "plan",
+            "propose",
+            "--goal",
+            "Inspect runtime",
+            "--development-endpoint",
+            "http://127.0.0.1:9999/v1",
+            "--development-model",
+            "candidate-model",
+        ]
+    )
+    memory = build_parser().parse_args(
+        [
+            "memory",
+            "propose",
+            "Synthetic source.",
+            "--development-endpoint",
+            "http://127.0.0.1:9999/v1",
+            "--development-model",
+            "candidate-model",
+        ]
+    )
+
+    for args in (chat, plan, memory):
+        assert args.development_endpoint == "http://127.0.0.1:9999/v1"
+        assert args.development_model == "candidate-model"
+
+
+def test_daily_private_model_commands_reject_legacy_raw_target_flags() -> None:
+    parser = build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["chat", "--endpoint", "http://127.0.0.1:8080/v1"])
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            ["plan", "propose", "--goal", "Inspect", "--model", "legacy"]
+        )
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            ["memory", "propose", "Synthetic source.", "--model", "legacy"]
+        )

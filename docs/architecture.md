@@ -81,13 +81,15 @@ CUDA, and other runtimes can be added without changing memory, tasks, tools, or
 identity state.
 
 For production selection, candidate qualification is converted into an immutable
-[Validated Runtime Profile](validated-runtime-profiles.md). Future UI/runtime
-composition should consume those profiles rather than arbitrary endpoint/model
-pairs, preserving the evidence boundary between experimentation and approved
-daily-use inference. Qualified profiles can be installed into the
-[Runtime Profile Catalog](runtime-profile-catalog.md); active selection is
-hash-bound to the exact installed profile and exposed through one reusable
-resolver.
+[Validated Runtime Profile](validated-runtime-profiles.md). Qualified profiles
+are installed into the [Runtime Profile Catalog](runtime-profile-catalog.md);
+active selection is hash-bound to the exact installed profile.
+
+Daily private model composition then resolves a typed target through
+[Daily Inference Target Resolution](daily-inference.md). Chat, planning, memory
+proposals, and future UI/application layers use the active validated profile by
+default rather than arbitrary endpoint/model coordinates. Explicit raw
+coordinates remain a separate loopback-only development path.
 
 Long-running candidate qualification is coordinated by
 [Validation Sessions](validation-sessions.md). Session manifests store only the
