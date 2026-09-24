@@ -1,16 +1,17 @@
 import Foundation
+import ServiceManagement
 import Testing
 import UserNotifications
 @testable import AllyDesktopCore
 
 @Test func decodesBridgeInfoEnvelope() throws {
-    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":5,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap"]}}"#.utf8)
+    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":6,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap"]}}"#.utf8)
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let envelope = try decoder.decode(BridgeEnvelope<BridgeInfo>.self, from: data)
 
     #expect(envelope.ok)
-    #expect(envelope.result?.protocolVersion == 5)
+    #expect(envelope.result?.protocolVersion == 6)
     #expect(envelope.result?.transport == "stdio")
     #expect(envelope.result?.capabilities == ["bootstrap"])
 }
@@ -291,4 +292,54 @@ private func makeSyntheticReleaseBundle(
             allowDevelopmentOverride: true
         )
     }
+}
+
+
+@Test func decodesDesktopProactivePreparationWithoutPrivatePayload() throws {
+    let data = Data(#"{"id":"1","ok":true,"result":{"run":{"id":"00000000-0000-0000-0000-000000000040","status":"succeeded","observed_at":"2026-09-25T00:00:00Z","started_at":"2026-09-25T00:00:00Z","finished_at":"2026-09-25T00:00:01Z","scheduled_events":1,"delivery_attempts":0,"delivery_failures":0,"error_class":null},"candidates":[{"event_id":"00000000-0000-0000-0000-000000000041","delivery_key":"attention:macos.notification:00000000-0000-0000-0000-000000000041","title":"Ally","body":"Synthetic reminder.","attention":"notify","created_at":"2026-09-25T00:00:00Z"}]}}"#.utf8)
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    let envelope = try decoder.decode(
+        BridgeEnvelope<DesktopProactivePreparation>.self,
+        from: data
+    )
+
+    #expect(envelope.result?.run.scheduledEvents == 1)
+    #expect(envelope.result?.candidates.count == 1)
+    #expect(envelope.result?.candidates[0].title == "Ally")
+    #expect(envelope.result?.candidates[0].body == "Synthetic reminder.")
+}
+
+@Test func notificationIdentifierReconciliationIncludesPendingRequests() {
+    let content = UNMutableNotificationContent()
+    content.title = "Synthetic"
+    let pending = UNNotificationRequest(
+        identifier: "attention:macos.notification:synthetic",
+        content: content,
+        trigger: nil
+    )
+
+    let identifiers = DesktopNotificationDeliveryClient.knownIdentifiers(
+        delivered: [],
+        pending: [pending]
+    )
+
+    #expect(identifiers.contains("attention:macos.notification:synthetic"))
+}
+
+@Test func mapsSMAppServiceStatesWithoutRegistering() {
+    #expect(
+        DesktopBackgroundServiceClient.state(for: .enabled) == .enabled
+    )
+    #expect(
+        DesktopBackgroundServiceClient.state(for: .notRegistered)
+            == .notRegistered
+    )
+    #expect(
+        DesktopBackgroundServiceClient.state(for: .requiresApproval)
+            == .requiresApproval
+    )
+    #expect(
+        DesktopBackgroundServiceClient.state(for: .notFound) == .notFound
+    )
 }
