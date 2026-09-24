@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import ally.runtime_profiles.catalog as catalog_module
 from ally import __version__
 from ally.config import AllyPaths
 from ally.diagnostics import (
@@ -30,7 +31,6 @@ from ally.runtime_profiles import (
     resolve_active_runtime_profile,
     write_validated_runtime_profile,
 )
-import ally.runtime_profiles.catalog as catalog_module
 
 
 def _summary() -> EvalSummary:
