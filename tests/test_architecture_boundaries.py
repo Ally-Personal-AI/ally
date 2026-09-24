@@ -152,3 +152,29 @@ def test_network_transport_is_confined_to_reviewed_boundaries() -> None:
         "controlled boundary. "
         f"Violations: {violations}"
     )
+
+
+def test_application_layer_has_no_terminal_presentation_logic() -> None:
+    """Application services stay reusable by CLI, desktop, and future clients."""
+
+    violations: list[str] = []
+    application_root = SRC_ROOT / "application"
+    for path in sorted(application_root.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        imported = _imported_modules(path)
+        if _imports_prefix(imported, "argparse"):
+            violations.append(f"{_relative(path)} imports argparse")
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id in {"print", "input"}
+            ):
+                violations.append(
+                    f"{_relative(path)} calls terminal primitive {node.func.id}"
+                )
+
+    assert violations == [], (
+        "UI-neutral application services must not own terminal presentation. "
+        f"Violations: {violations}"
+    )
