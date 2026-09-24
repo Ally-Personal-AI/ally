@@ -212,9 +212,11 @@ def test_application_runtime_status_is_payload_free_and_typed(
     provider = CapturingProvider([])
     ready, _ = _application(tmp_path / "ready", provider=provider)
 
-    assert ready.runtime_status().state == "ready"
-    assert ready.runtime_status().target is not None
-    assert ready.runtime_status().target.profile_id == "a" * 64
+    ready_status = ready.runtime_status()
+    assert ready_status.state == "ready"
+    target = ready_status.target
+    assert target is not None
+    assert target.profile_id == "a" * 64
 
     def unavailable(
         endpoint: str | None,
