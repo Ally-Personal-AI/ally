@@ -70,6 +70,28 @@ class RuntimeParameter(BaseModel):
         return self
 
 
+class ArtifactFingerprint(BaseModel):
+    """Path-free content identity for one model/runtime artifact."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str = Field(min_length=1, max_length=255)
+    size_bytes: int = Field(ge=1)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def reject_unsafe_name(self) -> ArtifactFingerprint:
+        if (
+            self.name != self.name.strip()
+            or self.name in {".", ".."}
+            or "/" in self.name
+            or "\\" in self.name
+            or any(ord(character) < 32 or ord(character) == 127 for character in self.name)
+        ):
+            raise ValueError("artifact names must be printable leaf filenames")
+        return self
+
+
 class RuntimeProfile(BaseModel):
     """Reproducibility metadata for the inference runtime and model."""
 
@@ -83,6 +105,14 @@ class RuntimeProfile(BaseModel):
     model_size_bytes: int | None = Field(default=None, ge=1)
     context_length: int | None = Field(default=None, ge=1)
     parameters: tuple[RuntimeParameter, ...] = Field(default=(), max_length=32)
+    model_artifacts: tuple[ArtifactFingerprint, ...] = Field(
+        default=(),
+        max_length=256,
+    )
+    runtime_artifacts: tuple[ArtifactFingerprint, ...] = Field(
+        default=(),
+        max_length=64,
+    )
 
     @model_validator(mode="after")
     def require_unique_parameter_names(self) -> RuntimeProfile:
@@ -112,6 +142,25 @@ class RuntimeProfile(BaseModel):
         names = [parameter.name.lower() for parameter in self.parameters]
         if len(names) != len(set(names)):
             raise ValueError("runtime parameter names must be unique")
+
+        for label, artifacts in (
+            ("model", self.model_artifacts),
+            ("runtime", self.runtime_artifacts),
+        ):
+            artifact_names = [artifact.name for artifact in artifacts]
+            if len(artifact_names) != len(set(artifact_names)):
+                raise ValueError(f"{label} artifact names must be unique")
+
+        if self.model_artifacts:
+            total_size = sum(artifact.size_bytes for artifact in self.model_artifacts)
+            if self.model_size_bytes is None:
+                raise ValueError(
+                    "model_size_bytes is required when model artifacts are recorded"
+                )
+            if self.model_size_bytes != total_size:
+                raise ValueError(
+                    "model_size_bytes must equal the total model artifact size"
+                )
         return self
 
 
@@ -250,6 +299,59 @@ def _sha256(path: Path) -> str:
         for block in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def fingerprint_artifact(path: Path) -> ArtifactFingerprint:
+    """Fingerprint one regular file without persisting its filesystem path."""
+
+    requested = path.expanduser()
+    try:
+        resolved = requested.resolve(strict=True)
+    except OSError as exc:
+        raise ValueError("artifact file is unavailable") from exc
+    if not resolved.is_file():
+        raise ValueError("artifact path must reference a regular file")
+
+    digest = hashlib.sha256()
+    try:
+        with resolved.open("rb") as handle:
+            before = os.fstat(handle.fileno())
+            for block in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(block)
+            after = os.fstat(handle.fileno())
+    except OSError as exc:
+        raise ValueError("artifact file could not be read") from exc
+
+    identity_before = (
+        before.st_dev,
+        before.st_ino,
+        before.st_size,
+        before.st_mtime_ns,
+    )
+    identity_after = (
+        after.st_dev,
+        after.st_ino,
+        after.st_size,
+        after.st_mtime_ns,
+    )
+    try:
+        current = resolved.stat()
+    except OSError as exc:
+        raise ValueError("artifact changed during fingerprinting") from exc
+    current_identity = (
+        current.st_dev,
+        current.st_ino,
+        current.st_size,
+        current.st_mtime_ns,
+    )
+    if identity_before != identity_after or identity_after != current_identity:
+        raise ValueError("artifact changed during fingerprinting")
+
+    return ArtifactFingerprint(
+        name=requested.name,
+        size_bytes=after.st_size,
+        sha256=digest.hexdigest(),
+    )
 
 
 def _core_summary(case_file: Path) -> EvalSummary:
