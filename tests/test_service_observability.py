@@ -225,6 +225,67 @@ def test_invalid_terminal_metrics_do_not_mutate_running_history(
     assert store.get(run.id) == run
 
 
+def test_running_service_progress_is_payload_free_and_monotonic(
+    tmp_path: Path,
+) -> None:
+    store = SQLiteServiceCycleRunStore(
+        SQLiteDatabase(tmp_path / "ally.sqlite3")
+    )
+    started = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    run = store.start(observed_at=started, started_at=started)
+
+    progressed = store.update_running_progress(
+        run.id,
+        scheduled_events=2,
+        delivery_attempts_delta=1,
+        delivery_failures_delta=1,
+    )
+
+    assert progressed.status == "running"
+    assert progressed.scheduled_events == 2
+    assert progressed.delivery_attempts == 1
+    assert progressed.delivery_failures == 1
+    assert progressed.finished_at is None
+
+    progressed_again = store.update_running_progress(
+        run.id,
+        delivery_attempts_delta=1,
+    )
+    assert progressed_again.scheduled_events == 2
+    assert progressed_again.delivery_attempts == 2
+    assert progressed_again.delivery_failures == 1
+
+
+def test_running_service_progress_rejects_invalid_or_terminal_updates(
+    tmp_path: Path,
+) -> None:
+    store = SQLiteServiceCycleRunStore(
+        SQLiteDatabase(tmp_path / "ally.sqlite3")
+    )
+    started = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    run = store.start(observed_at=started, started_at=started)
+
+    with pytest.raises(ValueError, match="failure delta"):
+        store.update_running_progress(
+            run.id,
+            delivery_attempts_delta=0,
+            delivery_failures_delta=1,
+        )
+
+    finished = store.finish(
+        run.id,
+        status="succeeded",
+        finished_at=started + timedelta(seconds=1),
+    )
+    assert finished.status == "succeeded"
+
+    with pytest.raises(ServiceRunConflictError, match="no longer running"):
+        store.update_running_progress(
+            run.id,
+            delivery_attempts_delta=1,
+        )
+
+
 def test_terminal_run_cannot_finish_before_start(tmp_path: Path) -> None:
     store = SQLiteServiceCycleRunStore(
         SQLiteDatabase(tmp_path / "ally.sqlite3")
