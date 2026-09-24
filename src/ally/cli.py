@@ -106,6 +106,7 @@ from ally.commands.tools import run_list_tools, run_tool, run_tool_audit
 from ally.commands.validate import (
     run_compare_candidate_evidence,
     run_compare_validation_reports,
+    run_first_machine_readiness,
     run_hardware_report,
     run_local_model_validation_command,
     run_runtime_privacy_qualification,
@@ -937,6 +938,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     validate_commands = validate.add_subparsers(dest="validate_command")
 
+    validate_readiness = validate_commands.add_parser(
+        "readiness",
+        help="Read-only preflight for the dedicated Apple Silicon validation session.",
+    )
+    validate_readiness.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
     validate_hardware = validate_commands.add_parser(
         "hardware",
         help="Print the non-sensitive local hardware profile.",
@@ -1522,6 +1533,10 @@ def _run_command(argv: Sequence[str] | None) -> int:
             return run_skill_execution_audit(limit=cast(int, args.limit))
 
     if args.command == "validate":
+        if args.validate_command == "readiness":
+            return run_first_machine_readiness(
+                json_output=cast(bool, args.json_output),
+            )
         if args.validate_command == "hardware":
             return run_hardware_report(json_output=cast(bool, args.json_output))
         if args.validate_command == "local-model":
