@@ -9,7 +9,12 @@ from ally.configuration import default_config_path
 from ally.diagnostics import build_service_health
 from ally.models import ModelProvider
 from ally.models.providers import OpenAICompatibleProvider
-from ally.runtime_profiles import ResolvedInferenceTarget, resolve_inference_target
+from ally.runtime_profiles import (
+    ResolvedInferenceTarget,
+    RuntimeProfileCatalog,
+    default_runtime_profile_catalog,
+    resolve_inference_target,
+)
 from ally.security.tool_policy import DefaultToolPolicy
 from ally.storage import default_database_path, default_runtime_database_path
 from ally.storage.sqlite import (
@@ -30,12 +35,14 @@ from ally.tools.executor import ToolExecutor
 
 
 def _resolve_target(
+    catalog: RuntimeProfileCatalog,
     development_endpoint: str | None,
     development_model: str | None,
 ) -> ResolvedInferenceTarget:
     return resolve_inference_target(
         development_endpoint=development_endpoint,
         development_model=development_model,
+        active_profile_resolver=catalog.active,
     )
 
 
@@ -53,6 +60,7 @@ def build_default_application() -> AllyApplication:
 
     database_path = default_database_path()
     database = SQLiteDatabase(database_path)
+    runtime_profiles = default_runtime_profile_catalog()
     task_store = SQLiteTaskStore(database)
     operations = ApplicationOperations(
         tasks=task_store,
@@ -78,7 +86,12 @@ def build_default_application() -> AllyApplication:
         memories=SQLiteMemoryStore(database),
         knowledge=SQLiteKnowledgeStore(database),
         instructions=SQLiteUserInstructionsStore(database),
-        target_resolver=_resolve_target,
+        target_resolver=lambda endpoint, model: _resolve_target(
+            runtime_profiles,
+            endpoint,
+            model,
+        ),
         provider_factory=_provider,
         operations=operations,
+        runtime_profiles=runtime_profiles,
     )
