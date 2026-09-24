@@ -58,9 +58,9 @@ The first shell includes:
 - full attention event/delivery-history inspection with explicit handled-state mutation; and
 - modern macOS notification authorization status/request through `UNUserNotificationCenter`.
 
-This is still an incremental #66 product surface. Full attention history/detail,
-modern bundled notification authorization,
-polished empty/error states, and release packaging remain follow-on work.
+This is still an incremental #66 product surface. Polished empty/error states,
+standalone helper packaging, real Developer ID/notarization acceptance, and
+dedicated-machine release validation remain follow-on work.
 
 ## Validated runtime selection boundary
 
@@ -173,32 +173,42 @@ Do not put prompts, messages, document contents, memory contents, credentials,
 or other private Ally state into helper command-line arguments or environment
 variables.
 
-## Release packaging direction
+## Release packaging foundation
 
-Development requires an explicit absolute `ALLY_DESKTOP_BRIDGE` path. The native
-client does not search `PATH`, and it launches the helper with a minimal
-allowlisted environment rather than inheriting arbitrary shell variables. A
-release build must not depend on the development environment override.
+Release-mode helper resolution now has a fail-closed bundle contract:
 
-The intended release shape is one signed/notarized Ally app bundle containing a
-pinned local helper/runtime built from the same release revision. The Swift app
-will launch that helper by an absolute path inside its own bundle, with private
-requests still carried over stdio. The release bundle must preserve Ally's
-user-owned application-data locations rather than placing personal state inside
-the app bundle.
+- the stable bundle identifier is `ai.ally.personal`;
+- debug builds may use the explicit absolute `ALLY_DESKTOP_BRIDGE` override;
+- release builds ignore that override and never search `PATH`;
+- the only release helper path is
+  `Contents/Helpers/ally-desktop-bridge`;
+- `Contents/Resources/release-manifest.json` binds the exact Ally version,
+  bridge protocol, helper path, and SHA-256 of the signed helper bytes; and
+- Swift verifies the manifest and helper digest before launch.
 
-Before the first desktop release, packaging work must verify:
+The deterministic assembler is `scripts/macos_app_bundle.py`. It builds the
+minimal app layout, emits `Info.plist`, creates the release manifest, preserves
+the user-data boundary, and can verify the result independently.
 
-- app and helper are code-signed together and notarizable;
-- the bundled helper uses the locked Python dependency graph and exact Ally
-  version expected by the Swift protocol client;
-- no release path falls back to an arbitrary executable found on `PATH`;
-- closing/reopening the app preserves user-owned state;
-- updates replace application code without replacing or migrating user data
-  outside Ally's existing migration/recovery boundary; and
-- any future updater has its own signed-release and rollback threat model before
-  it is allowed to fetch or execute code.
+The signing/notarization boundary is
+`scripts/macos_release_signing.py`. The intended production order is helper
+signing, post-sign helper-hash refresh, outer app signing, signature
+verification, notarization through an existing `notarytool` Keychain profile,
+ticket stapling, and Gatekeeper assessment.
 
-Hardware is still required for final runtime, Keychain, launchd, native
-notification, restart, and daily-use acceptance. It is not required to continue
-building and testing the desktop presentation architecture.
+Hosted macOS CI builds the actual Swift release executable, assembles an
+`Ally.app`, and ad-hoc signs/verifies it. CI uses a Mach-O stand-in at the
+helper path so it can validate nested-code and manifest mechanics without
+claiming that the final standalone Python helper artifact exists.
+
+A production release still requires a self-contained signed helper that does not
+depend on the repository, a virtual environment, `PATH`, Homebrew, or an
+externally installed Python runtime.
+
+The full signing, notarization, updater, and rollback threat model is documented
+in [macos-release-security.md](macos-release-security.md).
+
+Hardware is still required for final Developer ID/notarization, runtime,
+Keychain, launchd, native notification, restart, app-replacement, and daily-use
+acceptance. It is not required to continue building and testing release
+architecture.
