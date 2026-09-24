@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
-from ally.egress.models import EgressDecision, EgressRequest
+from collections.abc import Sequence
+
+from ally.egress.models import EgressDecision, EgressFieldManifest
 
 
 class DefaultEgressPolicy:
-    """Decide whether declared data may cross the Ally trust boundary."""
+    """Decide whether trusted-classified data may cross the Ally trust boundary."""
 
-    def decide(self, request: EgressRequest, *, approved: bool) -> EgressDecision:
-        classifications = {field.classification for field in request.fields}
+    def decide(
+        self,
+        fields: Sequence[EgressFieldManifest],
+        *,
+        approved: bool,
+    ) -> EgressDecision:
+        classifications = {field.classification for field in fields}
 
         if classifications & {"private_internal", "secret"}:
             return "deny"
