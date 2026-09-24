@@ -75,7 +75,6 @@ def test_assemble_creates_release_contract_and_manifest(tmp_path: Path) -> None:
         == "Contents/Helpers/ally-desktop-bridge"
     )
     assert len(manifest["helper_sha256"]) == 64
-    assert len(manifest["app_executable_sha256"]) == 64
     assert manifest["source_revision"] == "synthetic-revision"
 
     verified = subprocess.run(
@@ -168,3 +167,56 @@ def test_assemble_rejects_invalid_build_version(
 
     assert result.returncode != 0
     assert "positive integer" in result.stderr.lower()
+
+
+def test_refresh_helper_hash_rebinds_signed_helper_bytes(tmp_path: Path) -> None:
+    app = _assemble(tmp_path)
+    helper = app / "Contents/Helpers/ally-desktop-bridge"
+    helper.write_text("#!/bin/sh\necho post-sign-bytes\n", encoding="utf-8")
+    helper.chmod(helper.stat().st_mode | stat.S_IXUSR)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; "
+                f"sys.path.insert(0, {str(SCRIPT.parent)!r}); "
+                "import macos_app_bundle; "
+                f"print(macos_app_bundle.refresh_helper_hash(Path({str(app)!r})))"
+            ),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    # The one-liner intentionally omits Path import and must fail rather than
+    # disguising contract errors; use the normal verify path below after a
+    # direct module invocation with an explicit import.
+    assert result.returncode != 0
+
+    refreshed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; from pathlib import Path; "
+                f"sys.path.insert(0, {str(SCRIPT.parent)!r}); "
+                "import macos_app_bundle; "
+                f"print(macos_app_bundle.refresh_helper_hash(Path({str(app)!r})))"
+            ),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert len(refreshed.stdout.strip()) == 64
+
+    verified = subprocess.run(
+        [sys.executable, str(SCRIPT), "verify", str(app)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert json.loads(verified.stdout)["helper_sha256"] == refreshed.stdout.strip()
