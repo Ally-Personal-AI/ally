@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from ally.attention import DESKTOP_NOTIFICATION_SINK_ID
+from ally.service import DESKTOP_NOTIFICATION_SINK_ID
 from ally.events import EventRuntime, NewEvent
 from ally.scheduler import SchedulerRuntime
 from ally.service import DesktopProactiveCoordinator, SQLiteServiceLeaseStore
