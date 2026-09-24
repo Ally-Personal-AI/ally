@@ -79,7 +79,7 @@ def run_behavior_evals(
     case_file: str | None,
     endpoint: str,
     model: str,
-    allow_remote: bool,
+    allow_remote_public: bool,
     json_output: bool,
 ) -> int:
     """Run the bundled behavioral qualification suite against one provider."""
