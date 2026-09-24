@@ -231,7 +231,10 @@ def test_cli_reports_incompatible_history_without_traceback(
     create_prefix(path, 1)
     with closing(sqlite3.connect(path)) as connection, connection:
         connection.execute("UPDATE ally_schema_migrations SET name = 'private-marker'")
-    monkeypatch.setattr("ally.commands._storage.default_database_path", lambda: path)
+    monkeypatch.setattr(
+        "ally.composition.defaults.default_database_path",
+        lambda: path,
+    )
     before = dump(path)
     assert main(["conversations", "list"]) == 2
     output = capsys.readouterr()

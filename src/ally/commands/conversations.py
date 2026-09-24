@@ -1,15 +1,19 @@
-"""Conversation inspection commands."""
+"""Conversation presentation adapter over Ally application services."""
 
 from __future__ import annotations
 
 from uuid import UUID
 
-from ally.commands._storage import build_conversation_store
+from ally.application import ApplicationNotFoundError
+from ally.composition import build_default_application
 
 
 def run_list_conversations(*, limit: int) -> int:
-    store = build_conversation_store()
-    conversations = store.list(limit=limit)
+    try:
+        conversations = build_default_application().list_conversations(limit=limit)
+    except ValueError as exc:
+        print(f"Conversation error: {exc}")
+        return 2
 
     if not conversations:
         print("No conversations.")
@@ -28,16 +32,16 @@ def run_show_conversation(*, conversation_id: str) -> int:
         print(f"Invalid conversation ID: {conversation_id}")
         return 2
 
-    store = build_conversation_store()
-    conversation = store.get(identifier)
-    if conversation is None:
-        print(f"Conversation not found: {identifier}")
+    try:
+        view = build_default_application().conversation(identifier)
+    except ApplicationNotFoundError as exc:
+        print(exc)
         return 2
 
-    print(f"Conversation: {conversation.id}")
-    print(f"Title: {conversation.title or '(untitled)'}")
+    print(f"Conversation: {view.conversation.id}")
+    print(f"Title: {view.conversation.title or '(untitled)'}")
     print()
 
-    for message in store.list_messages(identifier):
+    for message in view.messages:
         print(f"{message.role}: {message.content}")
     return 0

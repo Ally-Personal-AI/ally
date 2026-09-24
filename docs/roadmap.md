@@ -9,6 +9,7 @@ implementation of an earlier one.
 | Data portability | Implemented V1 | versioned integrity-checked SQLite backup/restore archives |
 | Configuration / secrets | Adapter implemented; machine acceptance pending | strict non-secret config, direct macOS Security-framework adapter, reference-only CLI, fail-closed tests |
 | Local conversation | Implemented | provider-neutral private chat with active validated-profile resolution by default, loopback-only development override, and no remote escape hatch |
+| Application facade | Implemented V1 core | typed UI-neutral runtime/chat/conversation/memory/knowledge services; CLI chat/memory/knowledge adapters share the same composition; task/attention/service operations next |
 | User instructions | Implemented V2 | global/project/conversation/task profiles, enable/disable, provenance-aware composition, and ephemeral session instructions |
 | Behavioral model qualification | Implemented V1 | separate refusal, instruction-following, calibration, moralizing, and paired viewpoint-symmetry evidence integrated into local-model validation |
 | Long-term memory | Implemented V1 | temporal/provenance-aware explicit memory and grounding |
@@ -44,9 +45,10 @@ personal AI with:
 - user-owned portable backups;
 - a reproducible local-model validation path.
 
-The repository now contains the deterministic substrate for that target. The
-next important engineering evidence comes from running the system against real
-local models on the dedicated machine.
+The repository now contains the deterministic substrate for that target and is
+also growing the interface-neutral application layer needed for daily desktop
+use. Hardware evidence will inform model/runtime choices while application,
+workflow, security, and product architecture continue to advance independently.
 
 ## Pre-hardware hardening
 
