@@ -619,5 +619,55 @@ MIGRATIONS: tuple[Migration, ...] = (
             ON user_instruction_profiles(scope, updated_at DESC)
             """,
         ),
+    ),
+    Migration(
+        version=14,
+        name="controlled_egress_audit_v1",
+        statements=(
+            """
+            CREATE TABLE egress_audit_records (
+                id TEXT PRIMARY KEY,
+                request_id TEXT NOT NULL,
+                service TEXT NOT NULL,
+                operation TEXT NOT NULL,
+                decision TEXT NOT NULL
+                    CHECK (decision IN ('allow', 'require_approval', 'deny')),
+                status TEXT NOT NULL
+                    CHECK (
+                        status IN (
+                            'succeeded',
+                            'approval_required',
+                            'denied',
+                            'failed'
+                        )
+                    ),
+                approved INTEGER NOT NULL
+                    CHECK (approved IN (0, 1)),
+                fields_json TEXT NOT NULL,
+                error_class TEXT
+                    CHECK (
+                        error_class IS NULL
+                        OR (
+                            length(error_class) >= 1
+                            AND length(error_class) <= 128
+                        )
+                    ),
+                started_at TEXT NOT NULL,
+                finished_at TEXT NOT NULL
+            )
+            """,
+            """
+            CREATE INDEX idx_egress_audit_started
+            ON egress_audit_records(started_at DESC)
+            """,
+            """
+            CREATE INDEX idx_egress_audit_service
+            ON egress_audit_records(service, operation, started_at DESC)
+            """,
+            """
+            CREATE INDEX idx_egress_audit_request
+            ON egress_audit_records(request_id)
+            """,
+        ),
     )
 )
