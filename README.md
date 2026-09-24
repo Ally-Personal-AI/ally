@@ -58,7 +58,7 @@ the packaged release on Linux and macOS without a model server or dedicated hard
 
 ## Local inference
 
-Ally's first inference adapter talks to an OpenAI-compatible HTTP endpoint. The endpoint is restricted to loopback addresses by default so local prompts do not silently leave the machine.
+Ally's first private inference adapter talks to an OpenAI-compatible HTTP endpoint. Private inference is restricted to loopback addresses with no remote override, so prompts, conversation history, memory, documents, instructions, and derived personal intelligence are not sent to an external model provider.
 
 Once a compatible local server is running:
 
@@ -80,10 +80,14 @@ uv run ally chat \
   --model <model-id>
 ```
 
-Remote endpoints are intentionally rejected unless `--allow-remote` is supplied.
-The inference adapter ignores environment proxy and certificate settings so
-ambient shell configuration cannot redirect local prompts. Connections use the
-HTTP client's default certificate verification.
+Remote endpoints are rejected for private inference with no escape hatch.
+The inference adapter ignores environment proxy settings so ambient shell
+configuration cannot redirect local prompts.
+
+A separately named public-evaluation path may benchmark a remote model only with
+Ally's bundled synthetic/public fixtures and explicit
+`--allow-remote-public`; custom evaluation files are rejected for remote runs.
+See [Private Intelligence Boundary](docs/private-intelligence-boundary.md).
 
 ## Persistent conversations
 
@@ -176,7 +180,9 @@ Re-ingesting unchanged content reuses the existing revision. Re-ingesting change
 
 Current knowledge and active memories can both ground local chat through the same provider-neutral context boundary.
 
-For remote inference, `--allow-remote` permits the prompt/conversation to leave the machine, but private memory/document grounding remains disabled unless the separate `--allow-private-context-remote` flag is also supplied.
+Private chat always uses the loopback provider. Conversation history, memory,
+knowledge grounding, and user instructions are not eligible for external model
+inference.
 
 ## Permissioned tools
 
@@ -657,7 +663,7 @@ uv run ally config init
 uv run ally config validate
 ```
 
-The current config schema contains only local inference defaults and privacy defaults. Unknown fields are rejected.
+The current config schema contains only loopback private-inference defaults and a hard local-only privacy invariant. Unknown fields are rejected.
 
 Credentials are represented by opaque `SecretRef` names and resolved through the `SecretStore` interface. On macOS, Ally has a Keychain adapter and a reference-only CLI:
 
