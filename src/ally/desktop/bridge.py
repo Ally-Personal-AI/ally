@@ -25,12 +25,13 @@ from ally.application import (
     ChatTurnRequest,
     KnowledgeTextIngestRequest,
     RunTaskRequest,
+    SelectRuntimeProfileRequest,
     SupersedeMemoryRequest,
 )
 from ally.composition import build_default_application
 from ally.runtime_profiles import InferenceTargetError
 
-BRIDGE_PROTOCOL_VERSION = 3
+BRIDGE_PROTOCOL_VERSION = 4
 MAX_REQUEST_BYTES = 1024 * 1024
 
 BridgeMethod = Literal[
@@ -48,6 +49,9 @@ BridgeMethod = Literal[
     "knowledge.get",
     "knowledge.search",
     "knowledge.ingest_text",
+    "runtime.profiles",
+    "runtime.select_profile",
+    "runtime.deselect_profile",
     "task.get",
     "task.run",
     "task.approve_step",
@@ -160,6 +164,12 @@ class _SearchParams(BaseModel):
     limit: int = Field(default=20, ge=1, le=100)
 
 
+class _RuntimeProfileParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    profile_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class _TaskParams(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -207,6 +217,9 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                 "knowledge.get",
                 "knowledge.search",
                 "knowledge.ingest_text",
+                "runtime.profiles",
+                "runtime.select_profile",
+                "runtime.deselect_profile",
                 "task.get",
                 "task.run",
                 "task.approve_step",
@@ -335,6 +348,29 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                     media_type=params.media_type,
                 )
             ).model_dump(mode="json")
+        )
+
+    if request.method == "runtime.profiles":
+        _validate_params(_EmptyParams, request.params)
+        return _json_value(
+            app.runtime_profile_catalog().model_dump(mode="json")
+        )
+
+    if request.method == "runtime.select_profile":
+        params = cast(
+            _RuntimeProfileParams,
+            _validate_params(_RuntimeProfileParams, request.params),
+        )
+        return _json_value(
+            app.select_runtime_profile(
+                SelectRuntimeProfileRequest(profile_id=params.profile_id)
+            ).model_dump(mode="json")
+        )
+
+    if request.method == "runtime.deselect_profile":
+        _validate_params(_EmptyParams, request.params)
+        return _json_value(
+            app.deselect_runtime_profile().model_dump(mode="json")
         )
 
     if request.method == "task.get":
