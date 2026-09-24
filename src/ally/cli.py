@@ -60,7 +60,13 @@ from ally.commands.memory_proposals import (
 )
 from ally.commands.planning import run_propose_plan
 from ally.commands.runtime_profiles import (
+    run_active_runtime_profile,
     run_create_runtime_profile,
+    run_deselect_runtime_profile,
+    run_install_runtime_profile,
+    run_list_runtime_profiles,
+    run_remove_runtime_profile,
+    run_select_runtime_profile,
     run_show_runtime_profile,
     run_verify_runtime_profile,
 )
@@ -982,6 +988,46 @@ def build_parser() -> argparse.ArgumentParser:
     profile_verify.add_argument("workflow_report")
     profile_verify.add_argument("--json", action="store_true", dest="json_output")
 
+    profile_install = profile_commands.add_parser(
+        "install",
+        help="Re-verify and install one validated profile into Ally-owned config state.",
+    )
+    profile_install.add_argument("profile")
+    profile_install.add_argument("validation_report")
+    profile_install.add_argument("privacy_report")
+    profile_install.add_argument("workflow_report")
+    profile_install.add_argument("--json", action="store_true", dest="json_output")
+
+    profile_installed = profile_commands.add_parser(
+        "installed",
+        help="List installed validated runtime profiles.",
+    )
+    profile_installed.add_argument("--json", action="store_true", dest="json_output")
+
+    profile_select = profile_commands.add_parser(
+        "select",
+        help="Select one installed validated runtime profile.",
+    )
+    profile_select.add_argument("profile_id")
+    profile_select.add_argument("--json", action="store_true", dest="json_output")
+
+    profile_active = profile_commands.add_parser(
+        "active",
+        help="Show the exact currently selected runtime profile.",
+    )
+    profile_active.add_argument("--json", action="store_true", dest="json_output")
+
+    profile_commands.add_parser(
+        "deselect",
+        help="Clear active runtime profile selection.",
+    )
+
+    profile_remove = profile_commands.add_parser(
+        "remove",
+        help="Remove one inactive installed runtime profile.",
+    )
+    profile_remove.add_argument("profile_id")
+
     validation_session = subcommands.add_parser(
         "validation-session",
         help="Coordinate resumable candidate validation from immutable evidence.",
@@ -1702,6 +1748,34 @@ def _run_command(argv: Sequence[str] | None) -> int:
                 privacy_report=cast(str, args.privacy_report),
                 workflow_report=cast(str, args.workflow_report),
                 json_output=cast(bool, args.json_output),
+            )
+
+        if args.profiles_command == "install":
+            return run_install_runtime_profile(
+                profile_path=cast(str, args.profile),
+                validation_report=cast(str, args.validation_report),
+                privacy_report=cast(str, args.privacy_report),
+                workflow_report=cast(str, args.workflow_report),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.profiles_command == "installed":
+            return run_list_runtime_profiles(
+                json_output=cast(bool, args.json_output),
+            )
+        if args.profiles_command == "select":
+            return run_select_runtime_profile(
+                profile_id=cast(str, args.profile_id),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.profiles_command == "active":
+            return run_active_runtime_profile(
+                json_output=cast(bool, args.json_output),
+            )
+        if args.profiles_command == "deselect":
+            return run_deselect_runtime_profile()
+        if args.profiles_command == "remove":
+            return run_remove_runtime_profile(
+                profile_id=cast(str, args.profile_id),
             )
 
     if args.command == "validation-session":

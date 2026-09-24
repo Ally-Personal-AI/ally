@@ -84,7 +84,10 @@ For production selection, candidate qualification is converted into an immutable
 [Validated Runtime Profile](validated-runtime-profiles.md). Future UI/runtime
 composition should consume those profiles rather than arbitrary endpoint/model
 pairs, preserving the evidence boundary between experimentation and approved
-daily-use inference.
+daily-use inference. Qualified profiles can be installed into the
+[Runtime Profile Catalog](runtime-profile-catalog.md); active selection is
+hash-bound to the exact installed profile and exposed through one reusable
+resolver.
 
 Long-running candidate qualification is coordinated by
 [Validation Sessions](validation-sessions.md). Session manifests store only the

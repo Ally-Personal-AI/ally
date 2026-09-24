@@ -392,8 +392,10 @@ The workflow uses a disposable SQLite workspace and writes only source-bound,
 payload-free evidence. Production eligibility requires this workflow artifact,
 the capability artifact, and a separately qualified runtime-privacy artifact.
 An eligible candidate can then be converted into an immutable validated runtime
-profile with `ally profiles create`; future production runtime selection is
-expected to consume that profile rather than raw endpoint/model strings.
+profile with `ally profiles create`, installed with `ally profiles install`,
+and explicitly selected with `ally profiles select`. Future production
+runtime composition resolves that hash-bound active profile rather than raw
+endpoint/model strings.
 
 See [Apple Silicon First-Machine Validation](docs/hardware/apple-silicon-validation.md) for the full procedure and exit criteria.
 

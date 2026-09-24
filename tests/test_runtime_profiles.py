@@ -273,3 +273,20 @@ def test_profile_commands_create_and_verify(
     assert verify_result == 0
     assert verified["verified"] is True
     assert verified["production_eligible"] is True
+
+
+
+def test_profile_id_detects_operational_metadata_tampering(tmp_path: Path) -> None:
+    evidence = _evidence(tmp_path)
+    profile = build_validated_runtime_profile(
+        validation_path=evidence[0],
+        privacy_path=evidence[1],
+        workflow_path=evidence[2],
+    )
+    output = write_validated_runtime_profile(profile, tmp_path / "profile.json")
+    raw = json.loads(output.read_text(encoding="utf-8"))
+    raw["model"] = "tampered-model"
+    output.write_text(json.dumps(raw), encoding="utf-8")
+
+    with pytest.raises(ValidatedRuntimeProfileError, match="invalid Ally"):
+        load_validated_runtime_profile(output)
