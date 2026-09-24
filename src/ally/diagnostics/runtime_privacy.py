@@ -207,3 +207,39 @@ def load_runtime_privacy_report(
         raise RuntimePrivacyEvidenceError(
             "invalid Ally runtime privacy report"
         ) from exc
+
+
+
+def verify_runtime_privacy_source(
+    report: RuntimePrivacyQualificationReport,
+    validation_path: Path,
+) -> LocalModelValidationReport:
+    """Verify that a privacy artifact still matches its exact source evidence."""
+
+    resolved = validation_path.expanduser().resolve()
+    validation = load_validation_report(resolved)
+    if _sha256(resolved) != report.source_validation_sha256:
+        raise RuntimePrivacyEvidenceError(
+            "runtime privacy report does not match the source validation digest"
+        )
+    if validation.ally_version != report.ally_version:
+        raise RuntimePrivacyEvidenceError(
+            "runtime privacy report Ally version does not match source validation"
+        )
+    if validation.model != report.model:
+        raise RuntimePrivacyEvidenceError(
+            "runtime privacy report model does not match source validation"
+        )
+    if validation.runtime != report.runtime:
+        raise RuntimePrivacyEvidenceError(
+            "runtime privacy report runtime does not match source validation"
+        )
+    if validation.hardware != report.hardware:
+        raise RuntimePrivacyEvidenceError(
+            "runtime privacy report hardware does not match source validation"
+        )
+    if validation.successful != report.source_validation_successful:
+        raise RuntimePrivacyEvidenceError(
+            "runtime privacy report source status does not match validation"
+        )
+    return validation
