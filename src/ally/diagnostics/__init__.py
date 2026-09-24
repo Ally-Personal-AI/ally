@@ -43,6 +43,12 @@ from ally.diagnostics.validation import (
     run_local_model_validation,
     write_validation_report,
 )
+from ally.diagnostics.workflows import (
+    SyntheticWorkflowCheck,
+    SyntheticWorkflowReport,
+    WorkflowCheckStatus,
+    run_isolated_synthetic_workflows,
+)
 
 __all__ = [
     "ArtifactFingerprint",
@@ -64,8 +70,11 @@ __all__ = [
     "RuntimePrivacyEvidenceError",
     "RuntimePrivacyQualificationReport",
     "RuntimeProfile",
+    "SyntheticWorkflowCheck",
+    "SyntheticWorkflowReport",
     "ValidationComparison",
     "ValidationReportError",
+    "WorkflowCheckStatus",
     "build_candidate_evidence",
     "build_first_machine_readiness",
     "build_runtime_privacy_report",
@@ -77,6 +86,7 @@ __all__ = [
     "fingerprint_artifact",
     "load_runtime_privacy_report",
     "load_validation_report",
+    "run_isolated_synthetic_workflows",
     "run_local_model_validation",
     "verify_runtime_privacy_source",
     "write_runtime_privacy_report",

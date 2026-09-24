@@ -190,6 +190,36 @@ def run_workflows(root: Path) -> None:
             behavior_summary["passed"] == 10 and not responses,
             "behavior CLI defaults",
         )
+
+        workflow_plan: dict[str, object] = {
+            "goal": "Inspect the synthetic validation runtime",
+            "steps": [{"tool_name": "system.info", "arguments": {}}],
+        }
+        workflow_memory: dict[str, object] = {
+            "memories": [{
+                "kind": "preference",
+                "content": "Synthetic subject prefers jasmine tea.",
+                "confidence": 0.99,
+                "importance": 0.8,
+            }]
+        }
+        responses.extend((
+            "STORED_OK",
+            "ORCHID-731",
+            "GLASS-482",
+            json.dumps(workflow_plan),
+            json.dumps(workflow_memory),
+        ))
+        workflow_summary = json.loads(cli(
+            "validate", "workflows",
+            "--endpoint", endpoint,
+            "--model", "synthetic",
+            "--json",
+        ))
+        require(
+            workflow_summary["successful"] is True and not responses,
+            "isolated synthetic workflow validation",
+        )
     finally:
         server.shutdown()
         thread.join(timeout=5)
@@ -246,7 +276,10 @@ def run_workflows(root: Path) -> None:
         len(SQLiteConversationStore(database).list_messages(UUID(conversation))) == 4,
         "restored conversation turns",
     )
-    print("Installed workflows passed: evals/behavior, chat/resume, memory, knowledge, tasks,")
+    print(
+        "Installed workflows passed: evals/behavior, isolated validation, "
+        "chat/resume, memory, knowledge, tasks,"
+    )
     print("service health, managed-service inspection, skill worker, and backup/restore.")
 
 

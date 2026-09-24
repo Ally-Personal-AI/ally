@@ -376,6 +376,16 @@ It checks the target platform, privacy configuration, packaged evaluation suites
 state/path boundaries, and native-attention API readiness without contacting a
 model or mutating Ally state.
 
+Once a candidate local model is running, exercise Ally's functional boundaries
+without touching future personal state:
+
+```bash
+uv run ally validate workflows --model <model-id>
+```
+
+That workflow uses a disposable SQLite workspace and retains only payload-free
+check results.
+
 See [Apple Silicon First-Machine Validation](docs/hardware/apple-silicon-validation.md) for the full procedure and exit criteria.
 
 ## Proactive events
