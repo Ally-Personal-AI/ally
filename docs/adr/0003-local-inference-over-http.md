@@ -1,6 +1,6 @@
 # ADR 0003: First local inference adapter uses OpenAI-compatible HTTP
 
-**Status:** Accepted
+**Status:** Superseded in part by [ADR 0034](0034-private-intelligence-never-uses-external-inference.md)
 
 ## Context
 
@@ -12,7 +12,7 @@ Several local inference engines can expose an OpenAI-compatible HTTP API.
 
 The first production provider adapter targets the OpenAI-compatible chat-completions protocol over HTTP.
 
-The adapter defaults to loopback-only endpoints. Remote endpoints require an explicit opt-in.
+The private inference adapter is now loopback-only with no remote override. See ADR 0034. A separately named public-evaluation adapter may contact remote endpoints using only bundled synthetic/public evaluation data.
 
 Hardware-specific adapters may be added later when they provide meaningful capabilities or performance benefits.
 
