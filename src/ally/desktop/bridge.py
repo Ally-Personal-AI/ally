@@ -59,7 +59,7 @@ BridgeErrorCode = Literal[
 
 
 class BridgeRequest(BaseModel):
-    """One version-1 request from a local presentation process."""
+    """One versioned request from a local presentation process."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
