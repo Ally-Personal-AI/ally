@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from ally.commands.chat import run_chat
@@ -26,7 +28,7 @@ def test_legacy_remote_private_context_opt_in_fails_closed() -> None:
 
 
 def test_private_chat_rejects_remote_endpoint_before_inference(
-    tmp_path,
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
