@@ -21,3 +21,35 @@ swift test --package-path desktop/macos
 
 See `docs/desktop-shell.md` for the architecture, privacy boundary, current
 scope, and release-packaging direction.
+
+
+## Release bundle foundation
+
+Release builds are designed to run from a stable `Ally.app` identity and an
+embedded verified helper. They do not rely on `ALLY_DESKTOP_BRIDGE` or
+`PATH`.
+
+The release CI builds the standalone helper with
+`scripts/build_macos_desktop_helper.py`. For a Developer ID release, pass the
+same Developer ID Application identity to that helper build so PyInstaller can
+sign its embedded binary payload.
+
+After building the Swift release executable and standalone helper, assemble the
+app with:
+
+```bash
+python scripts/macos_app_bundle.py assemble \
+  --app-executable /absolute/path/to/AllyDesktop \
+  --helper /absolute/path/to/ally-desktop-bridge \
+  --output /absolute/path/to/Ally.app \
+  --source-revision <git-sha> \
+  --build-version 1
+```
+
+Developer ID signing and notarization use
+`scripts/macos_release_signing.py`. Notarization accepts a preconfigured
+`notarytool` Keychain profile rather than credential values on the command
+line.
+
+See `docs/macos-release-security.md` for the trust and rollback model. Real
+Developer ID/notarization and installed-machine acceptance remain pending.

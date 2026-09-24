@@ -108,6 +108,9 @@ public struct BridgeInfo: Decodable, Sendable, Equatable {
 public enum DesktopBridgeError: Error, LocalizedError, Sendable, Equatable {
     case helperNotFound
     case helperNotExecutable
+    case releaseManifestMissing
+    case releaseManifestInvalid
+    case helperIntegrityFailed
     case launchFailed
     case writeFailed
     case responseTooLarge
@@ -120,6 +123,12 @@ public enum DesktopBridgeError: Error, LocalizedError, Sendable, Equatable {
             return "The Ally desktop bridge helper was not found."
         case .helperNotExecutable:
             return "The configured Ally desktop bridge helper is not executable."
+        case .releaseManifestMissing:
+            return "The Ally release bundle manifest is missing."
+        case .releaseManifestInvalid:
+            return "The Ally release bundle manifest is invalid."
+        case .helperIntegrityFailed:
+            return "The bundled Ally desktop bridge failed integrity verification."
         case .launchFailed:
             return "The Ally desktop bridge helper could not be launched."
         case .writeFailed:

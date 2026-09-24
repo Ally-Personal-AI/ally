@@ -32,6 +32,10 @@ secrets/
 .env
 .env.*
 
+# macOS release artifacts
+*.app/
+*.dSYM/
+
 # Logs / generated artifacts
 logs/
 validation/
