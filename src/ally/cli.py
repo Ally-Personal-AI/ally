@@ -1000,6 +1000,22 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="Dedicated directory for the session manifest and evidence artifacts.",
     )
+    session_init.add_argument(
+        "--capability-artifact",
+        default="capability.json",
+    )
+    session_init.add_argument(
+        "--privacy-artifact",
+        default="privacy.json",
+    )
+    session_init.add_argument(
+        "--workflow-artifact",
+        default="workflows.json",
+    )
+    session_init.add_argument(
+        "--profile-artifact",
+        default="profile.json",
+    )
     session_init.add_argument("--json", action="store_true", dest="json_output")
 
     session_show = validation_session_commands.add_parser(
@@ -1693,6 +1709,10 @@ def _run_command(argv: Sequence[str] | None) -> int:
             return run_init_validation_session(
                 candidate_label=cast(str, args.candidate_label),
                 directory=cast(str, args.directory),
+                capability_artifact=cast(str, args.capability_artifact),
+                privacy_artifact=cast(str, args.privacy_artifact),
+                workflow_artifact=cast(str, args.workflow_artifact),
+                profile_artifact=cast(str, args.profile_artifact),
                 json_output=cast(bool, args.json_output),
             )
         if args.validation_session_command == "show":
