@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -37,7 +37,10 @@ class PrivacyDefaults(BaseModel):
     def reject_legacy_remote_opt_in(cls, value: object) -> object:
         if not isinstance(value, dict):
             return value
-        data = dict(value)
+        raw = cast(dict[object, object], value)
+        if not all(isinstance(key, str) for key in raw):
+            return value
+        data = {cast(str, key): item for key, item in raw.items()}
         for field in ("allow_remote_inference", "allow_private_context_remote"):
             if field not in data:
                 continue
