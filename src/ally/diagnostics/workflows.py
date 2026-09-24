@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import perf_counter
-from typing import Callable, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
