@@ -40,7 +40,6 @@ __all__ = [
     "ProactiveCycleReport",
     "ProactiveServiceCycle",
     "ProactiveServiceRunner",
-    "SQLiteServiceLeaseStore",
     "ServiceCycleRunRecord",
     "ServiceCycleRunStatus",
     "ServiceCycleRunStore",
@@ -51,5 +50,6 @@ __all__ = [
     "ServiceLeaseUnavailableError",
     "ServiceRunConflictError",
     "SinkDeliverySummary",
+    "SQLiteServiceLeaseStore",
     "service_lease",
 ]
