@@ -7,7 +7,11 @@ from dataclasses import dataclass
 
 from ally.attention import AttentionDeliveryStore
 from ally.events import EventStore
-from ally.service import ServiceCycleRunStore, ServiceHealthReport
+from ally.service import (
+    DesktopProactiveCoordinator,
+    ServiceCycleRunStore,
+    ServiceHealthReport,
+)
 from ally.tasks import TaskRunner, TaskStore
 
 ServiceHealthProvider = Callable[[], ServiceHealthReport]
@@ -23,3 +27,4 @@ class ApplicationOperations:
     attention_deliveries: AttentionDeliveryStore
     service_runs: ServiceCycleRunStore
     service_health: ServiceHealthProvider
+    desktop_proactive: DesktopProactiveCoordinator | None = None
