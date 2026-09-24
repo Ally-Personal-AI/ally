@@ -10,6 +10,7 @@ from ally.scheduler import SchedulerRuntime
 from ally.service import (
     DESKTOP_NOTIFICATION_SINK_ID,
     DesktopProactiveCoordinator,
+    ServiceLeaseUnavailableError,
     SQLiteServiceLeaseStore,
 )
 from ally.storage.sqlite import (
@@ -70,6 +71,11 @@ def test_prepare_exposes_only_rendered_notification_text(tmp_path: Path) -> None
     assert prepared.run.status == "running"
     assert prepared.run.scheduled_events == 0
     assert prepared.run.delivery_attempts == 0
+    lease = SQLiteServiceLeaseStore(
+        tmp_path / "runtime.sqlite3"
+    ).get("proactive-cycle")
+    assert lease is not None
+    assert lease.owner_id == prepared.run.id
     assert len(prepared.candidates) == 1
     candidate = prepared.candidates[0]
     assert candidate.event_id == event.id
@@ -110,6 +116,9 @@ def test_successful_native_result_removes_future_candidate(tmp_path: Path) -> No
     assert completed.status == "succeeded"
     assert completed.delivery_attempts == 1
     assert completed.delivery_failures == 0
+    assert SQLiteServiceLeaseStore(
+        tmp_path / "runtime.sqlite3"
+    ).get("proactive-cycle") is None
     assert coordinator.prepare().candidates == ()
     assert deliveries.get(event.id, DESKTOP_NOTIFICATION_SINK_ID) == recorded
 
@@ -150,6 +159,9 @@ def test_failed_native_result_remains_retryable(tmp_path: Path) -> None:
     assert completed.status == "degraded"
     assert completed.delivery_attempts == 1
     assert completed.delivery_failures == 1
+    assert SQLiteServiceLeaseStore(
+        tmp_path / "runtime.sqlite3"
+    ).get("proactive-cycle") is None
     retry = coordinator.prepare().candidates
     assert len(retry) == 1
     assert retry[0].delivery_key == candidate.delivery_key
@@ -207,6 +219,9 @@ def test_prepare_without_notification_candidates_finishes_immediately(
     assert prepared.candidates == ()
     assert prepared.run.status == "succeeded"
     assert prepared.run.finished_at is not None
+    assert SQLiteServiceLeaseStore(
+        tmp_path / "runtime.sqlite3"
+    ).get("proactive-cycle") is None
 
 
 def test_next_prepare_interrupts_unfinished_native_delivery_run(
@@ -233,6 +248,12 @@ def test_next_prepare_interrupts_unfinished_native_delivery_run(
     )
     assert recorded.status == "succeeded"
 
+    leases = SQLiteServiceLeaseStore(tmp_path / "runtime.sqlite3")
+    assert leases.release(
+        name="proactive-cycle",
+        owner_id=first.run.id,
+    )
+
     second = coordinator.prepare()
     repaired = SQLiteServiceCycleRunStore(
         SQLiteDatabase(tmp_path / "ally.sqlite3")
@@ -243,3 +264,31 @@ def test_next_prepare_interrupts_unfinished_native_delivery_run(
     assert repaired.error_class == "PreviousProcessInterrupted"
     assert second.candidates == ()
     assert second.run.status == "succeeded"
+
+
+def test_overlapping_prepare_is_rejected_while_native_delivery_holds_lease(
+    tmp_path: Path,
+) -> None:
+    coordinator, events, _ = _coordinator(tmp_path)
+    events.create(
+        NewEvent(
+            type="synthetic.overlap",
+            source="desktop-proactive-test",
+            importance="urgent",
+            payload={"summary": "Synthetic overlap."},
+        ),
+        attention="notify",
+    )
+    prepared = coordinator.prepare()
+    assert prepared.run.status == "running"
+
+    with pytest.raises(ServiceLeaseUnavailableError, match="already held"):
+        coordinator.prepare()
+
+    coordinator.record_delivery_result(
+        run_id=prepared.run.id,
+        event_id=prepared.candidates[0].event_id,
+        delivery_key_value=prepared.candidates[0].delivery_key,
+        succeeded=True,
+    )
+    coordinator.complete(prepared.run.id)
