@@ -3,6 +3,7 @@
 from ally.storage.sqlite.attention import SQLiteAttentionDeliveryStore
 from ally.storage.sqlite.conversations import SQLiteConversationStore
 from ally.storage.sqlite.database import SQLiteDatabase
+from ally.storage.sqlite.egress_audit import SQLiteEgressAuditStore
 from ally.storage.sqlite.events import SQLiteEventStore
 from ally.storage.sqlite.instructions import SQLiteUserInstructionsStore
 from ally.storage.sqlite.knowledge import SQLiteKnowledgeStore
@@ -18,6 +19,7 @@ __all__ = [
     "SQLiteAttentionDeliveryStore",
     "SQLiteConversationStore",
     "SQLiteDatabase",
+    "SQLiteEgressAuditStore",
     "SQLiteEventSourceCheckpointStore",
     "SQLiteEventStore",
     "SQLiteKnowledgeStore",

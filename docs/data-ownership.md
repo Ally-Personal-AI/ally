@@ -15,6 +15,8 @@ Ally's personal data belongs to the user.
 - Replacing a model provider must not require replacing personal memory.
 - Removing an optional integration must not make core personal data inaccessible.
 - External services may add explicitly authorized tools or data sources, but they are not permitted to become processors of private Ally model context.
+- External disclosures must use reviewed field contracts and minimum-necessary
+  data; private-internal Ally state is not eligible for egress payloads.
 
 ## Backup boundary
 

@@ -109,3 +109,45 @@ def test_core_packages_do_not_import_sqlite_implementation() -> None:
         "Ally-owned protocols and compose concrete storage at the edge. "
         f"Violations: {violations}"
     )
+
+
+NETWORK_TRANSPORT_PREFIXES = (
+    "aiohttp",
+    "http.client",
+    "httpx",
+    "requests",
+    "socket",
+    "urllib.request",
+    "websockets",
+)
+NETWORK_TRANSPORT_ALLOWED_PREFIXES = (
+    Path("egress/adapters"),
+    Path("models/providers"),
+)
+
+
+def test_network_transport_is_confined_to_reviewed_boundaries() -> None:
+    """Network-capable imports stay inside model-provider or egress adapters."""
+
+    violations: list[str] = []
+    for path in _python_modules():
+        relative = _relative(path)
+        if any(
+            relative == prefix or relative.is_relative_to(prefix)
+            for prefix in NETWORK_TRANSPORT_ALLOWED_PREFIXES
+        ):
+            continue
+
+        imported = _imported_modules(path)
+        if any(
+            _imports_prefix(imported, prefix)
+            for prefix in NETWORK_TRANSPORT_PREFIXES
+        ):
+            violations.append(str(relative))
+
+    assert violations == [], (
+        "Network transports must stay inside ally.models.providers or "
+        "ally.egress.adapters; route new external integrations through the "
+        "controlled boundary. "
+        f"Violations: {violations}"
+    )

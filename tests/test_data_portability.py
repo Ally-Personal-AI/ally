@@ -7,6 +7,7 @@ import pytest
 from pydantic import SecretStr
 
 from ally.conversations import NewConversationMessage
+from ally.egress import EgressAuditRecord, EgressFieldManifest
 from ally.events import NewEvent
 from ally.portability import (
     BackupValidationError,
@@ -21,6 +22,7 @@ from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
     SQLiteConversationStore,
     SQLiteDatabase,
+    SQLiteEgressAuditStore,
     SQLiteEventSourceCheckpointStore,
     SQLiteEventStore,
     SQLiteScheduleStore,
@@ -105,6 +107,27 @@ def seed_database(path: Path) -> tuple[str, str, str]:
         scope_key="backup-project",
     )
 
+    egress_audit = SQLiteEgressAuditStore(database)
+    egress_audit.append(
+        EgressAuditRecord(
+            id=UUID("00000000-0000-0000-0000-000000000201"),
+            request_id=UUID("00000000-0000-0000-0000-000000000202"),
+            service="backup.service",
+            operation="send",
+            decision="allow",
+            status="succeeded",
+            approved=True,
+            fields=(
+                EgressFieldManifest(
+                    name="body",
+                    classification="explicit_outbound",
+                ),
+            ),
+            started_at=audit_time,
+            finished_at=audit_time,
+        )
+    )
+
     schedules = SQLiteScheduleStore(database)
     schedule = schedules.create(
         NewSchedule(
@@ -126,7 +149,7 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
     validated = validate_backup(archive)
 
     assert validated == manifest
-    assert manifest.database.schema_versions == (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
+    assert manifest.database.schema_versions == (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
 
     with ZipFile(archive, mode="r") as bundle:
         assert set(bundle.namelist()) == {"manifest.json", "ally.sqlite3"}
@@ -144,6 +167,7 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
     service_run_store = SQLiteServiceCycleRunStore(SQLiteDatabase(restored))
     skill_audit_store = SQLiteSkillExecutionAuditStore(SQLiteDatabase(restored))
     instruction_store = SQLiteUserInstructionsStore(SQLiteDatabase(restored))
+    egress_audit_store = SQLiteEgressAuditStore(SQLiteDatabase(restored))
 
     conversation = conversation_store.get(UUID(conversation_id))
     event = event_store.get(UUID(event_id))
@@ -181,6 +205,17 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
         restored_project_instructions.content
         == "Project-specific synthetic preference."
     )
+    restored_egress = egress_audit_store.list()
+    assert len(restored_egress) == 1
+    assert restored_egress[0].service == "backup.service"
+    assert restored_egress[0].fields == (
+        EgressFieldManifest(
+            name="body",
+            classification="explicit_outbound",
+        ),
+    )
+    assert not hasattr(restored_egress[0], "payload")
+    assert not hasattr(restored_egress[0], "output")
     restored_audit = skill_audit_store.list()
     assert len(restored_audit) == 1
     assert restored_audit[0].skill_id == "backup.skill"

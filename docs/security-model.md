@@ -82,6 +82,23 @@ Scan failures fail closed without advancing the source checkpoint. See
 [Local filesystem event source](filesystem-source.md) and
 [ADR 0026](adr/0026-filesystem-observation-is-metadata-only.md).
 
+## Controlled external egress
+
+External network actions are a separate security boundary from inference.
+
+Reviewed adapters declare fixed field names and classifications. Callers provide
+values but cannot self-classify them. Public fields may cross subject to action
+policy; explicitly outbound fields require approval; private-internal and secret
+fields are denied as egress payloads.
+
+Credentials are resolved through SecretStore at a trusted adapter edge rather
+than copied into model context or egress request fields. Egress audit is
+payload-free and records only destination/operation, policy outcome, approval
+state, field names/classifications, timestamps, and safe error classes.
+
+Common network transport imports are statically confined to model-provider and
+egress packages. See [Controlled External Egress](controlled-egress.md).
+
 ## Action classes
 
 Future actions will be classified at minimum as:

@@ -19,6 +19,7 @@ implementation of an earlier one.
 | Model plan proposals | Implemented boundary | strict TaskPlan proposals; no persistence or execution authority |
 | Model memory proposals | Implemented boundary | reviewable extraction bundles; explicit selected acceptance only |
 | Private intelligence boundary | Implemented core; runtime isolation pending | private chat/planning/memory/grounding loopback-only; remote access limited to bundled synthetic/public evals; local runtime no-egress acceptance pending |
+| Controlled external egress | Implemented foundation | trusted adapter-owned field classifications, explicit outbound approval, private/secret denial, payload-free audit, and network-import guard; concrete integrations deferred |
 | Dedicated-hardware validation | Ready to run | versioned runtime/model evidence, neutral comparison, behavioral qualification, and first-machine runbook |
 | Proactivity | Implemented substrate + macOS service/native attention adapters; machine acceptance pending | persisted events, deterministic attention, scheduling, stable-id native Notification Center delivery, payload-minimized notification rendering, restart-safe sources, lease-protected bounded cycle, portable lifecycle, structured readiness, opt-in deterministic launch agent |
 | Voice | Not started | local ASR/TTS and conversational voice |

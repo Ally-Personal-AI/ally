@@ -6,6 +6,7 @@ from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
     SQLiteConversationStore,
     SQLiteDatabase,
+    SQLiteEgressAuditStore,
     SQLiteEventSourceCheckpointStore,
     SQLiteEventStore,
     SQLiteKnowledgeStore,
@@ -77,6 +78,12 @@ def build_event_source_checkpoint_store() -> SQLiteEventSourceCheckpointStore:
     """Create the default external event-source checkpoint store."""
 
     return SQLiteEventSourceCheckpointStore(build_database())
+
+
+def build_egress_audit_store() -> SQLiteEgressAuditStore:
+    """Create the payload-free controlled-egress audit store."""
+
+    return SQLiteEgressAuditStore(build_database())
 
 
 def build_event_store() -> SQLiteEventStore:
