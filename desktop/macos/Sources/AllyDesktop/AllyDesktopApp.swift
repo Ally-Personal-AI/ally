@@ -7,6 +7,7 @@ private enum SidebarSelection: Hashable {
     case memory
     case knowledge
     case tasks
+    case attention
     case system
 }
 
@@ -57,6 +58,8 @@ private struct RootView: View {
                         .tag(SidebarSelection.knowledge)
                     Label("Tasks", systemImage: "checklist")
                         .tag(SidebarSelection.tasks)
+                    Label("Attention", systemImage: "bell.badge")
+                        .tag(SidebarSelection.attention)
                     Label("System", systemImage: "gauge.with.dots.needle.67percent")
                         .tag(SidebarSelection.system)
                 }
@@ -73,6 +76,8 @@ private struct RootView: View {
                     KnowledgeScreen(model: model)
                 case .tasks:
                     TasksScreen(model: model)
+                case .attention:
+                    AttentionScreen(model: model)
                 case .system, .none:
                     SystemScreen(model: model)
                 }
@@ -734,6 +739,279 @@ private struct TaskStepCard: View {
             .padding(4)
         } label: {
             Text("Step \(step.position + 1)")
+        }
+    }
+}
+
+private struct AttentionScreen: View {
+    @ObservedObject var model: AppModel
+    @State private var mode = "Events"
+    @State private var eventFilter = "Pending"
+
+    private var displayedEvents: [EventSummary] {
+        switch eventFilter {
+        case "Handled":
+            return model.attentionEvents.filter { $0.handledAt != nil }
+        case "All":
+            return model.attentionEvents
+        default:
+            return model.attentionEvents.filter { $0.handledAt == nil }
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("macOS notifications") {
+                    LabeledContent(
+                        "Authorization",
+                        value: notificationStatus(model.notificationAuthorization)
+                    )
+                    if model.notificationAuthorization.canRequestAuthorization {
+                        Button("Enable Notifications") {
+                            Task { await model.requestNotificationAuthorization() }
+                        }
+                        .disabled(model.isBusy)
+                    } else if model.notificationAuthorization == .denied {
+                        Text("Notifications are denied for this app. Change the permission in macOS System Settings if you want visible Ally alerts.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    } else if model.notificationAuthorization.canPresentNotifications {
+                        Text("The desktop app is authorized to present notifications. Durable delivery state and user-handled state remain separate inside Ally.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Notification authorization is currently unavailable or unrecognized. Ally's durable attention history remains local and inspectable.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section {
+                    Picker("View", selection: $mode) {
+                        Text("Events").tag("Events")
+                        Text("Delivery History").tag("Delivery History")
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                if mode == "Events" {
+                    Section {
+                        Picker("Events", selection: $eventFilter) {
+                            Text("Pending").tag("Pending")
+                            Text("Handled").tag("Handled")
+                            Text("All").tag("All")
+                        }
+                        .pickerStyle(.segmented)
+
+                        if displayedEvents.isEmpty {
+                            Text("No attention events in this view.")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(displayedEvents) { event in
+                                NavigationLink(value: event.id) {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(event.displayText)
+                                            .lineLimit(3)
+                                        HStack(spacing: 8) {
+                                            Text(event.attention.replacingOccurrences(of: "_", with: " ").capitalized)
+                                            Text(event.importance.capitalized)
+                                            Text(event.handledAt == nil ? "Pending" : "Handled")
+                                        }
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    }
+                                    .padding(.vertical, 4)
+                                }
+                            }
+                        }
+                    } header: {
+                        Text("Attention events")
+                    } footer: {
+                        Text("A delivered notification is not the same as a handled event. Ally only marks an event handled after an explicit local action.")
+                    }
+                } else {
+                    Section("Delivery history") {
+                        if model.attentionDeliveryHistory.isEmpty {
+                            Text("No delivery attempts recorded.")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(model.attentionDeliveryHistory) { delivery in
+                                NavigationLink(value: delivery.eventId) {
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        HStack {
+                                            Text(delivery.sinkId)
+                                                .font(.headline)
+                                            Spacer()
+                                            Text(delivery.status.capitalized)
+                                        }
+                                        Text("Attempts: \(delivery.attempts)")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        if let error = delivery.lastError {
+                                            Text(error)
+                                                .font(.caption.monospaced())
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                    .padding(.vertical, 4)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Attention")
+            .navigationDestination(for: String.self) { eventID in
+                AttentionDetailScreen(model: model, eventID: eventID)
+            }
+            .task {
+                await model.refreshAttention()
+                await model.refreshNotificationAuthorization()
+            }
+        }
+    }
+
+    private func notificationStatus(
+        _ state: DesktopNotificationAuthorizationState
+    ) -> String {
+        switch state {
+        case .authorized:
+            return "Authorized"
+        case .denied:
+            return "Denied"
+        case .notDetermined:
+            return "Not Determined"
+        case .provisional:
+            return "Provisional"
+        case .unknown:
+            return "Unknown"
+        }
+    }
+}
+
+private struct AttentionDetailScreen: View {
+    @ObservedObject var model: AppModel
+    let eventID: String
+    @State private var showingHandledConfirmation = false
+
+    var body: some View {
+        ScrollView {
+            if let detail = model.attentionDetail, detail.event.id == eventID {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text(detail.event.displayText)
+                        .font(.title2)
+                        .textSelection(.enabled)
+
+                    GroupBox("Event") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            LabeledContent("Type", value: detail.event.type)
+                            LabeledContent("Source", value: detail.event.source)
+                            LabeledContent("Importance", value: detail.event.importance)
+                            LabeledContent("Attention", value: detail.event.attention)
+                            LabeledContent(
+                                "State",
+                                value: detail.event.handledAt == nil ? "Pending" : "Handled"
+                            )
+                            LabeledContent("Created", value: detail.event.createdAt)
+                            if let handledAt = detail.event.handledAt {
+                                LabeledContent("Handled", value: handledAt)
+                            }
+                            if let dedupeKey = detail.event.dedupeKey {
+                                LabeledContent("Dedupe key", value: dedupeKey)
+                                    .textSelection(.enabled)
+                            }
+                            LabeledContent("Event ID", value: detail.event.id)
+                                .textSelection(.enabled)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(4)
+                    }
+
+                    GroupBox("Local payload") {
+                        if detail.event.payload.isEmpty {
+                            Text("No payload fields.")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(detail.event.payload.keys.sorted(), id: \.self) { key in
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(key)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Text(detail.event.payload[key]?.displayText ?? "null")
+                                            .font(.caption.monospaced())
+                                            .textSelection(.enabled)
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(4)
+                        }
+                    }
+
+                    GroupBox("Delivery history") {
+                        if detail.deliveries.isEmpty {
+                            Text("No delivery attempt has been recorded for this event.")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            VStack(alignment: .leading, spacing: 12) {
+                                ForEach(detail.deliveries) { delivery in
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack {
+                                            Text(delivery.sinkId)
+                                                .font(.headline)
+                                            Spacer()
+                                            Text(delivery.status.capitalized)
+                                        }
+                                        LabeledContent("Attempts", value: String(delivery.attempts))
+                                        LabeledContent("Updated", value: delivery.updatedAt)
+                                        if let deliveredAt = delivery.deliveredAt {
+                                            LabeledContent("Delivered", value: deliveredAt)
+                                        }
+                                        if let error = delivery.lastError {
+                                            LabeledContent("Safe error", value: error)
+                                        }
+                                    }
+                                    .padding(.vertical, 4)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(4)
+                        }
+                    }
+
+                    if detail.event.handledAt == nil {
+                        Button("Mark Handled") {
+                            showingHandledConfirmation = true
+                        }
+                        .disabled(model.isBusy)
+                    } else {
+                        Text("This event is handled. Delivery records remain preserved for provenance.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding()
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity, minHeight: 240)
+            }
+        }
+        .navigationTitle("Attention Detail")
+        .task(id: eventID) {
+            await model.selectAttention(eventID)
+        }
+        .alert(
+            "Mark this event handled?",
+            isPresented: $showingHandledConfirmation
+        ) {
+            Button("Cancel", role: .cancel) {}
+            Button("Mark Handled") {
+                Task { await model.markAttentionHandled(eventID) }
+            }
+        } message: {
+            Text("This changes only Ally's local handled state. It does not delete the event or its delivery history.")
         }
     }
 }
