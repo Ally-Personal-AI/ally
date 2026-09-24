@@ -1,5 +1,11 @@
 """Composable runtime service operations."""
 
+from ally.service.desktop import (
+    DESKTOP_NOTIFICATION_SINK_ID,
+    DesktopNotificationCandidate,
+    DesktopProactiveCoordinator,
+    DesktopProactivePreparation,
+)
 from ally.service.leases import (
     ServiceLeaseRecord,
     ServiceLeaseUnavailableError,
@@ -26,6 +32,10 @@ from ally.service.store import (
 )
 
 __all__ = [
+    "DESKTOP_NOTIFICATION_SINK_ID",
+    "DesktopNotificationCandidate",
+    "DesktopProactiveCoordinator",
+    "DesktopProactivePreparation",
     "HealthCheckSeverity",
     "ProactiveCycleReport",
     "ProactiveServiceCycle",
