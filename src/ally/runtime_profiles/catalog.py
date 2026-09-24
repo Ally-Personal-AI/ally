@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -66,10 +67,8 @@ class RuntimeProfileCatalog:
                     "runtime profile catalog root must not be a symlink"
                 )
             self.root.mkdir(parents=True, exist_ok=True)
-            try:
+            with suppress(OSError):
                 self.root.chmod(0o700)
-            except OSError:
-                pass
         except RuntimeProfileCatalogError:
             raise
         except OSError as exc:
@@ -155,20 +154,16 @@ class RuntimeProfileCatalog:
                     + "\n",
                     encoding="utf-8",
                 )
-                try:
+                with suppress(OSError):
                     temporary.chmod(0o600)
-                except OSError:
-                    pass
                 try:
                     os.link(temporary, destination)
                 except FileExistsError as exc:
                     raise RuntimeProfileCatalogError(
                         "runtime profile appeared concurrently during installation"
                     ) from exc
-                try:
+                with suppress(OSError):
                     destination.chmod(0o600)
-                except OSError:
-                    pass
             except RuntimeProfileCatalogError:
                 raise
             except OSError as exc:
@@ -176,10 +171,8 @@ class RuntimeProfileCatalog:
                     "runtime profile could not be installed"
                 ) from exc
         finally:
-            try:
+            with suppress(OSError):
                 temporary.unlink(missing_ok=True)
-            except OSError:
-                pass
         return destination
 
     def list(self) -> tuple[ValidatedRuntimeProfile, ...]:
@@ -263,24 +256,18 @@ class RuntimeProfileCatalog:
                     + "\n",
                     encoding="utf-8",
                 )
-                try:
+                with suppress(OSError):
                     temporary.chmod(0o600)
-                except OSError:
-                    pass
                 os.replace(temporary, self.selection_path)
-                try:
+                with suppress(OSError):
                     self.selection_path.chmod(0o600)
-                except OSError:
-                    pass
             except OSError as exc:
                 raise RuntimeProfileCatalogError(
                     "active runtime profile selection could not be written"
                 ) from exc
         finally:
-            try:
+            with suppress(OSError):
                 temporary.unlink(missing_ok=True)
-            except OSError:
-                pass
         return selection
 
     def _load_selection(self) -> ActiveRuntimeProfileSelection:
@@ -353,11 +340,10 @@ class RuntimeProfileCatalog:
         """Remove an inactive installed profile only."""
 
         selection = self.selection()
-        if selection is not None:
-            if selection.profile_id == profile_id:
-                raise RuntimeProfileCatalogError(
-                    "cannot remove the active runtime profile; deselect it first"
-                )
+        if selection is not None and selection.profile_id == profile_id:
+            raise RuntimeProfileCatalogError(
+                "cannot remove the active runtime profile; deselect it first"
+            )
         path = self._profile_path(profile_id)
         if path.is_symlink():
             raise RuntimeProfileCatalogError(
