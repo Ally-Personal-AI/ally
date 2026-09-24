@@ -1,3 +1,5 @@
+import pytest
+
 from ally.cli import build_parser
 
 
@@ -7,8 +9,6 @@ def test_chat_parser_defaults_to_loopback_endpoint() -> None:
     assert args.command == "chat"
     assert args.endpoint == "http://127.0.0.1:8080/v1"
     assert args.model == "example"
-    assert args.allow_remote is False
-    assert args.allow_private_context_remote is False
     assert args.conversation is None
 
 
@@ -20,19 +20,16 @@ def test_chat_parser_accepts_conversation_resume_id() -> None:
     assert args.conversation == "abc"
 
 
-def test_chat_parser_requires_separate_private_context_remote_flag() -> None:
-    args = build_parser().parse_args(
-        [
-            "chat",
-            "--model",
-            "example",
-            "--allow-remote",
-            "--allow-private-context-remote",
-        ]
-    )
-
-    assert args.allow_remote is True
-    assert args.allow_private_context_remote is True
+def test_chat_parser_rejects_legacy_remote_private_flags() -> None:
+    parser = build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            ["chat", "--model", "example", "--allow-remote"]
+        )
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            ["chat", "--model", "example", "--allow-private-context-remote"]
+        )
 
 
 def test_conversations_list_parser_defaults_limit() -> None:
@@ -119,7 +116,6 @@ def test_eval_provider_parser_defaults_to_loopback() -> None:
     assert args.eval_command == "provider"
     assert args.endpoint == "http://127.0.0.1:8080/v1"
     assert args.model == "example"
-    assert args.allow_remote is False
 
 
 def test_tools_list_parser() -> None:
@@ -219,7 +215,6 @@ def test_plan_propose_parser_defaults_to_loopback() -> None:
     assert args.endpoint == "http://127.0.0.1:8080/v1"
     assert args.model == "example"
     assert args.goal == "Inspect runtime"
-    assert args.allow_remote is False
 
 
 def test_memory_propose_parser_has_local_safe_defaults() -> None:
@@ -237,7 +232,6 @@ def test_memory_propose_parser_has_local_safe_defaults() -> None:
     assert args.endpoint == "http://127.0.0.1:8080/v1"
     assert args.model == "example"
     assert args.text == "I prefer tea."
-    assert args.allow_remote is False
     assert args.source_type == "user"
     assert args.privacy == "private"
     assert args.output is None
@@ -658,5 +652,5 @@ def test_eval_behavior_parser_defaults_to_loopback() -> None:
     assert args.eval_command == "behavior"
     assert args.endpoint == "http://127.0.0.1:8080/v1"
     assert args.model == "example"
-    assert args.allow_remote is False
+    assert args.allow_remote_public is False
     assert args.case_file is None
