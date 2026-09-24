@@ -315,3 +315,41 @@ def test_validation_session_show_refresh_verify_parsers() -> None:
     assert refresh.json_output is True
     assert verify.validation_session_command == "verify"
     assert verify.json_output is True
+
+
+
+def test_profiles_catalog_management_parsers() -> None:
+    install = build_parser().parse_args(
+        [
+            "profiles",
+            "install",
+            "profile.json",
+            "validation.json",
+            "privacy.json",
+            "workflows.json",
+            "--json",
+        ]
+    )
+    installed = build_parser().parse_args(["profiles", "installed", "--json"])
+    select = build_parser().parse_args(
+        ["profiles", "select", "a" * 64, "--json"]
+    )
+    active = build_parser().parse_args(["profiles", "active", "--json"])
+    deselect = build_parser().parse_args(["profiles", "deselect"])
+    remove = build_parser().parse_args(["profiles", "remove", "b" * 64])
+
+    assert install.profiles_command == "install"
+    assert install.profile == "profile.json"
+    assert install.validation_report == "validation.json"
+    assert install.privacy_report == "privacy.json"
+    assert install.workflow_report == "workflows.json"
+    assert install.json_output is True
+    assert installed.profiles_command == "installed"
+    assert installed.json_output is True
+    assert select.profiles_command == "select"
+    assert select.profile_id == "a" * 64
+    assert active.profiles_command == "active"
+    assert active.json_output is True
+    assert deselect.profiles_command == "deselect"
+    assert remove.profiles_command == "remove"
+    assert remove.profile_id == "b" * 64
