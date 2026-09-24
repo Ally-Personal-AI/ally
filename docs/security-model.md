@@ -55,8 +55,10 @@ deliberately present.
 Loopback constrains Ally's request destination, but a local model runtime is
 still independently executing software. Production runtime qualification must
 verify that the selected runtime can operate without external network access and
-does not export prompts through telemetry or other egress. See
-[Private Intelligence Boundary](private-intelligence-boundary.md).
+does not export prompts through telemetry or other egress. That evidence is
+stored separately from model-capability results and fails closed when any check
+is missing. See [Private Intelligence Boundary](private-intelligence-boundary.md)
+and [Runtime Privacy Qualification](runtime-privacy-qualification.md).
 
 ## Validation evidence
 
