@@ -492,6 +492,33 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
             )
         )
 
+    if request.method == "attention.notification_result":
+        params = cast(
+            _NotificationResultParams,
+            _validate_params(_NotificationResultParams, request.params),
+        )
+        return _json_value(
+            app.record_desktop_notification_result(
+                DesktopNotificationResultRequest(
+                    event_id=params.event_id,
+                    delivery_key=params.delivery_key,
+                    succeeded=params.succeeded,
+                )
+            ).model_dump(mode="json")
+        )
+
+    if request.method == "service.prepare_proactive":
+        params = cast(
+            _DesktopProactiveParams,
+            _validate_params(_DesktopProactiveParams, request.params),
+        )
+        return _json_value(
+            app.prepare_desktop_proactive(
+                schedule_limit=params.schedule_limit,
+                delivery_limit=params.delivery_limit,
+            ).model_dump(mode="json")
+        )
+
     if request.method == "service.health":
         _validate_params(_EmptyParams, request.params)
         return _json_value(app.service_health().model_dump(mode="json"))
