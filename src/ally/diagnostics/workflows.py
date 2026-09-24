@@ -279,7 +279,8 @@ def _backup_restore_check(
     restore_backup(archive, restored_path)
 
     restored = SQLiteMemoryStore(SQLiteDatabase(restored_path)).get(marker.id)
-    _require(restored is not None)
+    if restored is None:
+        raise AssertionError("synthetic restore marker is missing")
     _require(restored.content == "Synthetic backup recovery marker BRAVO-904.")
 
 
