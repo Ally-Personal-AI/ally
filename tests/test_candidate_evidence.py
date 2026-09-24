@@ -6,6 +6,10 @@ from pathlib import Path
 import pytest
 
 from ally import __version__
+from ally.commands.validate import (
+    run_compare_candidate_evidence,
+    run_show_candidate_evidence,
+)
 from ally.diagnostics import (
     EvaluationSuiteProfile,
     HardwareProfile,
@@ -251,3 +255,83 @@ def test_candidate_comparison_warns_when_hardware_differs(tmp_path: Path) -> Non
 
     assert comparison.same_hardware is False
     assert any("Hardware profiles differ" in warning for warning in comparison.warnings)
+
+
+
+def test_candidate_command_reports_verified_eligibility(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    validation, privacy = _pair(
+        tmp_path,
+        stem="candidate",
+        model="model",
+    )
+
+    result = run_show_candidate_evidence(
+        validation_report=str(validation),
+        privacy_report=str(privacy),
+        json_output=False,
+    )
+    output = capsys.readouterr().out
+
+    assert result == 0
+    assert "Production eligible: yes" in output
+    assert "Capability validation: pass" in output
+    assert "Runtime privacy: qualified" in output
+
+
+def test_candidate_command_rejects_mismatched_pair(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _, privacy_a = _pair(
+        tmp_path,
+        stem="a",
+        model="model-a",
+    )
+    validation_b, _ = _pair(
+        tmp_path,
+        stem="b",
+        model="model-b",
+    )
+
+    result = run_show_candidate_evidence(
+        validation_report=str(validation_b),
+        privacy_report=str(privacy_a),
+        json_output=False,
+    )
+
+    assert result == 2
+    assert "Candidate evidence error:" in capsys.readouterr().out
+
+
+def test_candidate_comparison_command_shows_privacy_eligibility(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    a_validation, a_privacy = _pair(
+        tmp_path,
+        stem="a",
+        model="model-a",
+    )
+    b_validation, b_privacy = _pair(
+        tmp_path,
+        stem="b",
+        model="model-b",
+        privacy_qualified=False,
+    )
+
+    result = run_compare_candidate_evidence(
+        pairs=(
+            (str(a_validation), str(a_privacy)),
+            (str(b_validation), str(b_privacy)),
+        ),
+        json_output=False,
+    )
+    output = capsys.readouterr().out
+
+    assert result == 0
+    assert output.count("Production eligible:") == 2
+    assert "Privacy: unqualified" in output
+    assert "No default is selected automatically" in output
