@@ -9,7 +9,7 @@ implementation of an earlier one.
 | Data portability | Implemented V1 | versioned integrity-checked SQLite backup/restore archives |
 | Configuration / secrets | Adapter implemented; machine acceptance pending | strict non-secret config, direct macOS Security-framework adapter, reference-only CLI, fail-closed tests |
 | Local conversation | Implemented | provider-neutral private chat with active validated-profile resolution by default, loopback-only development override, and no remote escape hatch |
-| Application facade | Implemented V1 | typed UI-neutral runtime/chat/conversation/memory/knowledge services plus task approval/execution, pending attention/history, and read-only service health/history; consequential attention delivery and proactive-cycle execution remain explicit runtime actions |
+| Application facade | Implemented V1 + desktop bootstrap | typed UI-neutral runtime/chat/conversation/memory/knowledge services plus task approval/execution, pending attention/history, read-only service health/history, and one bounded non-throwing desktop bootstrap snapshot; consequential attention delivery and proactive-cycle execution remain explicit runtime actions |
 | User instructions | Implemented V2 | global/project/conversation/task profiles, enable/disable, provenance-aware composition, and ephemeral session instructions |
 | Behavioral model qualification | Implemented V1 | separate refusal, instruction-following, calibration, moralizing, and paired viewpoint-symmetry evidence integrated into local-model validation |
 | Long-term memory | Implemented V1 | temporal/provenance-aware explicit memory and grounding |
@@ -45,10 +45,11 @@ personal AI with:
 - user-owned portable backups;
 - a reproducible local-model validation path.
 
-The repository now contains the deterministic substrate for that target and is
-also growing the interface-neutral application layer needed for daily desktop
-use. Hardware evidence will inform model/runtime choices while application,
-workflow, security, and product architecture continue to advance independently.
+The repository now contains the deterministic substrate for that target plus
+the interface-neutral application and bootstrap contracts needed to start the
+minimal desktop shell without duplicating Ally Core logic. Hardware evidence
+will inform model/runtime choices while desktop packaging, workflow, security,
+and product architecture continue to advance independently.
 
 ## Pre-hardware hardening
 

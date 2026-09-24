@@ -26,6 +26,7 @@ from zipfile import ZipFile
 
 import ally
 from ally.cli import main as ally_main
+from ally.composition import build_default_application
 from ally.diagnostics import load_validation_report
 from ally.storage.sqlite import SQLiteConversationStore, SQLiteDatabase, SQLiteMemoryStore
 
@@ -415,6 +416,28 @@ def run_workflows(root: Path) -> None:
     require(cycle["run"]["status"] == "succeeded", "bounded service cycle")
     health = json.loads(cli("service", "health", "--json"))
     require(health["status"] == "healthy", "service health")
+
+    bootstrap = json.loads(output([
+        sys.executable,
+        "-I",
+        str(Path(__file__).resolve()),
+        "--bootstrap",
+        str(root),
+    ]))
+    require(
+        bootstrap["runtime"]["state"] == "unavailable",
+        "bootstrap represents missing active runtime without failing",
+    )
+    require(
+        bootstrap["tasks"]["state"] == "available"
+        and len(bootstrap["tasks"]["items"]) >= 1,
+        "bootstrap includes installed task state",
+    )
+    require(
+        bootstrap["service_health"]["state"] == "available"
+        and bootstrap["service_health"]["report"]["status"] == "healthy",
+        "bootstrap includes service health",
+    )
     launch_agent = plistlib.loads(cli("service", "managed", "inspect").encode())
     require(
         launch_agent["ProgramArguments"][2:] == [
@@ -477,6 +500,19 @@ def main() -> int:
             patch("ally.config.user_data_dir", return_value=str(root / "data")),
         ):
             return ally_main(sys.argv[3:])
+    if len(sys.argv) > 1 and sys.argv[1] == "--bootstrap":
+        root = Path(sys.argv[2])
+        with (
+            patch("ally.config.user_config_dir", return_value=str(root / "config")),
+            patch("ally.config.user_data_dir", return_value=str(root / "data")),
+        ):
+            print(
+                json.dumps(
+                    build_default_application().bootstrap().model_dump(mode="json"),
+                    sort_keys=True,
+                )
+            )
+        return 0
     require(
         all(find_spec(package) is None for package in ("pytest", "ruff", "hatchling")),
         "development/build dependencies must not leak into the runtime environment",

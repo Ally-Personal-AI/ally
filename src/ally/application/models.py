@@ -7,7 +7,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ally.attention import AttentionDeliveryRecord
 from ally.conversations import Conversation, ConversationMessage
+from ally.events import EventRecord
 from ally.knowledge import KnowledgeChunk, KnowledgeRevision, KnowledgeSource
 from ally.memory import (
     MemoryKind,
@@ -16,6 +18,7 @@ from ally.memory import (
 )
 from ally.models import ChatResponse
 from ally.runtime_profiles import ResolvedInferenceTarget
+from ally.service import ServiceCycleRunRecord, ServiceHealthReport
 from ally.tasks import TaskRecord, TaskStepRecord
 
 
@@ -165,3 +168,81 @@ class RunTaskRequest(BaseModel):
 
     task_id: UUID
     approved_steps: tuple[UUID, ...] = ()
+
+
+BootstrapSectionState = Literal["available", "unavailable", "error"]
+BootstrapSectionErrorCode = Literal["operations_unavailable", "read_failed"]
+
+
+class BootstrapLimits(BaseModel):
+    """Bounded startup/dashboard collection limits."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    conversations: int = Field(default=20, ge=1, le=100)
+    tasks: int = Field(default=20, ge=1, le=100)
+    pending_attention: int = Field(default=20, ge=1, le=100)
+    attention_history: int = Field(default=20, ge=1, le=100)
+    service_history: int = Field(default=10, ge=1, le=100)
+
+
+class ConversationBootstrapSection(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    state: BootstrapSectionState
+    items: tuple[Conversation, ...] = ()
+    error_code: BootstrapSectionErrorCode | None = None
+
+
+class TaskBootstrapSection(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    state: BootstrapSectionState
+    items: tuple[TaskRecord, ...] = ()
+    error_code: BootstrapSectionErrorCode | None = None
+
+
+class PendingAttentionBootstrapSection(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    state: BootstrapSectionState
+    items: tuple[EventRecord, ...] = ()
+    error_code: BootstrapSectionErrorCode | None = None
+
+
+class AttentionHistoryBootstrapSection(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    state: BootstrapSectionState
+    items: tuple[AttentionDeliveryRecord, ...] = ()
+    error_code: BootstrapSectionErrorCode | None = None
+
+
+class ServiceHistoryBootstrapSection(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    state: BootstrapSectionState
+    items: tuple[ServiceCycleRunRecord, ...] = ()
+    error_code: BootstrapSectionErrorCode | None = None
+
+
+class ServiceHealthBootstrapSection(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    state: BootstrapSectionState
+    report: ServiceHealthReport | None = None
+    error_code: BootstrapSectionErrorCode | None = None
+
+
+class AllyBootstrapSnapshot(BaseModel):
+    """Read-only bounded state for the first desktop/dashboard render."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    runtime: RuntimeInferenceStatus
+    conversations: ConversationBootstrapSection
+    tasks: TaskBootstrapSection
+    pending_attention: PendingAttentionBootstrapSection
+    attention_history: AttentionHistoryBootstrapSection
+    service_history: ServiceHistoryBootstrapSection
+    service_health: ServiceHealthBootstrapSection

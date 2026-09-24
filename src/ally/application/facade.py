@@ -9,20 +9,28 @@ from pathlib import Path
 from uuid import UUID
 
 from ally.application.models import (
+    AllyBootstrapSnapshot,
     ApplicationNotFoundError,
     ApplicationUnavailableError,
+    AttentionHistoryBootstrapSection,
+    BootstrapLimits,
     ChatTurnRequest,
     ChatTurnResult,
+    ConversationBootstrapSection,
     ConversationView,
     KnowledgeIngestResult,
     KnowledgeSearchResult,
     KnowledgeSourceView,
     KnowledgeTextIngestRequest,
     MemoryProposalRequest,
+    PendingAttentionBootstrapSection,
     RememberMemoryRequest,
     RunTaskRequest,
     RuntimeInferenceStatus,
+    ServiceHealthBootstrapSection,
+    ServiceHistoryBootstrapSection,
     SupersedeMemoryRequest,
+    TaskBootstrapSection,
     TaskView,
 )
 from ally.application.operations import ApplicationOperations
@@ -107,6 +115,116 @@ class AllyApplication:
                 error_code="active_profile_unavailable",
             )
         return RuntimeInferenceStatus(state="ready", target=target)
+
+    def bootstrap(
+        self,
+        *,
+        limits: BootstrapLimits | None = None,
+    ) -> AllyBootstrapSnapshot:
+        """Return bounded best-effort read-only state for initial UI rendering."""
+
+        selected = limits or BootstrapLimits()
+
+        try:
+            conversations = ConversationBootstrapSection(
+                state="available",
+                items=self.list_conversations(limit=selected.conversations),
+            )
+        except Exception:
+            conversations = ConversationBootstrapSection(
+                state="error",
+                error_code="read_failed",
+            )
+
+        try:
+            tasks = TaskBootstrapSection(
+                state="available",
+                items=self.list_tasks(limit=selected.tasks),
+            )
+        except ApplicationUnavailableError:
+            tasks = TaskBootstrapSection(
+                state="unavailable",
+                error_code="operations_unavailable",
+            )
+        except Exception:
+            tasks = TaskBootstrapSection(
+                state="error",
+                error_code="read_failed",
+            )
+
+        try:
+            pending_attention = PendingAttentionBootstrapSection(
+                state="available",
+                items=self.pending_attention(limit=selected.pending_attention),
+            )
+        except ApplicationUnavailableError:
+            pending_attention = PendingAttentionBootstrapSection(
+                state="unavailable",
+                error_code="operations_unavailable",
+            )
+        except Exception:
+            pending_attention = PendingAttentionBootstrapSection(
+                state="error",
+                error_code="read_failed",
+            )
+
+        try:
+            attention_history = AttentionHistoryBootstrapSection(
+                state="available",
+                items=self.attention_history(limit=selected.attention_history),
+            )
+        except ApplicationUnavailableError:
+            attention_history = AttentionHistoryBootstrapSection(
+                state="unavailable",
+                error_code="operations_unavailable",
+            )
+        except Exception:
+            attention_history = AttentionHistoryBootstrapSection(
+                state="error",
+                error_code="read_failed",
+            )
+
+        try:
+            service_history = ServiceHistoryBootstrapSection(
+                state="available",
+                items=self.service_history(limit=selected.service_history),
+            )
+        except ApplicationUnavailableError:
+            service_history = ServiceHistoryBootstrapSection(
+                state="unavailable",
+                error_code="operations_unavailable",
+            )
+        except Exception:
+            service_history = ServiceHistoryBootstrapSection(
+                state="error",
+                error_code="read_failed",
+            )
+
+        try:
+            service_health = ServiceHealthBootstrapSection(
+                state="available",
+                report=self.service_health(),
+            )
+        except ApplicationUnavailableError:
+            service_health = ServiceHealthBootstrapSection(
+                state="unavailable",
+                error_code="operations_unavailable",
+            )
+        except Exception:
+            service_health = ServiceHealthBootstrapSection(
+                state="error",
+                error_code="read_failed",
+            )
+
+        return AllyBootstrapSnapshot(
+            runtime=self.runtime_status(),
+            conversations=conversations,
+            tasks=tasks,
+            pending_attention=pending_attention,
+            attention_history=attention_history,
+            service_history=service_history,
+            service_health=service_health,
+        )
 
     def create_conversation(self, *, title: str | None = None) -> Conversation:
         return self._conversations.create(title=title)

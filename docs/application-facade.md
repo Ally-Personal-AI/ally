@@ -29,6 +29,39 @@ The first application slice exposes:
 All request/result models are Pydantic models or existing immutable Ally domain
 models and are suitable for local UI serialization.
 
+## Desktop bootstrap contract
+
+The intended first call for the minimal native desktop shell is:
+
+```python
+snapshot = build_default_application().bootstrap()
+```
+
+`AllyBootstrapSnapshot` is a bounded, immutable, serialization-friendly
+dashboard/startup view containing:
+
+- private inference readiness and active validated-runtime provenance when ready;
+- recent conversations;
+- recent tasks, including `waiting_approval`;
+- pending attention;
+- recent attention delivery history;
+- recent proactive service lifecycle history; and
+- read-only service health.
+
+Collection sizes are bounded by `BootstrapLimits` (20/20/20/20/10 by default,
+with each collection capped at 100).
+
+Bootstrap is deliberately best-effort. A missing active runtime is represented
+inside `runtime` and does not prevent local state from loading. Operational
+services omitted by a custom/test composition return explicit `unavailable`
+sections. Ordinary subsection read failures return a stable `read_failed`
+code without serializing exception messages, file paths, or private diagnostic
+details.
+
+The bootstrap call has no external side effects: it does not run tasks, approve
+steps, deliver notifications, execute a service cycle, invoke a model, or mutate
+attention state.
+
 ## Private chat path
 
 The shared chat flow is:
