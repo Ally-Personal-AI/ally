@@ -15,9 +15,13 @@ Default path:
 
 Current schema V1 contains:
 
-- local inference endpoint
-- optional non-secret model identifier
-- remote-inference privacy defaults
+- a loopback-only private inference endpoint;
+- an optional non-secret model identifier; and
+- the hard `private_inference_local_only = true` privacy invariant.
+
+Legacy remote-inference fields set to `false` are accepted only so older safe
+config files continue to load. Setting either legacy remote field to `true`
+fails validation.
 
 Unknown fields are rejected. There is intentionally no generic free-form
 settings dictionary.
