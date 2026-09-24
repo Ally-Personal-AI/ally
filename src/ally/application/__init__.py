@@ -1,3 +1,4 @@
+from ally.application.operations import ApplicationOperations, ServiceHealthProvider
 """UI-neutral application services for Ally presentation adapters."""
 
 from ally.application.facade import (
@@ -26,6 +27,7 @@ from ally.application.models import (
 
 __all__ = [
     "AllyApplication",
+    "ApplicationOperations",
     "ApplicationError",
     "ApplicationNotFoundError",
     "ApplicationUnavailableError",
@@ -42,6 +44,7 @@ __all__ = [
     "RememberMemoryRequest",
     "RunTaskRequest",
     "RuntimeInferenceStatus",
+    "ServiceHealthProvider",
     "SupersedeMemoryRequest",
     "TaskView",
 ]
