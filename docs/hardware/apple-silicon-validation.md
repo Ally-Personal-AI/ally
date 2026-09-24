@@ -96,7 +96,8 @@ Bind the server to `127.0.0.1`. Record:
 - quantization / precision
 - configured context length
 - runtime flags
-- approximate model file size
+- exact model weight/shard artifact paths for local hashing
+- stable runtime binary/package artifact paths when available
 
 Do not change multiple variables between comparison runs unless the run is
 explicitly exploratory. Translate only reproducibility-critical, non-secret
@@ -128,7 +129,8 @@ uv run ally validate local-model \
   --runtime-version <exact-version> \
   --model-source <public-model-id> \
   --quantization <quantization> \
-  --model-size-bytes <bytes> \
+  --model-artifact <local-weight-or-shard> \
+  --runtime-artifact <local-runtime-binary-or-package> \
   --context-length <tokens> \
   --output validation/<runtime>-<model>.json
 ```
@@ -153,6 +155,7 @@ The generated JSON contains:
 - Ally version
 - timestamp
 - endpoint, model identifier, and non-secret runtime profile
+- path-free SHA-256/size fingerprints for supplied model/runtime artifacts
 - content fingerprints for all three frozen evaluation files
 - machine/OS/Python profile
 - deterministic core evaluation results
