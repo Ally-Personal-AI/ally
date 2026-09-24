@@ -18,8 +18,8 @@ EgressDecision = Literal["allow", "require_approval", "deny"]
 EgressStatus = Literal["succeeded", "approval_required", "denied", "failed"]
 
 
-class EgressField(BaseModel):
-    """One explicitly declared outbound field."""
+class EgressFieldSpec(BaseModel):
+    """Trusted adapter declaration for one possible outbound field."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -29,11 +29,35 @@ class EgressField(BaseModel):
         pattern=r"^[a-zA-Z][a-zA-Z0-9_.-]*$",
     )
     classification: EgressDataClass
-    value: JsonValue
+    required: bool = True
+
+
+class EgressOperationSpec(BaseModel):
+    """Trusted field-classification schema for one external operation."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    operation: str = Field(
+        min_length=1,
+        max_length=128,
+        pattern=r"^[a-z0-9][a-z0-9_.-]*$",
+    )
+    fields: tuple[EgressFieldSpec, ...] = Field(max_length=100)
+
+    @model_validator(mode="after")
+    def require_unique_field_names(self) -> EgressOperationSpec:
+        names = [field.name for field in self.fields]
+        if len(names) != len(set(names)):
+            raise ValueError("egress operation field names must be unique")
+        return self
 
 
 class EgressRequest(BaseModel):
-    """A complete proposed external disclosure."""
+    """Values proposed for one declared external operation.
+
+    Classifications deliberately do not appear here. They come from trusted
+    adapter code, not model/user-supplied request values.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -48,14 +72,7 @@ class EgressRequest(BaseModel):
         max_length=128,
         pattern=r"^[a-z0-9][a-z0-9_.-]*$",
     )
-    fields: tuple[EgressField, ...] = Field(max_length=100)
-
-    @model_validator(mode="after")
-    def require_unique_field_names(self) -> EgressRequest:
-        names = [field.name for field in self.fields]
-        if len(names) != len(set(names)):
-            raise ValueError("egress field names must be unique")
-        return self
+    fields: dict[str, JsonValue] = Field(max_length=100)
 
 
 class EgressFieldManifest(BaseModel):
@@ -77,6 +94,7 @@ class EgressInspection(BaseModel):
     operation: str
     decision: EgressDecision
     fields: tuple[EgressFieldManifest, ...]
+    error_class: str | None = Field(default=None, max_length=128)
 
 
 class EgressExecution(BaseModel):
@@ -93,3 +111,21 @@ class EgressExecution(BaseModel):
     finished_at: datetime
     output: JsonValue | None = None
     error_class: str | None = Field(default=None, max_length=128)
+
+    @model_validator(mode="after")
+    def validate_terminal_state(self) -> EgressExecution:
+        expected = {
+            "succeeded": "allow",
+            "failed": "allow",
+            "approval_required": "require_approval",
+            "denied": "deny",
+        }[self.status]
+        if self.decision != expected:
+            raise ValueError("egress status is inconsistent with policy decision")
+        if self.status == "failed" and self.error_class is None:
+            raise ValueError("failed egress requires error_class")
+        if self.status != "failed" and self.error_class is not None:
+            raise ValueError("only failed egress may retain error_class")
+        if self.status != "succeeded" and self.output is not None:
+            raise ValueError("only successful egress may retain output")
+        return self
