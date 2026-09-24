@@ -492,7 +492,7 @@ class AllyApplication:
             raise ApplicationNotFoundError(
                 f"Task step not found: {request.task_id}/{request.step_id}"
             )
-        if step.status != "approval_required":
+        if view.task.status != "waiting_approval" or step.status != "approval_required":
             raise ApplicationStateError(
                 "task step is not currently waiting for explicit approval"
             )
