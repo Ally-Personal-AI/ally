@@ -133,6 +133,10 @@ Existing tool/task permission rules remain authoritative. The facade's
 `run_task()` delegates to the existing `TaskRunner`: reversible and
 externally consequential steps still pause until their exact step IDs are
 explicitly approved, while high-consequence tools remain denied by policy.
+`approve_task_step()` is the presentation-safe approval operation: it accepts
+exactly one task/step pair, requires that durable step to currently be
+`approval_required`, and then forwards only that one step ID to the existing
+runner. It cannot approve a future step or a batch of steps.
 
 Notification delivery and proactive service-cycle execution are intentionally
 not application-facade operations yet. They remain explicit presentation/runtime
