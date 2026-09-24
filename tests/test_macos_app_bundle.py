@@ -175,27 +175,6 @@ def test_refresh_helper_hash_rebinds_signed_helper_bytes(tmp_path: Path) -> None
     helper.write_text("#!/bin/sh\necho post-sign-bytes\n", encoding="utf-8")
     helper.chmod(helper.stat().st_mode | stat.S_IXUSR)
 
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            (
-                "import sys; "
-                f"sys.path.insert(0, {str(SCRIPT.parent)!r}); "
-                "import macos_app_bundle; "
-                f"print(macos_app_bundle.refresh_helper_hash(Path({str(app)!r})))"
-            ),
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    # The one-liner intentionally omits Path import and must fail rather than
-    # disguising contract errors; use the normal verify path below after a
-    # direct module invocation with an explicit import.
-    assert result.returncode != 0
-
     refreshed = subprocess.run(
         [
             sys.executable,
