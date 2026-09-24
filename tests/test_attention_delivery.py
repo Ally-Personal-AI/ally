@@ -233,6 +233,36 @@ def test_success_is_terminal_in_delivery_store(tmp_path: Path) -> None:
     assert second.last_error is None
 
 
+def test_delivery_store_lists_all_sinks_for_one_event(
+    tmp_path: Path,
+) -> None:
+    events, deliveries, _ = build_runtime(tmp_path / "ally.sqlite3")
+    event = create_event(events, name="multi-sink", attention="notify")
+    other = create_event(events, name="other", attention="notify")
+
+    first = deliveries.record_attempt(
+        event_id=event.id,
+        sink_id="console",
+        succeeded=False,
+        error="synthetic",
+    )
+    second = deliveries.record_attempt(
+        event_id=event.id,
+        sink_id="macos.notification",
+        succeeded=True,
+    )
+    deliveries.record_attempt(
+        event_id=other.id,
+        sink_id="console",
+        succeeded=True,
+    )
+
+    listed = deliveries.list_for_event(event.id)
+
+    assert {record.id for record in listed} == {first.id, second.id}
+    assert all(record.event_id == event.id for record in listed)
+
+
 def test_delivery_history_survives_restart(tmp_path: Path) -> None:
     path = tmp_path / "ally.sqlite3"
     events, deliveries, _ = build_runtime(path)
