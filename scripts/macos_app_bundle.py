@@ -18,7 +18,7 @@ import stat
 import tempfile
 import tomllib
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 _RELEASE_BUNDLE_SWIFT = (
@@ -82,10 +82,11 @@ def release_contract() -> dict[str, str | int]:
 
 def ally_version() -> str:
     with _PYPROJECT.open("rb") as handle:
-        document = tomllib.load(handle)
-    project = document.get("project")
-    if not isinstance(project, dict):
+        document = cast(dict[str, object], tomllib.load(handle))
+    project_value = document.get("project")
+    if not isinstance(project_value, dict):
         raise BundleError("pyproject project metadata is missing")
+    project = cast(dict[str, object], project_value)
     version = project.get("version")
     if not isinstance(version, str) or not version:
         raise BundleError("pyproject project version is missing")
@@ -236,7 +237,7 @@ def _load_json_object(path: Path) -> dict[str, Any]:
         raise BundleError(f"invalid release manifest: {path}") from exc
     if not isinstance(value, dict):
         raise BundleError("release manifest must be a JSON object")
-    return value
+    return cast(dict[str, Any], value)
 
 
 def verify(app: Path) -> dict[str, Any]:
