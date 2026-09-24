@@ -12,6 +12,8 @@ from ally.diagnostics import (
     ArtifactFingerprint,
     CandidateEvidence,
     FirstMachineReadinessReport,
+    FunctionalWorkflowEvidenceError,
+    FunctionalWorkflowEvidenceReport,
     LocalModelValidationReport,
     NetworkObservationMethod,
     PerformanceObservations,
@@ -24,17 +26,21 @@ from ally.diagnostics import (
     SyntheticWorkflowReport,
     ValidationReportError,
     build_candidate_evidence,
+    build_functional_workflow_report,
     build_runtime_privacy_report,
     collect_first_machine_readiness,
     collect_hardware_profile,
     compare_candidate_evidence,
     compare_validation_reports,
     fingerprint_artifact,
+    load_functional_workflow_report,
     load_runtime_privacy_report,
     load_validation_report,
     run_isolated_synthetic_workflows,
     run_local_model_validation,
+    verify_functional_workflow_source,
     verify_runtime_privacy_source,
+    write_functional_workflow_report,
     write_runtime_privacy_report,
     write_validation_report,
 )
@@ -409,16 +415,23 @@ def run_show_candidate_evidence(
     *,
     validation_report: str,
     privacy_report: str,
+    workflow_report: str,
     json_output: bool,
 ) -> int:
-    """Inspect one exact capability/privacy pair."""
+    """Inspect one exact capability/privacy/workflow evidence set."""
 
     try:
         candidate = build_candidate_evidence(
             validation_path=Path(validation_report),
             privacy_path=Path(privacy_report),
+            workflow_path=Path(workflow_report),
         )
-    except (RuntimePrivacyEvidenceError, ValidationReportError, ValueError) as exc:
+    except (
+        FunctionalWorkflowEvidenceError,
+        RuntimePrivacyEvidenceError,
+        ValidationReportError,
+        ValueError,
+    ) as exc:
         print(f"Candidate evidence error: {exc}")
         return 2
 
@@ -437,6 +450,10 @@ def run_show_candidate_evidence(
             "Runtime privacy: "
             f"{'qualified' if candidate.privacy_qualified else 'unqualified'}"
         )
+        print(
+            "Functional workflows: "
+            f"{'qualified' if candidate.workflow_qualified else 'unqualified'}"
+        )
         print(f"Runtime: {candidate.runtime.name} {candidate.runtime.version}")
         print(f"Model: {candidate.model}")
         print(f"Isolation mode: {candidate.isolation_mode}")
@@ -448,6 +465,12 @@ def run_show_candidate_evidence(
                 f"Behavior: {candidate.behavior_passed}/"
                 f"{candidate.behavior_total}"
             )
+        workflow_passed = sum(
+            check.status == "passed" for check in candidate.workflow_checks
+        )
+        print(
+            f"Workflows: {workflow_passed}/{len(candidate.workflow_checks)} passed"
+        )
         print(
             "Time to first token: "
             f"{_optional(candidate.observations.time_to_first_token_ms, suffix=' ms')}"
@@ -465,32 +488,46 @@ def run_show_candidate_evidence(
 
 def run_compare_candidate_evidence(
     *,
-    pairs: Sequence[Sequence[str]],
+    evidence_sets: Sequence[Sequence[str]],
     json_output: bool,
 ) -> int:
-    """Compare exact verified capability/privacy pairs without choosing a winner."""
+    """Compare exact verified evidence sets without choosing a winner."""
 
     try:
-        if len(pairs) < 2:
-            raise ValueError("candidate comparison requires at least two --pair values")
+        if len(evidence_sets) < 2:
+            raise ValueError(
+                "candidate comparison requires at least two --candidate values"
+            )
         candidates: list[CandidateEvidence] = []
-        pair_labels: set[tuple[str, str]] = set()
-        for pair in pairs:
-            if len(pair) != 2:
-                raise ValueError("each --pair requires VALIDATION PRIVACY")
-            validation_report, privacy_report = pair
-            label = (Path(validation_report).name, Path(privacy_report).name)
-            if label in pair_labels:
-                raise ValueError("candidate evidence pairs must be unique")
-            pair_labels.add(label)
+        labels: set[tuple[str, str, str]] = set()
+        for evidence_set in evidence_sets:
+            if len(evidence_set) != 3:
+                raise ValueError(
+                    "each --candidate requires VALIDATION PRIVACY WORKFLOWS"
+                )
+            validation_report, privacy_report, workflow_report = evidence_set
+            label = (
+                Path(validation_report).name,
+                Path(privacy_report).name,
+                Path(workflow_report).name,
+            )
+            if label in labels:
+                raise ValueError("candidate evidence sets must be unique")
+            labels.add(label)
             candidates.append(
                 build_candidate_evidence(
                     validation_path=Path(validation_report),
                     privacy_path=Path(privacy_report),
+                    workflow_path=Path(workflow_report),
                 )
             )
         comparison = compare_candidate_evidence(candidates)
-    except (RuntimePrivacyEvidenceError, ValidationReportError, ValueError) as exc:
+    except (
+        FunctionalWorkflowEvidenceError,
+        RuntimePrivacyEvidenceError,
+        ValidationReportError,
+        ValueError,
+    ) as exc:
         print(f"Candidate comparison error: {exc}")
         return 2
 
@@ -516,7 +553,7 @@ def run_compare_candidate_evidence(
     for candidate in comparison.candidates:
         print(
             f"\nCandidate: {candidate.validation_report} + "
-            f"{candidate.privacy_report}"
+            f"{candidate.privacy_report} + {candidate.workflow_report}"
         )
         print(
             "  Production eligible: "
@@ -530,6 +567,10 @@ def run_compare_candidate_evidence(
             "  Privacy: "
             f"{'qualified' if candidate.privacy_qualified else 'unqualified'}"
         )
+        print(
+            "  Workflows: "
+            f"{'qualified' if candidate.workflow_qualified else 'unqualified'}"
+        )
         print(f"  Runtime: {candidate.runtime.name} {candidate.runtime.version}")
         print(f"  Model: {candidate.model}")
         print(f"  Isolation: {candidate.isolation_mode}")
@@ -541,6 +582,13 @@ def run_compare_candidate_evidence(
                 f"  Behavior: {candidate.behavior_passed}/"
                 f"{candidate.behavior_total}"
             )
+        workflow_passed = sum(
+            check.status == "passed" for check in candidate.workflow_checks
+        )
+        print(
+            f"  Workflow checks: {workflow_passed}/"
+            f"{len(candidate.workflow_checks)}"
+        )
         print(
             "  Time to first token: "
             f"{_optional(candidate.observations.time_to_first_token_ms, suffix=' ms')}"
@@ -561,7 +609,6 @@ def run_compare_candidate_evidence(
         "production-eligible candidates."
     )
     return 0
-
 
 
 def run_first_machine_readiness(*, json_output: bool) -> int:
@@ -591,33 +638,50 @@ def run_first_machine_readiness(*, json_output: bool) -> int:
 
 def run_synthetic_workflow_validation(
     *,
-    endpoint: str,
-    model: str,
+    validation_report: str,
+    output: str,
     json_output: bool,
 ) -> int:
-    """Run end-to-end synthetic workflows in disposable local state."""
+    """Run disposable workflows and bind evidence to one capability report."""
 
     try:
+        validation = load_validation_report(Path(validation_report))
         with OpenAICompatibleProvider(
-            base_url=endpoint,
-            model=model,
+            base_url=validation.endpoint,
+            model=validation.model,
         ) as provider:
-            report: SyntheticWorkflowReport = run_isolated_synthetic_workflows(
+            workflow: SyntheticWorkflowReport = run_isolated_synthetic_workflows(
                 provider=provider,
-                model=model,
+                model=validation.model,
             )
-    except (ModelProviderError, OSError, ValueError) as exc:
+        report = build_functional_workflow_report(
+            validation_path=Path(validation_report),
+            workflow=workflow,
+        )
+        destination = write_functional_workflow_report(report, Path(output))
+    except (
+        FileExistsError,
+        FunctionalWorkflowEvidenceError,
+        ModelProviderError,
+        OSError,
+        ValidationReportError,
+        ValueError,
+    ) as exc:
         print(f"Synthetic workflow validation error: {exc}")
         return 2
 
     if json_output:
         rendered = report.model_dump(mode="json")
-        rendered["successful"] = report.successful
+        rendered["qualified_for_candidate_use"] = (
+            report.qualified_for_candidate_use
+        )
+        rendered["report_path"] = str(destination)
         print(json.dumps(rendered, indent=2, sort_keys=True))
     else:
+        print(f"Functional workflow report: {destination}")
         print(
-            "Synthetic workflows: "
-            f"{'pass' if report.successful else 'fail'}"
+            "Qualified for candidate use: "
+            f"{'yes' if report.qualified_for_candidate_use else 'no'}"
         )
         for check in report.checks:
             suffix = (
@@ -631,4 +695,79 @@ def run_synthetic_workflow_validation(
             )
         print(f"Total duration: {report.duration_ms:.1f} ms")
 
-    return 0 if report.successful else 1
+    return 0 if report.qualified_for_candidate_use else 1
+
+
+def run_show_functional_workflow_report(
+    *,
+    report_path: str,
+    json_output: bool,
+) -> int:
+    """Inspect one functional workflow artifact without modifying it."""
+
+    try:
+        report: FunctionalWorkflowEvidenceReport = (
+            load_functional_workflow_report(Path(report_path))
+        )
+    except FunctionalWorkflowEvidenceError as exc:
+        print(f"Functional workflow error: {exc}")
+        return 2
+
+    if json_output:
+        rendered = report.model_dump(mode="json")
+        rendered["qualified_for_candidate_use"] = (
+            report.qualified_for_candidate_use
+        )
+        print(json.dumps(rendered, indent=2, sort_keys=True))
+    else:
+        print(
+            "Qualified for candidate use: "
+            f"{'yes' if report.qualified_for_candidate_use else 'no'}"
+        )
+        print(f"Runtime: {report.runtime.name} {report.runtime.version}")
+        print(f"Model: {report.model}")
+        print(f"Source validation SHA-256: {report.source_validation_sha256}")
+        for check in report.checks:
+            print(f"{check.id}: {check.status}")
+    return 0 if report.qualified_for_candidate_use else 1
+
+
+def run_verify_functional_workflow_report(
+    *,
+    report_path: str,
+    validation_report: str,
+    json_output: bool,
+) -> int:
+    """Verify one functional artifact against the exact capability report."""
+
+    try:
+        report = load_functional_workflow_report(Path(report_path))
+        verify_functional_workflow_source(report, Path(validation_report))
+    except (
+        FunctionalWorkflowEvidenceError,
+        ValidationReportError,
+    ) as exc:
+        print(f"Functional workflow verification error: {exc}")
+        return 2
+
+    if json_output:
+        print(
+            json.dumps(
+                {
+                    "source_matches": True,
+                    "qualified_for_candidate_use": (
+                        report.qualified_for_candidate_use
+                    ),
+                    "source_validation_sha256": report.source_validation_sha256,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    else:
+        print("Source matches: yes")
+        print(
+            "Qualified for candidate use: "
+            f"{'yes' if report.qualified_for_candidate_use else 'no'}"
+        )
+    return 0 if report.qualified_for_candidate_use else 1
