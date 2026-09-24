@@ -19,7 +19,10 @@ Use only the frozen synthetic evaluation cases in the repository during initial
 validation. Do not import personal files, memory, email, credentials, or other
 private data until the machine/runtime path is understood.
 
-Keep the inference endpoint bound to loopback during validation.
+Keep the inference endpoint bound to loopback during validation. A candidate
+runtime is not production-qualified merely because Ally talks to it over
+loopback: the runtime itself must also demonstrate that it can operate without
+external network access and does not require prompt/telemetry egress.
 
 ## 1. Prepare the machine
 
@@ -99,6 +102,13 @@ Do not change multiple variables between comparison runs unless the run is
 explicitly exploratory. Translate only reproducibility-critical, non-secret
 flags into `--runtime-parameter NAME=VALUE`; never copy an arbitrary command
 line, credential, private path, or access-bearing model URL into a report.
+
+Before a runtime becomes eligible for private daily use, repeat the synthetic
+validation with external network connectivity unavailable or explicitly denied
+to the runtime. Confirm that inference still works and inspect for unexpected
+outbound connections/telemetry. A runtime that requires external inference,
+cloud authorization during normal operation, or prompt-bearing telemetry is
+not eligible for Ally private inference.
 
 ## 4. Run the reproducible Ally validation
 
@@ -216,6 +226,8 @@ tokens/second. Compare:
 - model quality on Ally's planning and memory-formation evaluations
 - ease of reproducible installation
 - compatibility with the model-provider boundary
+- ability to operate with external network egress unavailable
+- absence of prompt-bearing telemetry or required cloud inference
 
 Keep the raw JSON reports so future hardware and model changes can be compared
 against the same baseline.
@@ -242,6 +254,8 @@ The first-machine phase is complete when at least one local runtime/model pair:
 - passes provider smoke checks consistently;
 - completes the frozen behavioral qualification suite with results reviewed by dimension;
 - runs entirely on the local machine;
+- continues to operate with external network egress unavailable;
+- has no observed or required prompt-bearing telemetry/cloud inference;
 - has acceptable interactive latency;
 - leaves enough memory headroom for Ally's database, retrieval, and future voice
   components;
