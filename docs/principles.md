@@ -19,3 +19,4 @@ These principles are architectural constraints, not marketing language.
 15. **Reasoning is not authority.** Broad analysis and discussion never bypass deterministic privacy, permission, audit, or execution boundaries.
 
 16. **Private intelligence stays in the Ally trust domain.** Personal prompts, history, memory, documents, instructions, identifiers, and derived intelligence are not eligible for external model inference.
+17. **External disclosure is explicit and minimal.** Network integrations use reviewed field contracts, trusted data classifications, and payload-minimized audit rather than arbitrary model context.
