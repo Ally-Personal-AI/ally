@@ -20,7 +20,11 @@ The first application slice exposes:
 - explicit selected proposal acceptance only;
 - knowledge source listing/detail/search;
 - UTF-8 file ingestion; and
-- direct in-memory text ingestion for non-CLI interfaces.
+- direct in-memory text ingestion for non-CLI interfaces;
+- persisted task create/list/detail/run/retry through the existing deterministic
+  tool policy and exact-step approval boundary;
+- pending attention and durable delivery-history reads; and
+- payload-free service health and lifecycle-history reads.
 
 All request/result models are Pydantic models or existing immutable Ally domain
 models and are suitable for local UI serialization.
@@ -76,8 +80,14 @@ The facade does not grant additional authority.
 
 Memory proposals remain proposals until explicitly selected. Retrieved context
 remains untrusted reference data. Model inference remains loopback-only.
-Existing tool/task permission rules remain authoritative and will be reused as
-task/approval operations are added to later facade slices.
+Existing tool/task permission rules remain authoritative. The facade's
+`run_task()` delegates to the existing `TaskRunner`: reversible and
+externally consequential steps still pause until their exact step IDs are
+explicitly approved, while high-consequence tools remain denied by policy.
+
+Notification delivery and proactive service-cycle execution are intentionally
+not application-facade operations yet. They remain explicit presentation/runtime
+actions until their future UI authorization flow is modeled separately.
 
 ## Presentation rule
 
