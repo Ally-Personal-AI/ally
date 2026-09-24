@@ -20,7 +20,7 @@ implementation of an earlier one.
 | Model memory proposals | Implemented boundary | reviewable extraction bundles; explicit selected acceptance only |
 | Private intelligence boundary | Core implemented; runtime evidence contract implemented; machine acceptance pending | private chat/planning/memory/grounding loopback-only; remote access limited to bundled synthetic/public evals; separate fail-closed runtime privacy artifact ties no-egress evidence to exact capability validation |
 | Controlled external egress | Implemented foundation | trusted adapter-owned field classifications, explicit outbound approval, private/secret denial, payload-free audit, and network-import guard; concrete integrations deferred |
-| Dedicated-hardware validation | Ready to run | read-only first-machine readiness preflight, source-bound disposable workflow evidence, versioned capability evidence, path-free model/runtime artifact fingerprints, separate runtime privacy qualification, cryptographically verified three-artifact candidate comparison, behavioral qualification, and first-machine runbook |
+| Dedicated-hardware validation | Ready to run | read-only first-machine readiness preflight, source-bound disposable workflow evidence, versioned capability evidence, path-free model/runtime artifact fingerprints, separate runtime privacy qualification, cryptographically verified three-artifact candidate comparison, immutable validated runtime profiles, behavioral qualification, and first-machine runbook |
 | Proactivity | Implemented substrate + macOS service/native attention adapters; machine acceptance pending | persisted events, deterministic attention, scheduling, stable-id native Notification Center delivery, payload-minimized notification rendering, restart-safe sources, lease-protected bounded cycle, portable lifecycle, structured readiness, opt-in deterministic launch agent |
 | Voice | Not started | local ASR/TTS and conversational voice |
 | Multi-user households | Not started | identities, shared/private state, permissions |
@@ -96,7 +96,7 @@ the frozen evaluation and validation tooling already in the repository.
 
 After hardware/runtime validation:
 
-1. choose the first supported runtime/model profile from measured results;
+1. create and select the first validated runtime profile from measured evidence;
 2. decide whether direct MLX or other hardware-specific adapters are justified;
 3. calibrate planning and memory proposal quality thresholds;
 4. upgrade retrieval/embeddings only where measured need justifies it;

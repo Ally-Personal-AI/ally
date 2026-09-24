@@ -45,6 +45,7 @@ supersede previous ADRs rather than silently rewriting project history.
 36. [Runtime privacy qualification is separate fail-closed evidence](0036-runtime-privacy-qualification-is-separate-fail-closed-evidence.md)
 37. [Model and runtime artifacts are fingerprinted in validation evidence](0037-model-runtime-artifacts-are-fingerprinted.md)
 38. [Production candidates require functional workflow evidence](0038-production-candidates-require-functional-workflow-evidence.md)
+39. [Production runtime selection uses validated runtime profiles](0039-production-runtime-selection-uses-validated-profiles.md)
 
 ## Adding an ADR
 

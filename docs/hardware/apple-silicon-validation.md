@@ -313,6 +313,26 @@ capability report before comparison. The command shows capability, privacy, and
 functional qualification separately. Production eligibility requires all three;
 comparison never selects or ranks a default.
 
+After choosing a candidate from the evidence, create the immutable runtime
+profile that future Ally composition will consume:
+
+```bash
+uv run ally profiles create \
+  validation/<candidate>.json \
+  validation/<candidate>-privacy.json \
+  validation/<candidate>-workflows.json \
+  --output validation/<candidate>-profile.json
+
+uv run ally profiles verify \
+  validation/<candidate>-profile.json \
+  validation/<candidate>.json \
+  validation/<candidate>-privacy.json \
+  validation/<candidate>-workflows.json
+```
+
+Do not configure daily-use runtime selection directly from raw endpoint/model
+strings after a validated profile exists.
+
 Capability-only `ally validate compare` remains useful during exploratory
 testing. See [Local-model Validation Evidence](../model-validation.md) and
 [Runtime Privacy Qualification](../runtime-privacy-qualification.md) for the

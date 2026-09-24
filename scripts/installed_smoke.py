@@ -255,6 +255,29 @@ def run_workflows(root: Path) -> None:
             candidate_summary["production_eligible"] is True,
             "three-artifact candidate eligibility",
         )
+
+        profile_path = root / "runtime-profile.json"
+        profile_summary = json.loads(cli(
+            "profiles", "create",
+            str(report_path), str(privacy_path), str(workflow_path),
+            "--output", str(profile_path),
+            "--json",
+        ))
+        require(
+            bool(profile_summary["profile_id"]),
+            "validated runtime profile creation",
+        )
+        verified_profile = json.loads(cli(
+            "profiles", "verify",
+            str(profile_path),
+            str(report_path), str(privacy_path), str(workflow_path),
+            "--json",
+        ))
+        require(
+            verified_profile["verified"] is True
+            and verified_profile["production_eligible"] is True,
+            "validated runtime profile verification",
+        )
     finally:
         server.shutdown()
         thread.join(timeout=5)

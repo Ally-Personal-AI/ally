@@ -59,6 +59,11 @@ from ally.commands.memory_proposals import (
     run_propose_memories,
 )
 from ally.commands.planning import run_propose_plan
+from ally.commands.runtime_profiles import (
+    run_create_runtime_profile,
+    run_show_runtime_profile,
+    run_verify_runtime_profile,
+)
 from ally.commands.schedules import (
     run_create_schedule,
     run_list_schedules,
@@ -935,6 +940,42 @@ def build_parser() -> argparse.ArgumentParser:
     )
     skill_audit.add_argument("--limit", type=int, default=50)
 
+    profiles = subcommands.add_parser(
+        "profiles",
+        help="Create and inspect validated local runtime profiles.",
+    )
+    profile_commands = profiles.add_subparsers(dest="profiles_command")
+
+    profile_create = profile_commands.add_parser(
+        "create",
+        help="Create an immutable runtime profile from exact qualified evidence.",
+    )
+    profile_create.add_argument("validation_report")
+    profile_create.add_argument("privacy_report")
+    profile_create.add_argument("workflow_report")
+    profile_create.add_argument(
+        "--output",
+        default="validation/ally-runtime-profile.json",
+    )
+    profile_create.add_argument("--json", action="store_true", dest="json_output")
+
+    profile_show = profile_commands.add_parser(
+        "show",
+        help="Inspect one validated runtime profile.",
+    )
+    profile_show.add_argument("profile")
+    profile_show.add_argument("--json", action="store_true", dest="json_output")
+
+    profile_verify = profile_commands.add_parser(
+        "verify",
+        help="Verify a runtime profile against all exact source evidence.",
+    )
+    profile_verify.add_argument("profile")
+    profile_verify.add_argument("validation_report")
+    profile_verify.add_argument("privacy_report")
+    profile_verify.add_argument("workflow_report")
+    profile_verify.add_argument("--json", action="store_true", dest="json_output")
+
     validate = subcommands.add_parser(
         "validate",
         help="Run reproducible machine and local-model validation.",
@@ -1576,6 +1617,29 @@ def _run_command(argv: Sequence[str] | None) -> int:
             )
         if args.skills_command == "audit":
             return run_skill_execution_audit(limit=cast(int, args.limit))
+
+    if args.command == "profiles":
+        if args.profiles_command == "create":
+            return run_create_runtime_profile(
+                validation_report=cast(str, args.validation_report),
+                privacy_report=cast(str, args.privacy_report),
+                workflow_report=cast(str, args.workflow_report),
+                output=cast(str, args.output),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.profiles_command == "show":
+            return run_show_runtime_profile(
+                profile_path=cast(str, args.profile),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.profiles_command == "verify":
+            return run_verify_runtime_profile(
+                profile_path=cast(str, args.profile),
+                validation_report=cast(str, args.validation_report),
+                privacy_report=cast(str, args.privacy_report),
+                workflow_report=cast(str, args.workflow_report),
+                json_output=cast(bool, args.json_output),
+            )
 
     if args.command == "validate":
         if args.validate_command == "readiness":
