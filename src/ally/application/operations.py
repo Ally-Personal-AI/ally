@@ -1,0 +1,25 @@
+"""UI-neutral operational services used by AllyApplication."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
+
+from ally.attention import AttentionDeliveryStore
+from ally.events import EventStore
+from ally.service import ServiceCycleRunStore, ServiceHealthReport
+from ally.tasks import TaskRunner, TaskStore
+
+ServiceHealthProvider = Callable[[], ServiceHealthReport]
+
+
+@dataclass(frozen=True)
+class ApplicationOperations:
+    """Optional operational dependencies for tasks, attention, and service state."""
+
+    tasks: TaskStore
+    task_runner: TaskRunner
+    events: EventStore
+    attention_deliveries: AttentionDeliveryStore
+    service_runs: ServiceCycleRunStore
+    service_health: ServiceHealthProvider

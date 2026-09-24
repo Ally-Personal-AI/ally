@@ -9,7 +9,7 @@ implementation of an earlier one.
 | Data portability | Implemented V1 | versioned integrity-checked SQLite backup/restore archives |
 | Configuration / secrets | Adapter implemented; machine acceptance pending | strict non-secret config, direct macOS Security-framework adapter, reference-only CLI, fail-closed tests |
 | Local conversation | Implemented | provider-neutral private chat with active validated-profile resolution by default, loopback-only development override, and no remote escape hatch |
-| Application facade | Implemented V1 core | typed UI-neutral runtime/chat/conversation/memory/knowledge services; CLI chat/memory/knowledge adapters share the same composition; task/attention/service operations next |
+| Application facade | Implemented V1 | typed UI-neutral runtime/chat/conversation/memory/knowledge services plus task approval/execution, pending attention/history, and read-only service health/history; consequential attention delivery and proactive-cycle execution remain explicit runtime actions |
 | User instructions | Implemented V2 | global/project/conversation/task profiles, enable/disable, provenance-aware composition, and ephemeral session instructions |
 | Behavioral model qualification | Implemented V1 | separate refusal, instruction-following, calibration, moralizing, and paired viewpoint-symmetry evidence integrated into local-model validation |
 | Long-term memory | Implemented V1 | temporal/provenance-aware explicit memory and grounding |

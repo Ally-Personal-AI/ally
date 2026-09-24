@@ -17,21 +17,12 @@ from ally.commands._storage import (
     build_attention_delivery_store,
     build_event_store,
 )
-from ally.events import AttentionClass
-
-_PENDING_ATTENTION: tuple[AttentionClass, ...] = (
-    "interrupt",
-    "notify",
-    "mention_later",
-)
+from ally.composition import build_default_application
 
 
 def run_list_pending_attention(*, limit: int) -> int:
     try:
-        events = build_event_store().pending_attention(
-            attentions=_PENDING_ATTENTION,
-            limit=limit,
-        )
+        events = build_default_application().pending_attention(limit=limit)
     except ValueError as exc:
         print(f"Attention error: {exc}")
         return 2
@@ -160,7 +151,7 @@ def run_list_attention_history(
     status: AttentionDeliveryStatus | None,
 ) -> int:
     try:
-        records = build_attention_delivery_store().list(
+        records = build_default_application().attention_history(
             limit=limit,
             status=status,
         )

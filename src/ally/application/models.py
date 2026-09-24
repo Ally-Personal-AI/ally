@@ -16,6 +16,7 @@ from ally.memory import (
 )
 from ally.models import ChatResponse
 from ally.runtime_profiles import ResolvedInferenceTarget
+from ally.tasks import TaskRecord, TaskStepRecord
 
 
 class ApplicationError(ValueError):
@@ -24,6 +25,10 @@ class ApplicationError(ValueError):
 
 class ApplicationNotFoundError(ApplicationError):
     """Requested Ally-owned state does not exist."""
+
+
+class ApplicationUnavailableError(ApplicationError):
+    """Requested application capability is not composed in this instance."""
 
 
 class ChatTurnRequest(BaseModel):
@@ -142,3 +147,21 @@ class KnowledgeSearchResult(BaseModel):
     source: KnowledgeSource
     chunk: KnowledgeChunk
     score: float = Field(ge=0.0)
+
+
+class TaskView(BaseModel):
+    """Persisted task plus ordered step state for presentation surfaces."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    task: TaskRecord
+    steps: tuple[TaskStepRecord, ...]
+
+
+class RunTaskRequest(BaseModel):
+    """Advance a task with explicit approvals for named step IDs only."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    task_id: UUID
+    approved_steps: tuple[UUID, ...] = ()
