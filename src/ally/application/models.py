@@ -208,6 +208,15 @@ class KnowledgeSearchResult(BaseModel):
     score: float = Field(ge=0.0)
 
 
+class AttentionEventView(BaseModel):
+    """One proactive event plus all durable delivery state for presentation."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    event: EventRecord
+    deliveries: tuple[AttentionDeliveryRecord, ...]
+
+
 class TaskView(BaseModel):
     """Persisted task plus ordered step state for presentation surfaces."""
 
