@@ -8,7 +8,6 @@ new task, tool, memory, or notification authority.
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from collections.abc import Sequence
 from typing import Literal, TextIO, cast
@@ -124,10 +123,13 @@ class _SearchParams(BaseModel):
     limit: int = Field(default=20, ge=1, le=100)
 
 
-class _RunTaskParams(BaseModel):
+class _TaskParams(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     task_id: UUID
+
+
+class _RunTaskParams(_TaskParams):
     approved_steps: tuple[UUID, ...] = ()
 
 
@@ -240,11 +242,9 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
 
     if request.method == "task.get":
         params = cast(
-            _RunTaskParams,
-            _validate_params(_RunTaskParams, request.params),
+            _TaskParams,
+            _validate_params(_TaskParams, request.params),
         )
-        if params.approved_steps:
-            raise ValueError("task.get does not accept approved_steps")
         return _json_value(app.task(params.task_id).model_dump(mode="json"))
 
     if request.method == "task.run":
@@ -308,7 +308,7 @@ def handle_request_json(app: AllyApplication, raw: str) -> BridgeResponse:
             code="unavailable",
             message="This Ally capability is not available in the current composition.",
         )
-    except (ValidationError, ValueError, json.JSONDecodeError):
+    except (ValidationError, ValueError):
         return _response_error(
             request_id=request_id,
             code="invalid_request",
