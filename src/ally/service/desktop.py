@@ -18,7 +18,7 @@ from ally.service.leases import (
     SQLiteServiceLeaseStore,
 )
 from ally.service.models import ServiceCycleRunRecord
-from ally.service.store import ServiceCycleRunStore
+from ally.service.store import ServiceCycleRunStore, ServiceRunConflictError
 
 DESKTOP_NOTIFICATION_SINK_ID = "macos.notification"
 DESKTOP_PROACTIVE_LEASE_NAME = "proactive-cycle"
@@ -233,6 +233,14 @@ class DesktopProactiveCoordinator:
         if existing is not None and existing.status == "succeeded":
             return existing
 
+        run = self._runs.get(run_id)
+        if run is None:
+            raise KeyError(f"Unknown service cycle run: {run_id}")
+        if run.status != "running":
+            raise ServiceRunConflictError(
+                f"service cycle is no longer running: {run_id}"
+            )
+
         recorded = self._deliveries.record_attempt(
             event_id=event.id,
             sink_id=DESKTOP_NOTIFICATION_SINK_ID,
@@ -259,6 +267,16 @@ class DesktopProactiveCoordinator:
     def complete(self, run_id: UUID) -> ServiceCycleRunRecord:
         """Finish one prepared cycle using only server-owned progress counters."""
 
+        current = self._runs.get(run_id)
+        if current is None:
+            raise KeyError(f"Unknown service cycle run: {run_id}")
+        if current.status != "running":
+            self._leases.release(
+                name=DESKTOP_PROACTIVE_LEASE_NAME,
+                owner_id=run_id,
+            )
+            return current
+
         renewed = self._leases.renew(
             name=DESKTOP_PROACTIVE_LEASE_NAME,
             owner_id=run_id,
@@ -269,20 +287,6 @@ class DesktopProactiveCoordinator:
             raise ServiceLeaseUnavailableError(
                 "desktop proactive lease is no longer active"
             )
-
-        current = self._runs.get(run_id)
-        if current is None:
-            self._leases.release(
-                name=DESKTOP_PROACTIVE_LEASE_NAME,
-                owner_id=run_id,
-            )
-            raise KeyError(f"Unknown service cycle run: {run_id}")
-        if current.status != "running":
-            self._leases.release(
-                name=DESKTOP_PROACTIVE_LEASE_NAME,
-                owner_id=run_id,
-            )
-            return current
 
         finished = self._runs.finish(
             run_id,
