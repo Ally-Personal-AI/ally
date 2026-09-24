@@ -29,7 +29,6 @@ def run_propose_memories(
     source_id: str | None,
     source_uri: str | None,
     privacy: MemoryPrivacy,
-    allow_remote: bool,
     output: str | None,
 ) -> int:
     source = MemorySource(
@@ -42,7 +41,6 @@ def run_propose_memories(
         with OpenAICompatibleProvider(
             base_url=endpoint,
             model=model,
-            allow_remote=allow_remote,
         ) as provider:
             bundle = ModelMemoryProposer(provider).propose(
                 text=text,
