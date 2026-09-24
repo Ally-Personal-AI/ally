@@ -10,16 +10,19 @@ from pydantic import JsonValue
 from ally.egress.adapter import EgressAdapter
 from ally.egress.audit import EgressAuditRecord, EgressAuditStore
 from ally.egress.models import (
+    EgressDecision,
     EgressExecution,
     EgressFieldManifest,
     EgressInspection,
+    EgressOperationSpec,
     EgressRequest,
+    EgressStatus,
 )
 from ally.egress.policy import DefaultEgressPolicy
 
 
 class EgressExecutor:
-    """The supported boundary for transmitting declared data externally."""
+    """The supported boundary for transmitting explicitly declared data externally."""
 
     def __init__(
         self,
@@ -32,16 +35,27 @@ class EgressExecutor:
     def inspect(
         self,
         request: EgressRequest,
+        adapter: EgressAdapter,
         *,
         approved: bool = False,
     ) -> EgressInspection:
-        decision = self._policy.decide(request, approved=approved)
+        spec, error_class = self._validate_request(request, adapter)
+        if spec is None:
+            return EgressInspection(
+                request_id=request.id,
+                service=request.service,
+                operation=request.operation,
+                decision="deny",
+                fields=(),
+                error_class=error_class,
+            )
+        manifest = self._manifest(spec, request)
         return EgressInspection(
             request_id=request.id,
             service=request.service,
             operation=request.operation,
-            decision=decision,
-            fields=self._manifest(request),
+            decision=self._policy.decide(manifest, approved=approved),
+            fields=manifest,
         )
 
     def execute(
@@ -52,18 +66,25 @@ class EgressExecutor:
         approved: bool = False,
     ) -> EgressExecution:
         started_at = datetime.now(UTC)
-        decision = self._policy.decide(request, approved=approved)
-
-        if adapter.service != request.service:
+        spec, validation_error = self._validate_request(request, adapter)
+        if spec is None:
             execution = self._result(
                 request=request,
                 decision="deny",
                 status="denied",
                 started_at=started_at,
-                error_class="ServiceMismatch",
             )
-            self._audit(request, execution, approved=approved)
+            self._audit(
+                request,
+                execution,
+                fields=(),
+                approved=approved,
+                validation_error=validation_error,
+            )
             return execution
+
+        manifest = self._manifest(spec, request)
+        decision = self._policy.decide(manifest, approved=approved)
 
         if decision == "require_approval":
             execution = self._result(
@@ -72,7 +93,7 @@ class EgressExecutor:
                 status="approval_required",
                 started_at=started_at,
             )
-            self._audit(request, execution, approved=approved)
+            self._audit(request, execution, fields=manifest, approved=approved)
             return execution
 
         if decision == "deny":
@@ -82,14 +103,11 @@ class EgressExecutor:
                 status="denied",
                 started_at=started_at,
             )
-            self._audit(request, execution, approved=approved)
+            self._audit(request, execution, fields=manifest, approved=approved)
             return execution
 
-        payload: dict[str, JsonValue] = {
-            field.name: field.value for field in request.fields
-        }
         try:
-            output = adapter.send(request.operation, payload)
+            output = adapter.send(request.operation, dict(request.fields))
         except Exception as exc:
             execution = self._result(
                 request=request,
@@ -107,39 +125,77 @@ class EgressExecutor:
                 output=output,
             )
 
-        self._audit(request, execution, approved=approved)
+        self._audit(request, execution, fields=manifest, approved=approved)
         return execution
 
     @staticmethod
-    def _manifest(request: EgressRequest) -> tuple[EgressFieldManifest, ...]:
+    def _operation_spec(
+        adapter: EgressAdapter,
+        operation: str,
+    ) -> EgressOperationSpec | None:
+        matches = tuple(item for item in adapter.operations if item.operation == operation)
+        if len(matches) != 1:
+            return None
+        return matches[0]
+
+    @classmethod
+    def _validate_request(
+        cls,
+        request: EgressRequest,
+        adapter: EgressAdapter,
+    ) -> tuple[EgressOperationSpec | None, str | None]:
+        if adapter.service != request.service:
+            return None, "ServiceMismatch"
+
+        spec = cls._operation_spec(adapter, request.operation)
+        if spec is None:
+            return None, "UnknownOperation"
+
+        declared = {field.name: field for field in spec.fields}
+        provided = set(request.fields)
+        if not provided <= set(declared):
+            return None, "UndeclaredField"
+
+        missing = {
+            name
+            for name, field in declared.items()
+            if field.required and name not in provided
+        }
+        if missing:
+            return None, "MissingRequiredField"
+
+        return spec, None
+
+    @staticmethod
+    def _manifest(
+        spec: EgressOperationSpec,
+        request: EgressRequest,
+    ) -> tuple[EgressFieldManifest, ...]:
+        declared = {field.name: field for field in spec.fields}
         return tuple(
             EgressFieldManifest(
-                name=field.name,
-                classification=field.classification,
+                name=name,
+                classification=declared[name].classification,
             )
-            for field in request.fields
+            for name in sorted(request.fields)
         )
 
     @staticmethod
     def _result(
         *,
         request: EgressRequest,
-        decision: str,
-        status: str,
+        decision: EgressDecision,
+        status: EgressStatus,
         started_at: datetime,
         output: JsonValue | None = None,
         error_class: str | None = None,
     ) -> EgressExecution:
-        from typing import cast
-
-        from ally.egress.models import EgressDecision, EgressStatus
-
         return EgressExecution(
             request_id=request.id,
             service=request.service,
             operation=request.operation,
-            decision=cast(EgressDecision, decision),
-            status=cast(EgressStatus, status),
+            decision=decision,
+            status=status,
             started_at=started_at,
             finished_at=datetime.now(UTC),
             output=output,
@@ -151,7 +207,9 @@ class EgressExecutor:
         request: EgressRequest,
         execution: EgressExecution,
         *,
+        fields: tuple[EgressFieldManifest, ...],
         approved: bool,
+        validation_error: str | None = None,
     ) -> None:
         self._audit_store.append(
             EgressAuditRecord(
@@ -162,8 +220,8 @@ class EgressExecutor:
                 decision=execution.decision,
                 status=execution.status,
                 approved=approved,
-                fields=self._manifest(request),
-                error_class=execution.error_class,
+                fields=fields,
+                error_class=execution.error_class or validation_error,
                 started_at=execution.started_at,
                 finished_at=execution.finished_at,
             )
