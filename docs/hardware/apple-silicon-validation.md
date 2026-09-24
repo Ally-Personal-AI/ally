@@ -1,7 +1,10 @@
 # Apple Silicon First-Machine Validation
 
-This runbook is the handoff from hardware-independent Ally development to
-empirical local-AI validation.
+This runbook is the detailed model/runtime-validation procedure. For the
+canonical sequence across every remaining dedicated-machine gate—Keychain,
+model/runtime evidence, privacy, recovery, managed service, notifications, and
+desktop handoff—start with
+[Unified First-Machine Acceptance](first-machine-acceptance.md).
 
 The goal is not merely to prove that a model answers prompts. It is to create
 repeatable evidence about which local runtime/model combination should become
