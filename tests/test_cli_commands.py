@@ -364,6 +364,8 @@ def test_event_schedule_source_attention_and_service_commands(
             "cycle",
             "--at",
             "2026-01-01T13:00:00+00:00",
+            "--sink",
+            "console",
             "--json",
         ],
     )

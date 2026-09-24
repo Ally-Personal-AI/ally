@@ -20,7 +20,7 @@ implementation of an earlier one.
 | Model memory proposals | Implemented boundary | reviewable extraction bundles; explicit selected acceptance only |
 | Private intelligence boundary | Implemented core; runtime isolation pending | private chat/planning/memory/grounding loopback-only; remote access limited to bundled synthetic/public evals; local runtime no-egress acceptance pending |
 | Dedicated-hardware validation | Ready to run | versioned runtime/model evidence, neutral comparison, behavioral qualification, and first-machine runbook |
-| Proactivity | Implemented substrate + macOS service adapter; machine acceptance pending | persisted events, deterministic attention, scheduling, delivery, restart-safe sources, bounded metadata-only filesystem observation, lease-protected cycle, portable lifecycle, structured read-only readiness, opt-in deterministic launch agent |
+| Proactivity | Implemented substrate + macOS service/native attention adapters; machine acceptance pending | persisted events, deterministic attention, scheduling, stable-id native Notification Center delivery, payload-minimized notification rendering, restart-safe sources, lease-protected bounded cycle, portable lifecycle, structured readiness, opt-in deterministic launch agent |
 | Voice | Not started | local ASR/TTS and conversational voice |
 | Multi-user households | Not started | identities, shared/private state, permissions |
 | Extension ecosystem | Implemented local foundation | local lifecycle + isolated execution; signing, mediated tool requests, and registry deferred |
@@ -99,7 +99,7 @@ After hardware/runtime validation:
 2. decide whether direct MLX or other hardware-specific adapters are justified;
 3. calibrate planning and memory proposal quality thresholds;
 4. upgrade retrieval/embeddings only where measured need justifies it;
-5. validate the macOS service wrapper and add calendar/email/weather source adapters plus platform notification sinks on the persisted proactivity substrate;
+5. validate the macOS service/native notification adapters and add calendar/email/weather source adapters on the persisted proactivity substrate;
 6. add voice;
 7. add multi-user household boundaries;
 8. add skill signing and remote registry on top of the local installation boundary;

@@ -439,6 +439,17 @@ Deliver through the development console sink:
 uv run ally attention deliver --sink console
 ```
 
+On macOS, the native Notification Center sink is also available:
+
+```bash
+uv run ally attention deliver --sink macos
+uv run ally attention health --sink macos
+```
+
+The native sink renders only an explicit bounded `summary`/`message` field
+(or the event type) rather than serializing the full event payload. See
+[macOS Native Attention](docs/macos-notifications.md).
+
 Inspect durable delivery history:
 
 ```bash
@@ -450,8 +461,11 @@ A successful delivery is terminal for that event/sink pair but does not mark
 the event handled. Failed attempts remain retryable. Sinks receive a stable
 delivery key so future external interfaces can implement idempotent retries.
 
-The console sink is for development only. Desktop notifications, mobile, and
-voice delivery are not implemented yet and must use this same boundary.
+The console sink remains useful for deterministic development. The current
+macOS native adapter is intentionally isolated because it uses the legacy
+CLI-compatible Notification Center API; a future bundled desktop shell should
+replace that backend with modern authorization-aware User Notifications.
+Mobile and voice delivery remain future sinks behind the same durable boundary.
 
 ## Proactive service cycle
 
@@ -461,6 +475,9 @@ operation without starting a daemon:
 ```bash
 uv run ally service cycle
 ```
+
+The service uses `--sink auto` by default: native Notification Center on
+macOS and console elsewhere. Tests or operators may choose an explicit sink.
 
 Use an explicit time for deterministic testing:
 
@@ -509,10 +526,11 @@ uv run ally service managed install
 uv run ally service managed status --json
 ```
 
-The agent runs `ally service cycle --json` once per minute and at login. It uses
-the current absolute Python interpreter path, writes only stdout/stderr logs
-under Ally's data directory, and never invokes a shell. Ally will not replace a
-different or modified plist at the same path.
+The agent runs `ally service cycle --json` once per minute and at login. The
+service-cycle `auto` sink therefore selects native Notification Center on
+macOS. It uses the current absolute Python interpreter path, writes only
+stdout/stderr logs under Ally's data directory, and never invokes a shell. Ally
+will not replace a different or modified plist at the same path.
 
 ```bash
 uv run ally service managed stop

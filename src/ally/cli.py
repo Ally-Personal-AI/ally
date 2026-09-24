@@ -7,8 +7,9 @@ from collections.abc import Sequence
 from typing import cast
 
 from ally import __version__
-from ally.attention import AttentionDeliveryStatus
+from ally.attention import AttentionDeliveryStatus, AttentionSinkName
 from ally.commands.attention import (
+    run_attention_sink_health,
     run_deliver_attention,
     run_list_attention_history,
     run_list_pending_attention,
@@ -553,10 +554,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     attention_deliver.add_argument(
         "--sink",
-        choices=("console",),
+        choices=("auto", "console", "macos"),
         default="console",
     )
     attention_deliver.add_argument("--limit", type=int, default=50)
+
+    attention_health = attention_commands.add_parser(
+        "health",
+        help="Inspect payload-free readiness for an attention sink.",
+    )
+    attention_health.add_argument(
+        "--sink",
+        choices=("auto", "console", "macos"),
+        default="auto",
+    )
+    attention_health.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
 
     attention_history = attention_commands.add_parser(
         "history",
@@ -642,8 +658,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     service_cycle.add_argument(
         "--sink",
-        choices=("console",),
-        default="console",
+        choices=("auto", "console", "macos"),
+        default="auto",
     )
     service_cycle.add_argument(
         "--lease-seconds",
@@ -1234,8 +1250,13 @@ def _run_command(argv: Sequence[str] | None) -> int:
             return run_list_pending_attention(limit=cast(int, args.limit))
         if args.attention_command == "deliver":
             return run_deliver_attention(
-                sink_name=cast(str, args.sink),
+                sink_name=cast(AttentionSinkName, args.sink),
                 limit=cast(int, args.limit),
+            )
+        if args.attention_command == "health":
+            return run_attention_sink_health(
+                sink_name=cast(AttentionSinkName, args.sink),
+                json_output=cast(bool, args.json_output),
             )
         if args.attention_command == "history":
             return run_list_attention_history(
@@ -1268,7 +1289,7 @@ def _run_command(argv: Sequence[str] | None) -> int:
                 at=cast(str | None, args.at),
                 schedule_limit=cast(int, args.schedule_limit),
                 delivery_limit=cast(int, args.delivery_limit),
-                sink_name=cast(str, args.sink),
+                sink_name=cast(AttentionSinkName, args.sink),
                 lease_seconds=cast(int, args.lease_seconds),
                 json_output=cast(bool, args.json_output),
             )

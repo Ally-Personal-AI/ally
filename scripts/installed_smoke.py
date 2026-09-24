@@ -200,7 +200,7 @@ def run_workflows(root: Path) -> None:
     task = identifier(cli("tasks", "create", str(plan_path)))
     require("Status: succeeded" in cli("tasks", "run", task), "read-only task")
     require("succeeded" in cli("tasks", "show", task), "task persisted")
-    cycle = json.loads(cli("service", "cycle", "--json"))
+    cycle = json.loads(cli("service", "cycle", "--sink", "console", "--json"))
     require(cycle["run"]["status"] == "succeeded", "bounded service cycle")
     health = json.loads(cli("service", "health", "--json"))
     require(health["status"] == "healthy", "service health")
