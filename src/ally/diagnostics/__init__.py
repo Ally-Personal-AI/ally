@@ -21,6 +21,7 @@ from ally.diagnostics.runtime_privacy import (
 )
 from ally.diagnostics.service_health import build_service_health
 from ally.diagnostics.validation import (
+    ArtifactFingerprint,
     EvaluationSuiteProfile,
     LocalModelValidationReport,
     PerformanceObservations,
@@ -29,12 +30,14 @@ from ally.diagnostics.validation import (
     ValidationComparison,
     ValidationReportError,
     compare_validation_reports,
+    fingerprint_artifact,
     load_validation_report,
     run_local_model_validation,
     write_validation_report,
 )
 
 __all__ = [
+    "ArtifactFingerprint",
     "CandidateEvidence",
     "CandidateEvidenceComparison",
     "EvaluationSuiteProfile",
@@ -57,6 +60,7 @@ __all__ = [
     "collect_hardware_profile",
     "compare_candidate_evidence",
     "compare_validation_reports",
+    "fingerprint_artifact",
     "load_runtime_privacy_report",
     "load_validation_report",
     "run_local_model_validation",

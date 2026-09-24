@@ -979,6 +979,22 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="NAME=VALUE",
         help="Record one explicit non-secret runtime setting; repeat as needed.",
     )
+    validate_model.add_argument(
+        "--model-artifact",
+        action="append",
+        default=[],
+        dest="model_artifacts",
+        metavar="PATH",
+        help="Fingerprint one model weight/shard file; repeat as needed.",
+    )
+    validate_model.add_argument(
+        "--runtime-artifact",
+        action="append",
+        default=[],
+        dest="runtime_artifacts",
+        metavar="PATH",
+        help="Fingerprint one runtime binary/package file; repeat as needed.",
+    )
     validate_model.add_argument("--model-load-ms", type=float)
     validate_model.add_argument("--time-to-first-token-ms", type=float)
     validate_model.add_argument("--prompt-tokens-per-second", type=float)
@@ -1520,6 +1536,8 @@ def _run_command(argv: Sequence[str] | None) -> int:
                 model_size_bytes=cast(int | None, args.model_size_bytes),
                 context_length=cast(int | None, args.context_length),
                 runtime_parameters=cast(Sequence[str], args.runtime_parameters),
+                model_artifacts=cast(Sequence[str], args.model_artifacts),
+                runtime_artifacts=cast(Sequence[str], args.runtime_artifacts),
                 model_load_ms=cast(float | None, args.model_load_ms),
                 time_to_first_token_ms=cast(float | None, args.time_to_first_token_ms),
                 prompt_tokens_per_second=cast(

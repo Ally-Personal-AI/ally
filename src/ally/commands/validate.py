@@ -9,6 +9,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from ally.diagnostics import (
+    ArtifactFingerprint,
     CandidateEvidence,
     LocalModelValidationReport,
     NetworkObservationMethod,
@@ -25,6 +26,7 @@ from ally.diagnostics import (
     collect_hardware_profile,
     compare_candidate_evidence,
     compare_validation_reports,
+    fingerprint_artifact,
     load_runtime_privacy_report,
     load_validation_report,
     run_local_model_validation,
@@ -55,6 +57,10 @@ def run_hardware_report(*, json_output: bool) -> int:
     return 0
 
 
+def _artifact_fingerprints(values: Sequence[str]) -> tuple[ArtifactFingerprint, ...]:
+    return tuple(fingerprint_artifact(Path(value)) for value in values)
+
+
 def _runtime_parameters(values: Sequence[str]) -> tuple[RuntimeParameter, ...]:
     parameters: list[RuntimeParameter] = []
     for value in values:
@@ -77,6 +83,8 @@ def run_local_model_validation_command(
     model_size_bytes: int | None,
     context_length: int | None,
     runtime_parameters: Sequence[str],
+    model_artifacts: Sequence[str],
+    runtime_artifacts: Sequence[str],
     model_load_ms: float | None,
     time_to_first_token_ms: float | None,
     prompt_tokens_per_second: float | None,
@@ -91,15 +99,24 @@ def run_local_model_validation_command(
     output: str,
 ) -> int:
     try:
+        model_fingerprints = _artifact_fingerprints(model_artifacts)
+        runtime_fingerprints = _artifact_fingerprints(runtime_artifacts)
+        effective_model_size = model_size_bytes
+        if model_fingerprints and effective_model_size is None:
+            effective_model_size = sum(
+                artifact.size_bytes for artifact in model_fingerprints
+            )
         runtime = RuntimeProfile(
             name=runtime_name,
             version=runtime_version,
             model_source=model_source,
             quantization=quantization,
             precision=precision,
-            model_size_bytes=model_size_bytes,
+            model_size_bytes=effective_model_size,
             context_length=context_length,
             parameters=_runtime_parameters(runtime_parameters),
+            model_artifacts=model_fingerprints,
+            runtime_artifacts=runtime_fingerprints,
         )
         observations = PerformanceObservations.model_validate(
             {
@@ -144,6 +161,13 @@ def run_local_model_validation_command(
         return 2
 
     print(f"Validation report: {destination}")
+    if report.runtime.model_artifacts:
+        print(f"Model artifacts fingerprinted: {len(report.runtime.model_artifacts)}")
+    if report.runtime.runtime_artifacts:
+        print(
+            f"Runtime artifacts fingerprinted: "
+            f"{len(report.runtime.runtime_artifacts)}"
+        )
     print(
         f"Core: {report.core.passed}/{report.core.total} passed; "
         f"provider: {report.provider.passed}/{report.provider.total} passed; "

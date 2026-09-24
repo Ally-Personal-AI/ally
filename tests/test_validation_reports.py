@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
@@ -12,6 +15,7 @@ from ally.commands.validate import (
     run_local_model_validation_command,
 )
 from ally.diagnostics import (
+    ArtifactFingerprint,
     EvaluationSuiteProfile,
     HardwareProfile,
     LocalModelValidationReport,
@@ -20,6 +24,7 @@ from ally.diagnostics import (
     RuntimeProfile,
     ValidationReportError,
     compare_validation_reports,
+    fingerprint_artifact,
     load_validation_report,
     write_validation_report,
 )
@@ -174,6 +179,8 @@ def test_local_model_command_redacts_invalid_metadata(
         model_size_bytes=None,
         context_length=None,
         runtime_parameters=(f"api_key={secret_marker}",),
+        model_artifacts=(),
+        runtime_artifacts=(),
         model_load_ms=None,
         time_to_first_token_ms=None,
         prompt_tokens_per_second=None,
@@ -192,6 +199,85 @@ def test_local_model_command_redacts_invalid_metadata(
     assert result == 2
     assert "metadata is invalid" in output
     assert secret_marker not in output
+
+
+def test_artifact_fingerprint_streams_content_without_path_leakage(
+    tmp_path: Path,
+) -> None:
+    private_dir = tmp_path / "PRIVATE-LOCAL-PATH"
+    private_dir.mkdir()
+    artifact = private_dir / "weights.gguf"
+    artifact.write_bytes(b"synthetic-model-bytes")
+
+    fingerprint = fingerprint_artifact(artifact)
+
+    assert fingerprint.name == "weights.gguf"
+    assert fingerprint.size_bytes == len(b"synthetic-model-bytes")
+    assert fingerprint.sha256 == hashlib.sha256(
+        b"synthetic-model-bytes"
+    ).hexdigest()
+    rendered = fingerprint.model_dump_json()
+    assert "PRIVATE-LOCAL-PATH" not in rendered
+    assert str(tmp_path) not in rendered
+
+
+def test_artifact_fingerprint_fails_closed_if_file_changes_during_hash(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact = tmp_path / "runtime.bin"
+    artifact.write_bytes(b"runtime-bytes")
+    real_fstat = os.fstat
+    calls = 0
+
+    def changing_fstat(fd: int) -> object:
+        nonlocal calls
+        calls += 1
+        current = real_fstat(fd)
+        if calls == 1:
+            return current
+        return SimpleNamespace(
+            st_dev=current.st_dev,
+            st_ino=current.st_ino,
+            st_size=current.st_size,
+            st_mtime_ns=current.st_mtime_ns + 1,
+        )
+
+    monkeypatch.setattr("ally.diagnostics.validation.os.fstat", changing_fstat)
+
+    with pytest.raises(ValueError, match="changed during fingerprinting"):
+        fingerprint_artifact(artifact)
+
+
+def test_runtime_profile_requires_consistent_model_artifact_size() -> None:
+    artifact = ArtifactFingerprint(
+        name="weights.gguf",
+        size_bytes=10,
+        sha256="a" * 64,
+    )
+
+    with pytest.raises(ValidationError, match="model_size_bytes is required"):
+        RuntimeProfile(
+            name="runtime",
+            version="1",
+            model_artifacts=(artifact,),
+        )
+
+    with pytest.raises(ValidationError, match="total model artifact size"):
+        RuntimeProfile(
+            name="runtime",
+            version="1",
+            model_size_bytes=11,
+            model_artifacts=(artifact,),
+        )
+
+    profile = RuntimeProfile(
+        name="runtime",
+        version="1",
+        model_size_bytes=10,
+        model_artifacts=(artifact,),
+    )
+    assert profile.model_artifacts == (artifact,)
 
 
 def test_validation_report_round_trip_is_strict_and_non_overwriting(
