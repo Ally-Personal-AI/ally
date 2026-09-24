@@ -6,9 +6,9 @@ from tempfile import TemporaryDirectory as RealTemporaryDirectory
 
 import pytest
 
+import ally.diagnostics.workflows as workflow_module
 from ally.commands import validate as validate_commands
 from ally.diagnostics import run_isolated_synthetic_workflows
-import ally.diagnostics.workflows as workflow_module
 from ally.models import ChatRequest, ChatResponse
 
 
