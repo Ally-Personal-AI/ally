@@ -391,7 +391,9 @@ def test_bridge_knowledge_text_ingest_detail_and_search_are_local_contracts(
     assert len(chunks) >= 1
     first_chunk = chunks[0]
     assert isinstance(first_chunk, dict)
-    assert "ROOT-519" in first_chunk["content"]
+    chunk_content = first_chunk["content"]
+    assert isinstance(chunk_content, str)
+    assert "ROOT-519" in chunk_content
 
     searched = handle_request_json(
         app,
