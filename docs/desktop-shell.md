@@ -103,31 +103,64 @@ granting broader filesystem or model authority:
 The native UI makes those semantics visible before mutation and explains that
 correction/retraction preserve local history.
 
-## Attention and notification boundary
+## Attention, notification, and proactive-service boundary
 
-Desktop protocol v5 adds a dedicated local Attention Center without turning the
-presentation layer into a notification-delivery engine:
+Desktop protocol v6 keeps the Attention Center and adds a narrow signed-app
+delivery handshake without turning the bridge into a general notification API.
 
-- `attention.events` lists user-facing `mention_later`, `notify`, and
-  `interrupt` events, including handled history when requested;
-- `attention.get` returns one event plus every durable sink-delivery record;
-- `attention.delivery_history` exposes bounded delivery history;
-- `attention.mark_handled` changes only the event's local handled state;
-- successful notification delivery still does not imply that the user handled
-  the underlying event; and
-- the bridge exposes no desktop command for forcing delivery, choosing a sink,
-  or changing attention classification.
+Read-only/event-state operations remain:
 
-The Swift app also uses Apple's modern `UNUserNotificationCenter` API to read
-notification authorization state and to request alert/sound permission only
-after an explicit user action. That permission client has no access to Ally's
-event store, delivery store, or bridge.
+- `attention.events`;
+- `attention.get`;
+- `attention.delivery_history`; and
+- `attention.mark_handled`.
 
-The existing background Python/launchd delivery adapter remains isolated behind
-the durable `AttentionSink` contract. Replacing its deprecated
-`NSUserNotificationCenter` backend with app-bundle-owned modern delivery is a
-separate packaging/identity transition and must not be claimed complete until
-the signed application bundle and dedicated-machine behavior are validated.
+App-owned proactive delivery uses three additional operations:
+
+- `service.prepare_proactive` acquires Ally's existing `proactive-cycle`
+  lease, runs the deterministic scheduler, records a running service-cycle
+  entry, and returns only payload-minimized notification candidates;
+- `attention.notification_result` accepts only the exact run ID, event ID,
+  deterministic delivery key, and success boolean; and
+- `service.complete_proactive` accepts only the run ID and computes terminal
+  service status from Ally-owned durable counters.
+
+The bridge never accepts a caller-selected notification sink, title, body,
+identifier, sound, event payload, delivery-attempt count, or failure count.
+
+Candidates contain only:
+
+- event UUID;
+- deterministic `macos.notification` delivery key;
+- bounded rendered title/body;
+- attention class; and
+- event creation timestamp.
+
+The Swift app owns `UNUserNotificationCenter` authorization and delivery.
+Before scheduling, it checks current authorization, inspects the app's pending
+and delivered notification identifiers, and treats an already-known delivery
+key as a successful reconciliation instead of creating a duplicate request.
+Apple's local-notification API uses request identifiers for exactly this
+kind of request tracking, while Ally's SQLite delivery record remains the
+authoritative durable state.
+
+Successful OS delivery still does not mark the underlying event handled.
+
+A prepared run with notification candidates remains `running` until every
+native result has been acknowledged and the app calls
+`service.complete_proactive`. If the app exits mid-cycle, the next cycle
+repairs the abandoned lifecycle record as `interrupted`; delivered
+identifiers can then be reconciled without duplicate alerts.
+
+Continuous desktop proactivity is separately opt-in through
+`SMAppService.mainApp`. The user can enable/disable launch-at-login behavior
+from Ally, and a `requiresApproval` state sends the user to macOS Login Items
+settings. Registration does not grant notification permission; notification
+authorization remains a separate explicit user choice.
+
+The deprecated Python `NSUserNotificationCenter` adapter remains isolated for
+legacy CLI compatibility only. The signed desktop release path does not import
+or call it.
 
 ## Task approval boundary
 
