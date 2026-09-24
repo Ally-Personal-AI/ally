@@ -491,16 +491,22 @@ Deliver through the development console sink:
 uv run ally attention deliver --sink console
 ```
 
-On macOS, the native Notification Center sink is also available:
+On macOS, the legacy CLI Notification Center sink remains available for
+compatibility and migration testing:
 
 ```bash
 uv run ally attention deliver --sink macos
 uv run ally attention health --sink macos
 ```
 
-The native sink renders only an explicit bounded `summary`/`message` field
-(or the event type) rather than serializing the full event payload. See
-[macOS Native Attention](docs/macos-notifications.md).
+It uses the deprecated `NSUserNotificationCenter` backend and is **not** the
+signed desktop release path. Both legacy and modern paths share the same
+payload-minimized renderer, which emits only a bounded explicit
+`summary`/`message` field (or event type).
+
+The native desktop app owns modern delivery through
+`UNUserNotificationCenter` using the same durable `macos.notification` sink
+identity. See [macOS Native Attention](docs/macos-notifications.md).
 
 Inspect durable delivery history:
 
@@ -513,11 +519,11 @@ A successful delivery is terminal for that event/sink pair but does not mark
 the event handled. Failed attempts remain retryable. Sinks receive a stable
 delivery key so future external interfaces can implement idempotent retries.
 
-The console sink remains useful for deterministic development. The current
-macOS native adapter is intentionally isolated because it uses the legacy
-CLI-compatible Notification Center API; a future bundled desktop shell should
-replace that backend with modern authorization-aware User Notifications.
-Mobile and voice delivery remain future sinks behind the same durable boundary.
+The console sink remains useful for deterministic development. The deprecated
+macOS CLI adapter is isolated for compatibility only. The bundled desktop shell
+now uses modern authorization-aware User Notifications with deterministic
+identifier reconciliation and exact durable acknowledgements. Mobile and voice
+delivery remain future sinks behind the same durable boundary.
 
 ## Proactive service cycle
 
@@ -528,8 +534,11 @@ operation without starting a daemon:
 uv run ally service cycle
 ```
 
-The service uses `--sink auto` by default: native Notification Center on
-macOS and console elsewhere. Tests or operators may choose an explicit sink.
+The **CLI** service uses `--sink auto` by default: the legacy native
+Notification Center adapter on macOS and console elsewhere. Tests or operators
+may choose an explicit sink. The signed desktop app does not use this CLI sink
+selection path; it uses the protocol-v6 app-owned delivery handshake described
+below.
 
 Use an explicit time for deterministic testing:
 
@@ -559,10 +568,32 @@ from personal state in `ally.sqlite3`, and is intentionally excluded from
 backup V1.
 
 This is still a one-shot operation. It does not sleep, loop, or daemonize.
-Ally's optional macOS launch agent invokes this same bounded boundary; other OS
-service wrappers are not implemented.
 
-## Opt-in macOS managed service
+## Native desktop proactive delivery
+
+The signed desktop app uses one narrow local handshake instead of exposing a
+generic notification command:
+
+1. `service.prepare_proactive` acquires the existing `proactive-cycle` lease,
+   runs due schedules, and returns only rendered notification candidates.
+2. Swift checks the app's notification authorization and already-known
+   `UNNotificationRequest` identifiers.
+3. Swift schedules only missing notifications through
+   `UNUserNotificationCenter`.
+4. `attention.notification_result` records only an exact
+   run/event/delivery-key success or failure.
+5. `service.complete_proactive` computes `succeeded` or `degraded` from
+   Ally-owned durable counters.
+
+If the app exits after native delivery but before acknowledgement, the next
+cycle repairs the abandoned run as interrupted and can reconcile the same
+Notification Center identifier without duplicating the alert.
+
+Launch-at-login is separately opt-in through `SMAppService.mainApp`.
+Notification permission and background registration are independent user
+choices.
+
+## Legacy opt-in macOS managed service
 
 Inspect the exact launch-agent definition without installing anything (this is
 safe on every platform):
@@ -578,11 +609,16 @@ uv run ally service managed install
 uv run ally service managed status --json
 ```
 
-The agent runs `ally service cycle --json` once per minute and at login. The
-service-cycle `auto` sink therefore selects native Notification Center on
+This is the pre-desktop compatibility path. The agent runs
+`ally service cycle --json` once per minute and at login, so the CLI
+`auto` sink selects the deprecated native Notification Center adapter on
 macOS. It uses the current absolute Python interpreter path, writes only
 stdout/stderr logs under Ally's data directory, and never invokes a shell. Ally
 will not replace a different or modified plist at the same path.
+
+Do not treat this legacy launch agent as the accepted signed desktop
+configuration. The dedicated-machine migration must ensure it is not active
+when app-owned `UNUserNotificationCenter` delivery is accepted.
 
 ```bash
 uv run ally service managed stop
