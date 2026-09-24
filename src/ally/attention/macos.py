@@ -38,7 +38,7 @@ class MacOSNotificationUnavailableError(MacOSNotificationError):
     """Raised when the native macOS notification API is unavailable."""
 
 
-NotificationAuthorizationVisibility = Literal["unobservable"]
+NotificationAuthorizationVisibility = Literal["authorized", "denied", "not_determined", "unobservable"]
 
 
 @dataclass(frozen=True)
@@ -52,7 +52,11 @@ class MacOSNotificationStatus:
 
     @property
     def ready(self) -> bool:
-        return self.supported and self.api_available
+        return (
+            self.supported
+            and self.api_available
+            and self.authorization != "denied"
+        )
 
 
 class MacOSNotificationBackend(Protocol):
