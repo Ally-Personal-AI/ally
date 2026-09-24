@@ -152,17 +152,33 @@ public struct BootstrapSnapshot: Decodable, Sendable, Equatable {
     public let serviceHealth: ServiceHealthSection
 }
 
+public struct MemorySourceSummary: Decodable, Sendable, Equatable {
+    public let type: String
+    public let id: String?
+    public let uri: String?
+}
+
 public struct MemorySummary: Decodable, Sendable, Equatable, Identifiable {
     public let id: String
     public let kind: String
     public let content: String
+    public let source: MemorySourceSummary
     public let confidence: Double
     public let importance: Double
     public let privacy: String
     public let createdAt: String
     public let updatedAt: String
-    public let retractedAt: String?
+    public let observedAt: String?
+    public let validFrom: String?
+    public let validUntil: String?
+    public let supersedes: String?
+    public let supersededAt: String?
     public let supersededBy: String?
+    public let retractedAt: String?
+
+    public var isActive: Bool {
+        supersededAt == nil && retractedAt == nil
+    }
 }
 
 public struct KnowledgeSourceSummary: Decodable, Sendable, Equatable, Identifiable {
@@ -173,4 +189,47 @@ public struct KnowledgeSourceSummary: Decodable, Sendable, Equatable, Identifiab
     public let currentRevision: Int
     public let createdAt: String
     public let updatedAt: String
+}
+
+
+public struct KnowledgeRevisionSummary: Decodable, Sendable, Equatable, Identifiable {
+    public let id: String
+    public let sourceId: String
+    public let revision: Int
+    public let sha256: String
+    public let createdAt: String
+}
+
+public struct KnowledgeChunkSummary: Decodable, Sendable, Equatable, Identifiable {
+    public let id: String
+    public let sourceId: String
+    public let revisionId: String
+    public let revision: Int
+    public let ordinal: Int
+    public let content: String
+    public let startChar: Int
+    public let endChar: Int
+    public let sha256: String
+    public let createdAt: String
+}
+
+public struct KnowledgeSourceView: Decodable, Sendable, Equatable {
+    public let source: KnowledgeSourceSummary
+    public let revisions: [KnowledgeRevisionSummary]
+    public let currentChunks: [KnowledgeChunkSummary]
+}
+
+public struct KnowledgeSearchResult: Decodable, Sendable, Equatable, Identifiable {
+    public let source: KnowledgeSourceSummary
+    public let chunk: KnowledgeChunkSummary
+    public let score: Double
+
+    public var id: String {
+        chunk.id
+    }
+}
+
+public struct KnowledgeIngestResult: Decodable, Sendable, Equatable {
+    public let source: KnowledgeSourceSummary
+    public let revision: KnowledgeRevisionSummary
 }
