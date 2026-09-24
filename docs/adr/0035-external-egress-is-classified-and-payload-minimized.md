@@ -43,7 +43,9 @@ deterministic tool/action policy. The egress policy governs data eligibility; it
 does not replace action authorization.
 
 Source-level architecture tests confine common network transport imports to
-`ally.models.providers` and `ally.egress`.
+`ally.models.providers` and concrete adapters under `ally.egress.adapters`.
+The egress models, policy, executor, inspection, and audit layers remain
+transport-independent.
 
 ## Consequences
 
