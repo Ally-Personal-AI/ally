@@ -116,6 +116,19 @@ def test_private_inference_commands_reject_remote_endpoints(
         assert "development inference override" in output
 
 
+def test_daily_private_inference_requires_active_validated_profile(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    output = invoke(
+        capsys,
+        ["chat", "--prompt", "Private prompt."],
+        expected=2,
+    )
+
+    assert "Inference target error:" in output
+    assert "active validated runtime profile" in output
+
+
 def test_memory_knowledge_and_conversation_commands(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
