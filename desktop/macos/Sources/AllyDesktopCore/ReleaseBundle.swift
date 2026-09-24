@@ -8,7 +8,6 @@ public struct DesktopReleaseManifest: Decodable, Sendable, Equatable {
     public let bridgeProtocolVersion: Int
     public let helperRelativePath: String
     public let helperSha256: String
-    public let appExecutableSha256: String
     public let sourceRevision: String?
 }
 
@@ -43,7 +42,6 @@ public enum DesktopReleaseBundle {
             manifest.bridgeProtocolVersion == DesktopBridgeClient.supportedProtocolVersion,
             manifest.helperRelativePath == helperRelativePath,
             isLowercaseSHA256(manifest.helperSha256),
-            isLowercaseSHA256(manifest.appExecutableSha256),
             !manifest.allyVersion.isEmpty
         else {
             throw DesktopBridgeError.releaseManifestInvalid
