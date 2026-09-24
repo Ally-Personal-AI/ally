@@ -121,7 +121,7 @@ NETWORK_TRANSPORT_PREFIXES = (
     "websockets",
 )
 NETWORK_TRANSPORT_ALLOWED_PREFIXES = (
-    Path("egress"),
+    Path("egress/adapters"),
     Path("models/providers"),
 )
 
@@ -146,7 +146,8 @@ def test_network_transport_is_confined_to_reviewed_boundaries() -> None:
             violations.append(str(relative))
 
     assert violations == [], (
-        "Network transports must stay inside ally.models.providers or ally.egress; "
-        f"route new external integrations through the controlled boundary. "
+        "Network transports must stay inside ally.models.providers or "
+        "ally.egress.adapters; route new external integrations through the "
+        "controlled boundary. "
         f"Violations: {violations}"
     )
