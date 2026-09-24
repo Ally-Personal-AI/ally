@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import AbstractContextManager
 
 from ally.application import AllyApplication, ApplicationOperations
+from ally.events import EventRuntime
 from ally.configuration import default_config_path
 from ally.diagnostics import build_service_health
 from ally.models import ModelProvider
@@ -15,7 +16,9 @@ from ally.runtime_profiles import (
     default_runtime_profile_catalog,
     resolve_inference_target,
 )
+from ally.scheduler import SchedulerRuntime
 from ally.security.tool_policy import DefaultToolPolicy
+from ally.service import DesktopProactiveCoordinator, SQLiteServiceLeaseStore
 from ally.storage import default_database_path, default_runtime_database_path
 from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
@@ -24,6 +27,7 @@ from ally.storage.sqlite import (
     SQLiteEventStore,
     SQLiteKnowledgeStore,
     SQLiteMemoryStore,
+    SQLiteScheduleStore,
     SQLiteServiceCycleRunStore,
     SQLiteTaskStore,
     SQLiteToolAuditStore,
@@ -62,6 +66,9 @@ def build_default_application() -> AllyApplication:
     database = SQLiteDatabase(database_path)
     runtime_profiles = default_runtime_profile_catalog()
     task_store = SQLiteTaskStore(database)
+    event_store = SQLiteEventStore(database)
+    delivery_store = SQLiteAttentionDeliveryStore(database)
+    service_run_store = SQLiteServiceCycleRunStore(database)
     operations = ApplicationOperations(
         tasks=task_store,
         task_runner=TaskRunner(
@@ -72,13 +79,23 @@ def build_default_application() -> AllyApplication:
                 SQLiteToolAuditStore(database),
             ),
         ),
-        events=SQLiteEventStore(database),
-        attention_deliveries=SQLiteAttentionDeliveryStore(database),
-        service_runs=SQLiteServiceCycleRunStore(database),
+        events=event_store,
+        attention_deliveries=delivery_store,
+        service_runs=service_run_store,
         service_health=lambda: build_service_health(
             config_path=default_config_path(),
             database_path=database_path,
             runtime_database_path=default_runtime_database_path(),
+        ),
+        desktop_proactive=DesktopProactiveCoordinator(
+            scheduler=SchedulerRuntime(
+                SQLiteScheduleStore(database),
+                EventRuntime(event_store),
+            ),
+            events=event_store,
+            deliveries=delivery_store,
+            runs=service_run_store,
+            leases=SQLiteServiceLeaseStore(default_runtime_database_path()),
         ),
     )
     return AllyApplication(
