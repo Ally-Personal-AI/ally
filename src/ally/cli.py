@@ -104,10 +104,12 @@ from ally.commands.tasks import (
 )
 from ally.commands.tools import run_list_tools, run_tool, run_tool_audit
 from ally.commands.validate import (
+    run_compare_candidate_evidence,
     run_compare_validation_reports,
     run_hardware_report,
     run_local_model_validation_command,
     run_runtime_privacy_qualification,
+    run_show_candidate_evidence,
     run_show_runtime_privacy_report,
     run_verify_runtime_privacy_report,
 )
@@ -1081,6 +1083,36 @@ def build_parser() -> argparse.ArgumentParser:
         dest="json_output",
     )
 
+    validate_candidate = validate_commands.add_parser(
+        "candidate",
+        help="Inspect one exact verified capability/privacy candidate pair.",
+    )
+    validate_candidate.add_argument("validation_report")
+    validate_candidate.add_argument("privacy_report")
+    validate_candidate.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
+    validate_candidate_compare = validate_commands.add_parser(
+        "compare-candidates",
+        help="Compare verified capability/privacy candidate pairs without ranking.",
+    )
+    validate_candidate_compare.add_argument(
+        "--pair",
+        action="append",
+        nargs=2,
+        required=True,
+        metavar=("VALIDATION", "PRIVACY"),
+        dest="pairs",
+    )
+    validate_candidate_compare.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
     plan = subcommands.add_parser(
         "plan",
         help="Ask a model to propose TaskPlan data without executing it.",
@@ -1561,6 +1593,17 @@ def _run_command(argv: Sequence[str] | None) -> int:
             return run_verify_runtime_privacy_report(
                 report_path=cast(str, args.report),
                 validation_report=cast(str, args.validation_report),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.validate_command == "candidate":
+            return run_show_candidate_evidence(
+                validation_report=cast(str, args.validation_report),
+                privacy_report=cast(str, args.privacy_report),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.validate_command == "compare-candidates":
+            return run_compare_candidate_evidence(
+                pairs=cast(Sequence[Sequence[str]], args.pairs),
                 json_output=cast(bool, args.json_output),
             )
 
