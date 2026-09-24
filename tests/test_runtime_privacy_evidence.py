@@ -19,6 +19,7 @@ from ally.diagnostics import (
     LocalModelValidationReport,
     RuntimePrivacyChecks,
     RuntimePrivacyEvidenceError,
+    RuntimePrivacyQualificationReport,
     RuntimeProfile,
     build_runtime_privacy_report,
     load_runtime_privacy_report,
@@ -123,8 +124,6 @@ def test_privacy_report_requires_coherent_isolation_evidence() -> None:
     }
 
     with pytest.raises(ValidationError, match="unverified isolation"):
-        from ally.diagnostics import RuntimePrivacyQualificationReport
-
         RuntimePrivacyQualificationReport.model_validate(raw)
 
 
