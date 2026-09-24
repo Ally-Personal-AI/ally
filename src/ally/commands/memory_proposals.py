@@ -18,12 +18,13 @@ from ally.memory import (
 )
 from ally.models.errors import ModelProviderError
 from ally.models.providers import OpenAICompatibleProvider
+from ally.runtime_profiles import InferenceTargetError, resolve_inference_target
 
 
 def run_propose_memories(
     *,
-    endpoint: str,
-    model: str,
+    development_endpoint: str | None,
+    development_model: str | None,
     text: str,
     source_type: MemorySourceType,
     source_id: str | None,
@@ -38,16 +39,28 @@ def run_propose_memories(
     )
 
     try:
+        target = resolve_inference_target(
+            development_endpoint=development_endpoint,
+            development_model=development_model,
+        )
+    except InferenceTargetError as exc:
+        print(f"Inference target error: {exc}")
+        return 2
+
+    try:
         with OpenAICompatibleProvider(
-            base_url=endpoint,
-            model=model,
+            base_url=target.endpoint,
+            model=target.model,
         ) as provider:
             bundle = ModelMemoryProposer(provider).propose(
                 text=text,
                 source=source,
                 privacy=privacy,
             )
-    except (ModelProviderError, MemoryProposalError, ValueError) as exc:
+    except ModelProviderError as exc:
+        print(f"Memory provider error: {exc}")
+        return 2
+    except (MemoryProposalError, ValueError) as exc:
         print(f"Memory proposal error: {exc}")
         return 2
 
