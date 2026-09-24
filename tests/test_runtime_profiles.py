@@ -100,7 +100,7 @@ def _evidence(
     workflow_qualified: bool = True,
 ) -> tuple[Path, Path, Path]:
     hidden = tmp_path / "PRIVATE-LOCAL-EVIDENCE-DIRECTORY"
-    hidden.mkdir(exist_ok=True)
+    hidden.mkdir(parents=True, exist_ok=True)
     validation_path = write_validation_report(
         _validation(model=model, successful=successful),
         hidden / "capability.json",
