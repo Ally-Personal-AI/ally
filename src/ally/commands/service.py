@@ -7,7 +7,9 @@ from datetime import UTC, datetime
 
 from ally.attention import (
     AttentionDeliveryRuntime,
-    ConsoleAttentionSink,
+    AttentionSinkName,
+    MacOSNotificationError,
+    build_attention_sink,
 )
 from ally.commands._storage import (
     build_attention_delivery_store,
@@ -46,15 +48,12 @@ def run_proactive_cycle(
     at: str | None,
     schedule_limit: int,
     delivery_limit: int,
-    sink_name: str,
+    sink_name: AttentionSinkName,
     lease_seconds: int,
     json_output: bool,
 ) -> int:
-    if sink_name != "console":
-        print(f"Service error: unknown attention sink: {sink_name}")
-        return 2
-
     try:
+        sink = build_attention_sink(sink_name)
         observed_at = datetime.now(UTC) if at is None else _parse_timestamp(at)
         with service_lease(
             build_service_lease_store(),
@@ -77,11 +76,12 @@ def run_proactive_cycle(
             )
             report, run = runner.run(
                 as_of=observed_at,
-                sinks=(ConsoleAttentionSink(),),
+                sinks=(sink,),
                 schedule_limit=schedule_limit,
                 delivery_limit=delivery_limit,
             )
     except (
+        MacOSNotificationError,
         ScheduleConflictError,
         ServiceLeaseUnavailableError,
         ServiceRunConflictError,
