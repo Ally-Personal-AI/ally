@@ -22,6 +22,7 @@ from ally.diagnostics import (
     PerformanceObservations,
     RuntimeProfile,
 )
+from ally.events import NewEvent
 from ally.models import ChatRequest, ChatResponse, ModelProvider
 from ally.runtime_profiles import (
     EvidenceReference,
@@ -242,6 +243,50 @@ def _task_application(
         ),
     )
     return app, tool
+
+
+def _attention_application(
+    tmp_path: Path,
+) -> tuple[
+    AllyApplication,
+    SQLiteEventStore,
+    SQLiteAttentionDeliveryStore,
+]:
+    database = SQLiteDatabase(tmp_path / "attention.sqlite3")
+    events = SQLiteEventStore(database)
+    deliveries = SQLiteAttentionDeliveryStore(database)
+    tasks = SQLiteTaskStore(database)
+    registry = ToolRegistry()
+    runner = TaskRunner(
+        tasks,
+        ToolExecutor(
+            registry,
+            DefaultToolPolicy(),
+            SQLiteToolAuditStore(database),
+        ),
+    )
+    app = AllyApplication(
+        conversations=SQLiteConversationStore(database),
+        memories=SQLiteMemoryStore(database),
+        knowledge=SQLiteKnowledgeStore(database),
+        instructions=SQLiteUserInstructionsStore(database),
+        target_resolver=_target,
+        provider_factory=lambda target: CapturingProvider([]),
+        operations=ApplicationOperations(
+            tasks=tasks,
+            task_runner=runner,
+            events=events,
+            attention_deliveries=deliveries,
+            service_runs=SQLiteServiceCycleRunStore(database),
+            service_health=lambda: ServiceHealthReport(
+                status="healthy",
+                database_exists=True,
+                database_integrity_ok=True,
+                schema_current=True,
+            ),
+        ),
+    )
+    return app, events, deliveries
 
 
 def _request(method: str, params: dict[str, object] | None = None) -> str:
@@ -587,6 +632,96 @@ def test_bridge_runtime_profile_selection_accepts_only_installed_ids(
     assert deselected.ok
     assert isinstance(deselected.result, dict)
     assert deselected.result["active_profile_id"] is None
+
+
+def test_bridge_attention_center_detail_history_and_handled_state(
+    tmp_path: Path,
+) -> None:
+    app, events, deliveries = _attention_application(tmp_path)
+    event = events.create(
+        NewEvent(
+            type="synthetic.desktop-attention",
+            source="bridge-test",
+            importance="urgent",
+            payload={
+                "summary": "Synthetic attention summary.",
+                "private_detail": "kept local in detail only",
+            },
+        ),
+        attention="notify",
+    )
+    delivery = deliveries.record_attempt(
+        event_id=event.id,
+        sink_id="macos.notification",
+        succeeded=True,
+    )
+
+    listed = handle_request_json(
+        app,
+        _request("attention.events", {"limit": 100, "handled": False}),
+    )
+    assert listed.ok
+    assert isinstance(listed.result, list)
+    assert [item["id"] for item in listed if isinstance(item, dict)] == [
+        str(event.id)
+    ]
+
+    detail = handle_request_json(
+        app,
+        _request("attention.get", {"event_id": str(event.id)}),
+    )
+    assert detail.ok
+    assert isinstance(detail.result, dict)
+    detail_event = detail.result["event"]
+    detail_deliveries = detail.result["deliveries"]
+    assert isinstance(detail_event, dict)
+    assert isinstance(detail_deliveries, list)
+    assert detail_event["payload"]["summary"] == "Synthetic attention summary."
+    assert detail_deliveries[0]["id"] == str(delivery.id)
+
+    history = handle_request_json(
+        app,
+        _request(
+            "attention.delivery_history",
+            {"limit": 100, "status": "succeeded"},
+        ),
+    )
+    assert history.ok
+    assert isinstance(history.result, list)
+    assert history.result[0]["event_id"] == str(event.id)
+
+    rejected = handle_request_json(
+        app,
+        _request(
+            "attention.mark_handled",
+            {
+                "event_id": str(event.id),
+                "deliver": True,
+            },
+        ),
+    )
+    assert not rejected.ok
+    assert rejected.error is not None
+    assert rejected.error.code == "invalid_request"
+    assert events.get(event.id) is not None
+    assert events.get(event.id).handled_at is None  # type: ignore[union-attr]
+
+    handled = handle_request_json(
+        app,
+        _request("attention.mark_handled", {"event_id": str(event.id)}),
+    )
+    assert handled.ok
+    assert isinstance(handled.result, dict)
+    handled_event = handled.result["event"]
+    assert isinstance(handled_event, dict)
+    assert handled_event["handled_at"] is not None
+
+    pending = handle_request_json(
+        app,
+        _request("attention.events", {"limit": 100, "handled": False}),
+    )
+    assert pending.ok
+    assert pending.result == []
 
 
 def test_bridge_task_approval_is_exactly_one_paused_step(
