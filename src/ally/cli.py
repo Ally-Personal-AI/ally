@@ -112,6 +112,7 @@ from ally.commands.validate import (
     run_runtime_privacy_qualification,
     run_show_candidate_evidence,
     run_show_runtime_privacy_report,
+    run_synthetic_workflow_validation,
     run_verify_runtime_privacy_report,
 )
 from ally.diagnostics import NetworkObservationMethod, RuntimeIsolationMode
@@ -958,6 +959,21 @@ def build_parser() -> argparse.ArgumentParser:
         dest="json_output",
     )
 
+    validate_workflows = validate_commands.add_parser(
+        "workflows",
+        help="Run isolated synthetic end-to-end workflows against a local model.",
+    )
+    validate_workflows.add_argument(
+        "--endpoint",
+        default="http://127.0.0.1:8080/v1",
+    )
+    validate_workflows.add_argument("--model", required=True)
+    validate_workflows.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
     validate_model = validate_commands.add_parser(
         "local-model",
         help="Run frozen Ally checks against a loopback model server.",
@@ -1539,6 +1555,12 @@ def _run_command(argv: Sequence[str] | None) -> int:
             )
         if args.validate_command == "hardware":
             return run_hardware_report(json_output=cast(bool, args.json_output))
+        if args.validate_command == "workflows":
+            return run_synthetic_workflow_validation(
+                endpoint=cast(str, args.endpoint),
+                model=cast(str, args.model),
+                json_output=cast(bool, args.json_output),
+            )
         if args.validate_command == "local-model":
             return run_local_model_validation_command(
                 endpoint=cast(str, args.endpoint),
