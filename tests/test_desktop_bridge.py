@@ -304,8 +304,12 @@ def test_bridge_task_approval_is_exactly_one_paused_step(
     assert isinstance(started.result, dict)
     steps = started.result["steps"]
     assert isinstance(steps, list)
-    assert steps[0]["status"] == "approval_required"
-    assert steps[1]["status"] == "pending"
+    first_step = steps[0]
+    second_step = steps[1]
+    assert isinstance(first_step, dict)
+    assert isinstance(second_step, dict)
+    assert first_step["status"] == "approval_required"
+    assert second_step["status"] == "pending"
 
     first = handle_request_json(
         app,
@@ -322,8 +326,12 @@ def test_bridge_task_approval_is_exactly_one_paused_step(
     assert isinstance(first.result, dict)
     first_steps = first.result["steps"]
     assert isinstance(first_steps, list)
-    assert first_steps[0]["status"] == "succeeded"
-    assert first_steps[1]["status"] == "approval_required"
+    completed_step = first_steps[0]
+    next_step = first_steps[1]
+    assert isinstance(completed_step, dict)
+    assert isinstance(next_step, dict)
+    assert completed_step["status"] == "succeeded"
+    assert next_step["status"] == "approval_required"
 
     second = handle_request_json(
         app,
@@ -404,7 +412,9 @@ def test_bridge_retry_requires_an_explicit_failed_step(
     assert isinstance(failed.result, dict)
     failed_steps = failed.result["steps"]
     assert isinstance(failed_steps, list)
-    assert failed_steps[0]["status"] == "failed"
+    failed_step = failed_steps[0]
+    assert isinstance(failed_step, dict)
+    assert failed_step["status"] == "failed"
 
     retried = handle_request_json(
         app,
@@ -422,8 +432,10 @@ def test_bridge_retry_requires_an_explicit_failed_step(
     steps = retried.result["steps"]
     assert isinstance(task, dict)
     assert isinstance(steps, list)
+    reset_step = steps[0]
+    assert isinstance(reset_step, dict)
     assert task["status"] == "pending"
-    assert steps[0]["status"] == "pending"
+    assert reset_step["status"] == "pending"
 
     stale = handle_request_json(
         app,
