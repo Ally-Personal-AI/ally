@@ -134,3 +134,31 @@ def test_validate_compare_candidates_parser_accepts_repeated_pairs() -> None:
         ["b-validation.json", "b-privacy.json"],
     ]
     assert args.json_output is True
+
+
+
+def test_validate_local_model_parser_accepts_repeated_artifacts() -> None:
+    args = build_parser().parse_args(
+        [
+            "validate",
+            "local-model",
+            "--model",
+            "example",
+            "--runtime",
+            "llama.cpp",
+            "--runtime-version",
+            "b1234",
+            "--model-artifact",
+            "model-00001.gguf",
+            "--model-artifact",
+            "model-00002.gguf",
+            "--runtime-artifact",
+            "llama-server",
+        ]
+    )
+
+    assert args.model_artifacts == [
+        "model-00001.gguf",
+        "model-00002.gguf",
+    ]
+    assert args.runtime_artifacts == ["llama-server"]
