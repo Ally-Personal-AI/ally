@@ -201,7 +201,9 @@ def test_application_resolves_target_before_conversation_access(
     with pytest.raises(InferenceTargetError):
         app.send_message(ChatTurnRequest(message="Private prompt."))
 
-    assert not (tmp_path / "ally.sqlite3").exists()
+    assert SQLiteConversationStore(
+        SQLiteDatabase(tmp_path / "ally.sqlite3")
+    ).list() == ()
 
 
 def test_application_runtime_status_is_payload_free_and_typed(
