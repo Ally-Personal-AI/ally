@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -13,7 +13,10 @@ from ally.attention.runtime import delivery_key
 from ally.attention.store import AttentionDeliveryStore
 from ally.events import AttentionClass, EventStore
 from ally.scheduler import SchedulerRuntime
-from ally.service.leases import SQLiteServiceLeaseStore, service_lease
+from ally.service.leases import (
+    ServiceLeaseUnavailableError,
+    SQLiteServiceLeaseStore,
+)
 from ally.service.models import ServiceCycleRunRecord
 from ally.service.store import ServiceCycleRunStore
 
@@ -87,32 +90,32 @@ class DesktopProactiveCoordinator:
             raise ValueError("service timestamp must include a timezone offset")
         observed_at = observed_at.astimezone(UTC)
 
-        with service_lease(
-            self._leases,
+        run_id = uuid4()
+        lease = self._leases.acquire(
             name=DESKTOP_PROACTIVE_LEASE_NAME,
+            owner_id=run_id,
+            now=datetime.now(UTC),
             ttl_seconds=DESKTOP_PROACTIVE_LEASE_SECONDS,
-        ):
-            started_at = datetime.now(UTC)
+        )
+        if lease is None:
+            raise ServiceLeaseUnavailableError(
+                "service lease is already held: proactive-cycle"
+            )
+
+        started_at = datetime.now(UTC)
+        run: ServiceCycleRunRecord | None = None
+        try:
             self._runs.interrupt_running(finished_at=started_at)
             run = self._runs.start(
                 observed_at=observed_at,
                 started_at=started_at,
+                run_id=run_id,
             )
-            try:
-                ticks = self._scheduler.tick(
-                    as_of=observed_at,
-                    limit=schedule_limit,
-                )
-                candidates = self._candidates(limit=delivery_limit)
-            except Exception as exc:
-                self._runs.finish(
-                    run.id,
-                    status="failed",
-                    finished_at=datetime.now(UTC),
-                    error_class=type(exc).__name__,
-                )
-                raise
-
+            ticks = self._scheduler.tick(
+                as_of=observed_at,
+                limit=schedule_limit,
+            )
+            candidates = self._candidates(limit=delivery_limit)
             run = self._runs.update_running_progress(
                 run.id,
                 scheduled_events=len(ticks),
@@ -126,10 +129,30 @@ class DesktopProactiveCoordinator:
                     delivery_attempts=run.delivery_attempts,
                     delivery_failures=run.delivery_failures,
                 )
+                self._leases.release(
+                    name=DESKTOP_PROACTIVE_LEASE_NAME,
+                    owner_id=run_id,
+                )
             return DesktopProactivePreparation(
                 run=run,
                 candidates=candidates,
             )
+        except Exception as exc:
+            if run is not None and run.status == "running":
+                self._runs.finish(
+                    run.id,
+                    status="failed",
+                    finished_at=datetime.now(UTC),
+                    scheduled_events=run.scheduled_events,
+                    delivery_attempts=run.delivery_attempts,
+                    delivery_failures=run.delivery_failures,
+                    error_class=type(exc).__name__,
+                )
+            self._leases.release(
+                name=DESKTOP_PROACTIVE_LEASE_NAME,
+                owner_id=run_id,
+            )
+            raise
 
     def _candidates(
         self,
@@ -214,6 +237,16 @@ class DesktopProactiveCoordinator:
             succeeded=succeeded,
             error=None if succeeded else _NATIVE_DELIVERY_ERROR,
         )
+        renewed = self._leases.renew(
+            name=DESKTOP_PROACTIVE_LEASE_NAME,
+            owner_id=run_id,
+            now=datetime.now(UTC),
+            ttl_seconds=DESKTOP_PROACTIVE_LEASE_SECONDS,
+        )
+        if renewed is None:
+            raise ServiceLeaseUnavailableError(
+                "desktop proactive lease expired before delivery acknowledgement"
+            )
         self._runs.update_running_progress(
             run_id,
             delivery_attempts_delta=1,
@@ -224,13 +257,28 @@ class DesktopProactiveCoordinator:
     def complete(self, run_id: UUID) -> ServiceCycleRunRecord:
         """Finish one prepared cycle using only server-owned progress counters."""
 
+        renewed = self._leases.renew(
+            name=DESKTOP_PROACTIVE_LEASE_NAME,
+            owner_id=run_id,
+            now=datetime.now(UTC),
+            ttl_seconds=DESKTOP_PROACTIVE_LEASE_SECONDS,
+        )
+        if renewed is None:
+            raise ServiceLeaseUnavailableError(
+                "desktop proactive lease is no longer active"
+            )
+
         current = self._runs.get(run_id)
         if current is None:
             raise KeyError(f"Unknown service cycle run: {run_id}")
         if current.status != "running":
+            self._leases.release(
+                name=DESKTOP_PROACTIVE_LEASE_NAME,
+                owner_id=run_id,
+            )
             return current
 
-        return self._runs.finish(
+        finished = self._runs.finish(
             run_id,
             status="degraded" if current.delivery_failures else "succeeded",
             finished_at=datetime.now(UTC),
@@ -238,3 +286,8 @@ class DesktopProactiveCoordinator:
             delivery_attempts=current.delivery_attempts,
             delivery_failures=current.delivery_failures,
         )
+        self._leases.release(
+            name=DESKTOP_PROACTIVE_LEASE_NAME,
+            owner_id=run_id,
+        )
+        return finished
