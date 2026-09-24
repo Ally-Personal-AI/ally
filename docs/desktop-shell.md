@@ -54,7 +54,9 @@ The first shell includes:
 - task summary/status inspection;
 - task detail with explicit one-step-at-a-time approval and failed-step retry;
 - private-runtime readiness and validated-profile catalog/selection;
-- proactive-service health and attention counts.
+- proactive-service health;
+- full attention event/delivery-history inspection with explicit handled-state mutation; and
+- modern macOS notification authorization status/request through `UNUserNotificationCenter`.
 
 This is still an incremental #66 product surface. Full attention history/detail,
 modern bundled notification authorization,
@@ -100,6 +102,32 @@ granting broader filesystem or model authority:
 
 The native UI makes those semantics visible before mutation and explains that
 correction/retraction preserve local history.
+
+## Attention and notification boundary
+
+Desktop protocol v5 adds a dedicated local Attention Center without turning the
+presentation layer into a notification-delivery engine:
+
+- `attention.events` lists user-facing `mention_later`, `notify`, and
+  `interrupt` events, including handled history when requested;
+- `attention.get` returns one event plus every durable sink-delivery record;
+- `attention.delivery_history` exposes bounded delivery history;
+- `attention.mark_handled` changes only the event's local handled state;
+- successful notification delivery still does not imply that the user handled
+  the underlying event; and
+- the bridge exposes no desktop command for forcing delivery, choosing a sink,
+  or changing attention classification.
+
+The Swift app also uses Apple's modern `UNUserNotificationCenter` API to read
+notification authorization state and to request alert/sound permission only
+after an explicit user action. That permission client has no access to Ally's
+event store, delivery store, or bridge.
+
+The existing background Python/launchd delivery adapter remains isolated behind
+the durable `AttentionSink` contract. Replacing its deprecated
+`NSUserNotificationCenter` backend with app-bundle-owned modern delivery is a
+separate packaging/identity transition and must not be claimed complete until
+the signed application bundle and dedicated-machine behavior are validated.
 
 ## Task approval boundary
 
