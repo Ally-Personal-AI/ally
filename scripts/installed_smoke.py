@@ -400,13 +400,19 @@ def run_workflows(root: Path) -> None:
         "application-backed pending attention",
     )
 
-    cycle = json.loads(cli("service", "cycle", "--sink", "console", "--json"))
-    require(cycle["run"]["status"] == "succeeded", "bounded service cycle")
+    delivery = cli("attention", "deliver", "--sink", "console")
+    require(
+        "Succeeded: 1" in delivery and "Failed: 0" in delivery,
+        "synthetic console attention delivery",
+    )
     history = cli("attention", "history")
     require(
         "sink=console" in history and "succeeded" in history,
         "application-backed attention history",
     )
+
+    cycle = json.loads(cli("service", "cycle", "--sink", "console", "--json"))
+    require(cycle["run"]["status"] == "succeeded", "bounded service cycle")
     health = json.loads(cli("service", "health", "--json"))
     require(health["status"] == "healthy", "service health")
     launch_agent = plistlib.loads(cli("service", "managed", "inspect").encode())
