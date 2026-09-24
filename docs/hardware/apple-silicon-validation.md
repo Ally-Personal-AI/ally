@@ -212,23 +212,49 @@ artifact with the matching options:
 Omit an unavailable measurement instead of estimating it. Use a new output
 filename when repeating a run so prior evidence remains intact.
 
-## 6. Functional Ally checks
+## 6. Run isolated synthetic Ally workflows
 
-After provider smoke and behavioral qualification complete, use synthetic data to exercise:
+Do not use Ally's default personal-state database for functional validation.
+Run the isolated synthetic workflow against the same candidate endpoint/model:
 
-1. persistent multi-turn chat and resume after process restart;
-2. explicit memory creation, retrieval, supersession, and retraction;
-3. synthetic document ingestion and grounded answers;
-4. private-context safeguards;
-5. `system.info` through the permissioned tool runtime;
-6. a persisted read-only task using `system.info`;
-7. task restart/resume behavior;
-8. synthetic model plan proposal quality;
-9. synthetic memory proposal quality and explicit review, without accepting
-   personal data.
+```bash
+uv run ally validate workflows --model <model-id>
+```
 
-Do not enable automatic memory writes or consequential tools during the
-first-machine session.
+For a non-default loopback endpoint:
+
+```bash
+uv run ally validate workflows \
+  --endpoint http://127.0.0.1:11434/v1 \
+  --model <model-id>
+```
+
+Use `--json` for machine-readable status.
+
+The command creates a temporary Ally SQLite database and synthetic knowledge
+inside a disposable workspace, exercises the real runtime/store/policy
+boundaries, and removes the workspace before returning. It does not initialize
+the normal config, touch the default personal database, access Keychain, mutate
+launchd, deliver notifications, or perform external egress.
+
+The workflow checks:
+
+1. persistent multi-turn conversation and resume through a reopened runtime;
+2. explicit memory create/search/supersede/retract lifecycle;
+3. synthetic knowledge ingestion/retrieval plus model-grounded answering;
+4. `system.info` through the read-only permissioned tool path and audit;
+5. a persisted read-only task using `system.info`;
+6. a model TaskPlan proposal constrained to the declared tool;
+7. a model memory proposal from synthetic source text without accepting it into
+   durable memory; and
+8. that all generated validation state lives under the disposable workspace.
+
+The report stores only check IDs, pass/fail state, durations, and safe exception
+class names. Model responses, synthetic prompts, temporary filesystem paths,
+and generated database content are not copied into the report.
+
+A failed workflow should be investigated before selecting the candidate even
+when the frozen provider/behavior suites passed.
 
 ## 7. Compare runtimes/models
 
