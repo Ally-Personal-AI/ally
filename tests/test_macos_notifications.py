@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+import sys
+from typing import Literal
 from uuid import uuid4
 
 import pytest
@@ -171,21 +173,19 @@ def test_native_backend_fails_closed_off_macos() -> None:
     ],
 )
 def test_attention_health_is_payload_free_and_actionable(
-    authorization: str,
+    authorization: Literal["authorized", "denied", "not_determined", "unobservable"],
     expected_code: int,
     expected_status: str,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    status = MacOSNotificationStatus.model_construct if False else None
-    del status
     monkeypatch.setattr(
         attention_commands,
         "macos_notification_status",
         lambda: MacOSNotificationStatus(
             supported=True,
             api_available=True,
-            authorization=authorization,  # type: ignore[arg-type]
+            authorization=authorization,
         ),
     )
 
@@ -224,3 +224,14 @@ def test_attention_health_reports_safe_unavailable_state(
     assert result == 2
     assert "Status: unavailable" in output
     assert "Notification Center" in output
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="requires macOS Foundation")
+def test_native_backend_api_is_available_on_hosted_macos() -> None:
+    backend = NativeMacOSNotificationBackend()
+
+    status = backend.status()
+
+    assert status.supported is True
+    assert status.api_available is True
+    assert status.authorization == "unobservable"
