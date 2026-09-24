@@ -157,6 +157,7 @@ def initialize_validation_session(
     *,
     directory: Path,
     candidate_label: str,
+    artifacts: ValidationArtifactPlan | None = None,
     created_at: datetime | None = None,
 ) -> tuple[ValidationSessionManifest, Path]:
     """Create one immutable session plan and no candidate evidence."""
@@ -174,6 +175,7 @@ def initialize_validation_session(
         created_at=observed_at,
         ally_version=__version__,
         candidate_label=candidate_label,
+        artifacts=artifacts or ValidationArtifactPlan(),
     )
     root.mkdir(parents=True, exist_ok=True)
     temporary = root / f".session.json.{uuid4().hex}.tmp"
