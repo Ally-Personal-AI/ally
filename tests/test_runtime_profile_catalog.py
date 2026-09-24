@@ -279,3 +279,22 @@ def test_default_active_resolver_uses_ally_config_catalog(
 
     assert resolved.profile_id == installed.stem
     assert resolved.model == "synthetic-model"
+
+
+
+def test_catalog_wraps_unavailable_root_without_raw_path_leakage(
+    tmp_path: Path,
+) -> None:
+    bundle = _qualified_bundle(tmp_path / "evidence")
+    blocked_root = tmp_path / "PRIVATE-BLOCKED-CATALOG"
+    blocked_root.write_text("not a directory", encoding="utf-8")
+    catalog = RuntimeProfileCatalog(blocked_root)
+
+    with pytest.raises(
+        RuntimeProfileCatalogError,
+        match="catalog is unavailable",
+    ) as error:
+        _install(catalog, bundle)
+
+    assert "PRIVATE-BLOCKED-CATALOG" not in str(error.value)
+    assert str(tmp_path) not in str(error.value)
