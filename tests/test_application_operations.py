@@ -342,6 +342,60 @@ def test_pending_attention_and_history_are_read_only_views(
     assert app.pending_attention()[0].id == event.id
 
 
+def test_attention_center_preserves_delivery_and_handled_semantics(
+    tmp_path: Path,
+) -> None:
+    app, _, events, deliveries, _, _ = _application(tmp_path)
+    notify = events.create(
+        NewEvent(
+            type="synthetic.notify",
+            source="attention-center-test",
+            importance="urgent",
+            payload={"message": "Synthetic notification."},
+        ),
+        attention="notify",
+    )
+    later = events.create(
+        NewEvent(
+            type="synthetic.later",
+            source="attention-center-test",
+            importance="important",
+            payload={"summary": "Synthetic later item."},
+        ),
+        attention="mention_later",
+    )
+    ignored = events.create(
+        NewEvent(
+            type="synthetic.ignore",
+            source="attention-center-test",
+            importance="noise",
+        ),
+        attention="ignore",
+    )
+    delivery = deliveries.record_attempt(
+        event_id=notify.id,
+        sink_id="macos.notification",
+        succeeded=True,
+    )
+
+    listed = app.list_attention_events()
+    assert [item.id for item in listed] == [later.id, notify.id] or [
+        item.id for item in listed
+    ] == [notify.id, later.id]
+    assert ignored.id not in {item.id for item in listed}
+
+    detail = app.attention_event(notify.id)
+    assert detail.event.id == notify.id
+    assert detail.deliveries == (delivery,)
+    assert detail.event.handled_at is None
+
+    handled = app.mark_attention_handled(notify.id)
+    assert handled.event.handled_at is not None
+    assert handled.deliveries == (delivery,)
+    assert app.list_attention_events(handled=False) == (later,)
+    assert app.list_attention_events(handled=True) == (handled.event,)
+
+
 def test_service_health_and_history_are_typed_read_only_results(
     tmp_path: Path,
 ) -> None:
