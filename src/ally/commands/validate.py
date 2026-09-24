@@ -25,6 +25,7 @@ from ally.diagnostics import (
     load_runtime_privacy_report,
     load_validation_report,
     run_local_model_validation,
+    verify_runtime_privacy_source,
     write_runtime_privacy_report,
     write_validation_report,
 )
@@ -326,4 +327,43 @@ def run_show_runtime_privacy_report(
     print(f"Source validation SHA-256: {report.source_validation_sha256}")
     for name, value in report.checks.model_dump(mode="python").items():
         print(f"{name}: {value}")
+    return 0 if report.qualified_for_private_inference else 1
+
+
+
+def run_verify_runtime_privacy_report(
+    *,
+    report_path: str,
+    validation_report: str,
+    json_output: bool,
+) -> int:
+    """Verify one privacy artifact against the exact capability report."""
+
+    try:
+        report = load_runtime_privacy_report(Path(report_path))
+        verify_runtime_privacy_source(report, Path(validation_report))
+    except (RuntimePrivacyEvidenceError, ValidationReportError) as exc:
+        print(f"Runtime privacy verification error: {exc}")
+        return 2
+
+    if json_output:
+        print(
+            json.dumps(
+                {
+                    "source_matches": True,
+                    "qualified_for_private_inference": (
+                        report.qualified_for_private_inference
+                    ),
+                    "source_validation_sha256": report.source_validation_sha256,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    else:
+        print("Source matches: yes")
+        print(
+            "Qualified for private inference: "
+            f"{'yes' if report.qualified_for_private_inference else 'no'}"
+        )
     return 0 if report.qualified_for_private_inference else 1
