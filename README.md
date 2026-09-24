@@ -348,6 +348,24 @@ Generated validation artifacts are ignored by Git by default. See
 [Local-model Validation Evidence](docs/model-validation.md) for the complete
 report contract and command options.
 
+A passing model-validation report is not enough to make a runtime eligible for
+private daily use. The dedicated-machine session must also create a separate,
+fail-closed runtime privacy artifact proving the candidate continues to work
+under recorded no-egress conditions with no observed cloud fallback,
+prompt-bearing telemetry, or unexpected outbound connections:
+
+```bash
+uv run ally validate runtime-privacy \
+  validation/<candidate>.json \
+  --isolation-mode host_offline \
+  --network-observation system_tools \
+  --output validation/<candidate>-privacy.json
+```
+
+All privacy checks default to `not_run`, so the example above remains
+unqualified until each check is explicitly recorded as passed. See
+[Runtime Privacy Qualification](docs/runtime-privacy-qualification.md).
+
 See [Apple Silicon First-Machine Validation](docs/hardware/apple-silicon-validation.md) for the full procedure and exit criteria.
 
 ## Proactive events

@@ -10,14 +10,23 @@ from pydantic import ValidationError
 
 from ally.diagnostics import (
     LocalModelValidationReport,
+    NetworkObservationMethod,
     PerformanceObservations,
+    RuntimeIsolationMode,
     RuntimeParameter,
+    RuntimePrivacyChecks,
+    RuntimePrivacyEvidenceError,
+    RuntimePrivacyQualificationReport,
     RuntimeProfile,
     ValidationReportError,
+    build_runtime_privacy_report,
     collect_hardware_profile,
     compare_validation_reports,
+    load_runtime_privacy_report,
     load_validation_report,
     run_local_model_validation,
+    verify_runtime_privacy_source,
+    write_runtime_privacy_report,
     write_validation_report,
 )
 from ally.evals.resources import evaluation_case_file
@@ -217,3 +226,144 @@ def run_compare_validation_reports(
         print(f"  Thermal state: {candidate.thermal_state}")
     print("\nNo default is selected automatically; review reliability and resource evidence.")
     return 0
+
+
+
+def run_runtime_privacy_qualification(
+    *,
+    validation_report: str,
+    isolation_mode: RuntimeIsolationMode,
+    network_observation: NetworkObservationMethod,
+    inference_with_egress_blocked: str,
+    synthetic_chat: str,
+    synthetic_planning: str,
+    synthetic_memory_proposal: str,
+    synthetic_grounding: str,
+    no_cloud_auth_required: str,
+    no_cloud_fallback_observed: str,
+    no_prompt_telemetry_observed: str,
+    no_unexpected_outbound_connections: str,
+    output: str,
+) -> int:
+    """Record fail-closed runtime privacy evidence tied to one validation report."""
+
+    try:
+        checks = RuntimePrivacyChecks.model_validate(
+            {
+                "inference_with_egress_blocked": inference_with_egress_blocked,
+                "synthetic_chat": synthetic_chat,
+                "synthetic_planning": synthetic_planning,
+                "synthetic_memory_proposal": synthetic_memory_proposal,
+                "synthetic_grounding": synthetic_grounding,
+                "no_cloud_auth_required": no_cloud_auth_required,
+                "no_cloud_fallback_observed": no_cloud_fallback_observed,
+                "no_prompt_telemetry_observed": no_prompt_telemetry_observed,
+                "no_unexpected_outbound_connections": (
+                    no_unexpected_outbound_connections
+                ),
+            }
+        )
+        report = build_runtime_privacy_report(
+            validation_path=Path(validation_report),
+            isolation_mode=isolation_mode,
+            network_observation=network_observation,
+            checks=checks,
+        )
+        destination = write_runtime_privacy_report(report, Path(output))
+    except ValidationError:
+        print("Runtime privacy error: evidence metadata is invalid.")
+        return 2
+    except (
+        FileExistsError,
+        OSError,
+        RuntimePrivacyEvidenceError,
+        ValidationReportError,
+        ValueError,
+    ) as exc:
+        print(f"Runtime privacy error: {exc}")
+        return 2
+
+    print(f"Runtime privacy report: {destination}")
+    print(
+        "Qualified for private inference: "
+        f"{'yes' if report.qualified_for_private_inference else 'no'}"
+    )
+    for name, value in report.checks.model_dump(mode="python").items():
+        print(f"{name}: {value}")
+    return 0 if report.qualified_for_private_inference else 1
+
+
+def run_show_runtime_privacy_report(
+    *,
+    report_path: str,
+    json_output: bool,
+) -> int:
+    """Inspect one runtime privacy artifact without modifying it."""
+
+    try:
+        report: RuntimePrivacyQualificationReport = load_runtime_privacy_report(
+            Path(report_path)
+        )
+    except RuntimePrivacyEvidenceError as exc:
+        print(f"Runtime privacy error: {exc}")
+        return 2
+
+    if json_output:
+        rendered = report.model_dump(mode="json")
+        rendered["qualified_for_private_inference"] = (
+            report.qualified_for_private_inference
+        )
+        print(json.dumps(rendered, indent=2, sort_keys=True))
+        return 0
+
+    print(
+        "Qualified for private inference: "
+        f"{'yes' if report.qualified_for_private_inference else 'no'}"
+    )
+    print(f"Runtime: {report.runtime.name} {report.runtime.version}")
+    print(f"Model: {report.model}")
+    print(f"Isolation mode: {report.isolation_mode}")
+    print(f"Network observation: {report.network_observation}")
+    print(f"Source validation SHA-256: {report.source_validation_sha256}")
+    for name, value in report.checks.model_dump(mode="python").items():
+        print(f"{name}: {value}")
+    return 0 if report.qualified_for_private_inference else 1
+
+
+
+def run_verify_runtime_privacy_report(
+    *,
+    report_path: str,
+    validation_report: str,
+    json_output: bool,
+) -> int:
+    """Verify one privacy artifact against the exact capability report."""
+
+    try:
+        report = load_runtime_privacy_report(Path(report_path))
+        verify_runtime_privacy_source(report, Path(validation_report))
+    except (RuntimePrivacyEvidenceError, ValidationReportError) as exc:
+        print(f"Runtime privacy verification error: {exc}")
+        return 2
+
+    if json_output:
+        print(
+            json.dumps(
+                {
+                    "source_matches": True,
+                    "qualified_for_private_inference": (
+                        report.qualified_for_private_inference
+                    ),
+                    "source_validation_sha256": report.source_validation_sha256,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    else:
+        print("Source matches: yes")
+        print(
+            "Qualified for private inference: "
+            f"{'yes' if report.qualified_for_private_inference else 'no'}"
+        )
+    return 0 if report.qualified_for_private_inference else 1

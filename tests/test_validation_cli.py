@@ -43,3 +43,51 @@ def test_validate_compare_parser_accepts_multiple_reports() -> None:
     assert args.validate_command == "compare"
     assert args.reports == ["first.json", "second.json"]
     assert args.json_output is True
+
+
+def test_validate_runtime_privacy_parser_is_fail_closed_by_default() -> None:
+    args = build_parser().parse_args(
+        ["validate", "runtime-privacy", "validation.json"]
+    )
+
+    assert args.validate_command == "runtime-privacy"
+    assert args.validation_report == "validation.json"
+    assert args.isolation_mode == "unverified"
+    assert args.network_observation == "none"
+    assert args.inference_with_egress_blocked == "not_run"
+    assert args.synthetic_chat == "not_run"
+    assert args.synthetic_planning == "not_run"
+    assert args.synthetic_memory_proposal == "not_run"
+    assert args.synthetic_grounding == "not_run"
+    assert args.no_cloud_auth_required == "not_run"
+    assert args.no_cloud_fallback_observed == "not_run"
+    assert args.no_prompt_telemetry_observed == "not_run"
+    assert args.no_unexpected_outbound_connections == "not_run"
+    assert args.output == "validation/ally-runtime-privacy.json"
+
+
+def test_validate_runtime_privacy_show_parser_supports_json() -> None:
+    args = build_parser().parse_args(
+        ["validate", "runtime-privacy-show", "privacy.json", "--json"]
+    )
+
+    assert args.validate_command == "runtime-privacy-show"
+    assert args.report == "privacy.json"
+    assert args.json_output is True
+
+
+def test_validate_runtime_privacy_verify_parser_supports_json() -> None:
+    args = build_parser().parse_args(
+        [
+            "validate",
+            "runtime-privacy-verify",
+            "privacy.json",
+            "validation.json",
+            "--json",
+        ]
+    )
+
+    assert args.validate_command == "runtime-privacy-verify"
+    assert args.report == "privacy.json"
+    assert args.validation_report == "validation.json"
+    assert args.json_output is True

@@ -90,6 +90,12 @@ calibration, usable context, memory headroom, stability, or Ally's planning and
 memory-proposal behavior. The operator makes that decision from
 the complete evidence described in the first-machine runbook.
 
+A successful local-model report is capability evidence only. It does not prove
+that the selected runtime itself has no prompt-bearing telemetry, cloud fallback,
+or required external egress. Before a candidate becomes eligible for private
+daily use, create the separate fail-closed runtime privacy artifact described in
+[Runtime Privacy Qualification](runtime-privacy-qualification.md).
+
 ## Evidence boundaries
 
 Generated reports remain local and are ignored by Git. Frozen evaluation cases

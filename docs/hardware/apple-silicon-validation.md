@@ -110,6 +110,13 @@ outbound connections/telemetry. A runtime that requires external inference,
 cloud authorization during normal operation, or prompt-bearing telemetry is
 not eligible for Ally private inference.
 
+Record that second phase as a separate immutable artifact using
+`ally validate runtime-privacy`. Every privacy check defaults to `not_run`;
+the artifact qualifies only when the source local-model report passed, the
+evidence uses the same Ally version, an isolation/observation method is recorded,
+and every required check passes. See
+[Runtime Privacy Qualification](../runtime-privacy-qualification.md).
+
 ## 4. Run the reproducible Ally validation
 
 With the server available at the default endpoint:
@@ -229,8 +236,9 @@ tokens/second. Compare:
 - ability to operate with external network egress unavailable
 - absence of prompt-bearing telemetry or required cloud inference
 
-Keep the raw JSON reports so future hardware and model changes can be compared
-against the same baseline.
+Keep the raw JSON capability reports and matching runtime-privacy artifacts so
+future hardware, runtime, and model changes can be compared against the same
+baseline.
 
 Compare candidate artifacts after each candidate has completed the same frozen
 suite on the same machine:
@@ -262,4 +270,6 @@ The first-machine phase is complete when at least one local runtime/model pair:
 - survives repeated conversation/task workflows without instability.
 
 Only then should Ally add hardware-specific optimizations such as a direct MLX
-adapter or choose a default local model.
+adapter or choose a default local model. A candidate without a qualified runtime
+privacy artifact remains development-only even when the local-model validation
+report passes.
