@@ -13,10 +13,11 @@ from __future__ import annotations
 
 import ctypes
 import sys
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generator, Literal, Protocol
+from typing import Literal, Protocol
 
 from ally.attention.sinks import DELIVERABLE_ATTENTION_CLASSES
 from ally.events import AttentionClass, EventRecord
@@ -38,7 +39,12 @@ class MacOSNotificationUnavailableError(MacOSNotificationError):
     """Raised when the native macOS notification API is unavailable."""
 
 
-NotificationAuthorizationVisibility = Literal["authorized", "denied", "not_determined", "unobservable"]
+NotificationAuthorizationVisibility = Literal[
+    "authorized",
+    "denied",
+    "not_determined",
+    "unobservable",
+]
 
 
 @dataclass(frozen=True)
