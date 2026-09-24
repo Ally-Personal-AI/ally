@@ -246,8 +246,9 @@ The workflow checks:
 5. a persisted read-only task using `system.info`;
 6. a model TaskPlan proposal constrained to the declared tool;
 7. a model memory proposal from synthetic source text without accepting it into
-   durable memory; and
-8. that all generated validation state lives under the disposable workspace.
+   durable memory;
+8. backup, integrity validation, restore, and recovered synthetic state; and
+9. that all generated validation state lives under the disposable workspace.
 
 The report stores only check IDs, pass/fail state, durations, and safe exception
 class names. Model responses, synthetic prompts, temporary filesystem paths,
