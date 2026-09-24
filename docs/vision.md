@@ -19,6 +19,7 @@ continued access dependent on a vendor, cloud model, or subscription.
 - Tools are extensible.
 - Policies are programmable.
 - Data belongs to the user.
+- Private intelligence is not sent to external model providers.
 - The assistant evolves.
 
 The system is successful when users can own, inspect, move, modify, back up,
