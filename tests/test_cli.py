@@ -116,6 +116,7 @@ def test_eval_provider_parser_defaults_to_loopback() -> None:
     assert args.eval_command == "provider"
     assert args.endpoint == "http://127.0.0.1:8080/v1"
     assert args.model == "example"
+    assert args.allow_remote_public is False
 
 
 def test_tools_list_parser() -> None:
@@ -235,6 +236,35 @@ def test_memory_propose_parser_has_local_safe_defaults() -> None:
     assert args.source_type == "user"
     assert args.privacy == "private"
     assert args.output is None
+
+
+def test_private_model_commands_reject_legacy_remote_flags() -> None:
+    parser = build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            [
+                "plan",
+                "propose",
+                "--model",
+                "example",
+                "--goal",
+                "Inspect runtime",
+                "--allow-remote",
+            ]
+        )
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            [
+                "memory",
+                "propose",
+                "Private source.",
+                "--model",
+                "example",
+                "--allow-remote",
+            ]
+        )
 
 
 def test_memory_accept_parser_collects_selected_indices() -> None:
