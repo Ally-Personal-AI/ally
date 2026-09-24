@@ -8,7 +8,11 @@ from pathlib import Path
 
 from pydantic import JsonValue
 
-from ally.application import AllyApplication, ApplicationOperations
+from ally.application import (
+    AllyApplication,
+    ApplicationOperations,
+    RememberMemoryRequest,
+)
 from ally.desktop.bridge import MAX_REQUEST_BYTES, handle_request_json, serve
 from ally.models import ChatRequest, ChatResponse, ModelProvider
 from ally.runtime_profiles import InferenceTargetError, ResolvedInferenceTarget
@@ -274,6 +278,152 @@ def test_bridge_sanitizes_inference_selection_failures(tmp_path: Path) -> None:
     rendered = response.model_dump_json()
     assert "PRIVATE-PATH" not in rendered
     assert "Synthetic private message" not in rendered
+
+
+def test_bridge_memory_correction_preserves_history_and_retraction(
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider([])
+    app = _application(tmp_path, provider=provider)
+    original = app.remember(
+        RememberMemoryRequest(
+            content="Synthetic subject prefers green tea.",
+            kind="preference",
+            importance=0.8,
+        )
+    )
+
+    loaded = handle_request_json(
+        app,
+        _request("memory.get", {"memory_id": str(original.id)}),
+    )
+    assert loaded.ok
+    assert isinstance(loaded.result, dict)
+    assert loaded.result["content"] == "Synthetic subject prefers green tea."
+
+    corrected = handle_request_json(
+        app,
+        _request(
+            "memory.supersede",
+            {
+                "memory_id": str(original.id),
+                "content": "Synthetic subject prefers jasmine tea.",
+            },
+        ),
+    )
+    assert corrected.ok
+    assert isinstance(corrected.result, dict)
+    replacement_id = corrected.result["id"]
+    assert isinstance(replacement_id, str)
+    assert corrected.result["supersedes"] == str(original.id)
+
+    historical = handle_request_json(
+        app,
+        _request("memory.get", {"memory_id": str(original.id)}),
+    )
+    assert historical.ok
+    assert isinstance(historical.result, dict)
+    assert historical.result["superseded_by"] == replacement_id
+
+    stale = handle_request_json(
+        app,
+        _request(
+            "memory.supersede",
+            {
+                "memory_id": str(original.id),
+                "content": "This stale correction must not be written.",
+            },
+        ),
+    )
+    assert not stale.ok
+    assert stale.error is not None
+    assert stale.error.code == "invalid_state"
+
+    retracted = handle_request_json(
+        app,
+        _request("memory.retract", {"memory_id": replacement_id}),
+    )
+    assert retracted.ok
+    assert isinstance(retracted.result, dict)
+    assert retracted.result["retracted_at"] is not None
+
+    listed = handle_request_json(app, _request("memory.list"))
+    assert listed.ok
+    assert listed.result == []
+
+
+def test_bridge_knowledge_text_ingest_detail_and_search_are_local_contracts(
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider([])
+    app = _application(tmp_path, provider=provider)
+
+    ingested = handle_request_json(
+        app,
+        _request(
+            "knowledge.ingest_text",
+            {
+                "uri": "ally-desktop://note/synthetic-001",
+                "title": "Synthetic hydroponics note",
+                "text": "The hydroponic validation marker is ROOT-519.",
+                "media_type": "text/plain",
+            },
+        ),
+    )
+    assert ingested.ok
+    assert isinstance(ingested.result, dict)
+    source = ingested.result["source"]
+    assert isinstance(source, dict)
+    source_id = source["id"]
+    assert isinstance(source_id, str)
+
+    detail = handle_request_json(
+        app,
+        _request("knowledge.get", {"source_id": source_id}),
+    )
+    assert detail.ok
+    assert isinstance(detail.result, dict)
+    revisions = detail.result["revisions"]
+    chunks = detail.result["current_chunks"]
+    assert isinstance(revisions, list)
+    assert isinstance(chunks, list)
+    assert len(revisions) == 1
+    assert len(chunks) >= 1
+    first_chunk = chunks[0]
+    assert isinstance(first_chunk, dict)
+    assert "ROOT-519" in first_chunk["content"]
+
+    searched = handle_request_json(
+        app,
+        _request(
+            "knowledge.search",
+            {"query": "hydroponic marker", "limit": 10},
+        ),
+    )
+    assert searched.ok
+    assert isinstance(searched.result, list)
+    assert len(searched.result) >= 1
+    hit = searched.result[0]
+    assert isinstance(hit, dict)
+    hit_source = hit["source"]
+    assert isinstance(hit_source, dict)
+    assert hit_source["id"] == source_id
+
+    path_attempt = handle_request_json(
+        app,
+        _request(
+            "knowledge.ingest_text",
+            {
+                "uri": "ally-desktop://note/synthetic-002",
+                "title": "Synthetic rejected path request",
+                "text": "Synthetic content.",
+                "path": "/private/synthetic.txt",
+            },
+        ),
+    )
+    assert not path_attempt.ok
+    assert path_attempt.error is not None
+    assert path_attempt.error.code == "invalid_request"
 
 
 def test_bridge_task_approval_is_exactly_one_paused_step(
