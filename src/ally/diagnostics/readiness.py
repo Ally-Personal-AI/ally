@@ -9,8 +9,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from ally import __version__
-from ally.attention.macos import MacOSNotificationStatus
 from ally.attention.factory import macos_notification_status
+from ally.attention.macos import MacOSNotificationStatus
 from ally.config import AllyPaths, default_paths
 from ally.configuration import (
     AllyConfig,
@@ -247,7 +247,10 @@ def build_first_machine_readiness(
             _check(
                 "state.existing",
                 "warning",
-                "Existing Ally state is present; keep synthetic validation separate from future personal use.",
+                (
+                    "Existing Ally state is present; keep synthetic validation "
+                    "separate from future personal use."
+                ),
             )
         )
     else:
