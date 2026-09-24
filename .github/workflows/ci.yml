@@ -62,6 +62,29 @@ jobs:
         run: uv run ally eval run
       - name: Test native macOS desktop package
         run: swift test --package-path desktop/macos
+      - name: Build native macOS release executable
+        run: swift build --package-path desktop/macos -c release
+      - name: Assemble and verify release bundle structure
+        run: |
+          set -euo pipefail
+          BIN_DIR="$(swift build --package-path desktop/macos -c release --show-bin-path)"
+          cp "$BIN_DIR/AllyDesktop" "$RUNNER_TEMP/ally-desktop-bridge"
+          chmod +x "$RUNNER_TEMP/ally-desktop-bridge"
+          python scripts/macos_app_bundle.py assemble \
+            --app-executable "$BIN_DIR/AllyDesktop" \
+            --helper "$RUNNER_TEMP/ally-desktop-bridge" \
+            --output "$RUNNER_TEMP/Ally.app" \
+            --source-revision "$GITHUB_SHA" \
+            --build-version "1"
+          python scripts/macos_app_bundle.py verify "$RUNNER_TEMP/Ally.app"
+      - name: Ad-hoc sign and verify release bundle
+        run: |
+          set -euo pipefail
+          python scripts/macos_release_signing.py sign \
+            "$RUNNER_TEMP/Ally.app" \
+            --identity - \
+            --no-timestamp
+          python scripts/macos_app_bundle.py verify "$RUNNER_TEMP/Ally.app"
 
   distribution:
     name: Distribution (${{ matrix.os }})
