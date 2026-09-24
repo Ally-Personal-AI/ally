@@ -11,7 +11,9 @@ from uuid import UUID
 from ally.application.models import (
     AllyBootstrapSnapshot,
     ApplicationNotFoundError,
+    ApplicationStateError,
     ApplicationUnavailableError,
+    ApproveTaskStepRequest,
     AttentionHistoryBootstrapSection,
     BootstrapLimits,
     ChatTurnRequest,
@@ -480,6 +482,26 @@ class AllyApplication:
                 f"Task not found: {request.task_id}"
             ) from exc
         return self.task(request.task_id)
+
+    def approve_task_step(self, request: ApproveTaskStepRequest) -> TaskView:
+        """Approve one exact currently-paused step and continue deterministically."""
+
+        view = self.task(request.task_id)
+        step = next((item for item in view.steps if item.id == request.step_id), None)
+        if step is None:
+            raise ApplicationNotFoundError(
+                f"Task step not found: {request.task_id}/{request.step_id}"
+            )
+        if step.status != "approval_required":
+            raise ApplicationStateError(
+                "task step is not currently waiting for explicit approval"
+            )
+        return self.run_task(
+            RunTaskRequest(
+                task_id=request.task_id,
+                approved_steps=(request.step_id,),
+            )
+        )
 
     def retry_task_step(
         self,
