@@ -782,6 +782,12 @@ def test_bridge_prepares_minimized_notification_and_requires_exact_result(
     )
     assert prepared.ok
     assert isinstance(prepared.result, dict)
+    run = prepared.result["run"]
+    assert isinstance(run, dict)
+    run_id = run["id"]
+    assert isinstance(run_id, str)
+    assert run["status"] == "running"
+
     candidates = prepared.result["candidates"]
     assert isinstance(candidates, list)
     assert len(candidates) == 1
@@ -801,6 +807,7 @@ def test_bridge_prepares_minimized_notification_and_requires_exact_result(
         _request(
             "attention.notification_result",
             {
+                "run_id": run_id,
                 "event_id": str(event.id),
                 "delivery_key": delivery_key,
                 "succeeded": True,
@@ -818,6 +825,7 @@ def test_bridge_prepares_minimized_notification_and_requires_exact_result(
         _request(
             "attention.notification_result",
             {
+                "run_id": run_id,
                 "event_id": str(event.id),
                 "delivery_key": delivery_key,
                 "succeeded": True,
@@ -828,6 +836,16 @@ def test_bridge_prepares_minimized_notification_and_requires_exact_result(
     assert isinstance(accepted.result, dict)
     assert accepted.result["status"] == "succeeded"
     assert accepted.result["sink_id"] == "macos.notification"
+
+    completed = handle_request_json(
+        app,
+        _request("service.complete_proactive", {"run_id": run_id}),
+    )
+    assert completed.ok
+    assert isinstance(completed.result, dict)
+    assert completed.result["status"] == "succeeded"
+    assert completed.result["delivery_attempts"] == 1
+    assert completed.result["delivery_failures"] == 0
 
     prepared_again = handle_request_json(
         app,
