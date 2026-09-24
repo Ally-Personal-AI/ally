@@ -1,4 +1,4 @@
-"""Human-facing persistent task commands."""
+"""Human-facing persistent task presentation adapter."""
 
 from __future__ import annotations
 
@@ -7,11 +7,9 @@ from uuid import UUID
 
 from pydantic import ValidationError
 
-from ally.commands._storage import build_task_store, build_tool_audit_store
-from ally.security.tool_policy import DefaultToolPolicy
-from ally.tasks import TaskPlan, TaskRunner
-from ally.tools.builtin import build_default_tool_registry
-from ally.tools.executor import ToolExecutor
+from ally.application import ApplicationNotFoundError, RunTaskRequest
+from ally.composition import build_default_application
+from ally.tasks import TaskPlan
 
 
 def _parse_uuid(value: str, *, label: str) -> UUID:
@@ -33,16 +31,16 @@ def run_create_task(*, plan_path: str) -> int:
         print(f"Task plan error: {exc}")
         return 2
 
-    task, steps = build_task_store().create(plan)
-    print(f"Task: {task.id}")
-    for step in steps:
+    view = build_default_application().create_task(plan)
+    print(f"Task: {view.task.id}")
+    for step in view.steps:
         print(f"  {step.id}  {step.position}  {step.tool_name}")
     return 0
 
 
 def run_list_tasks(*, limit: int) -> int:
     try:
-        tasks = build_task_store().list(limit=limit)
+        tasks = build_default_application().list_tasks(limit=limit)
     except ValueError as exc:
         print(f"Task error: {exc}")
         return 2
@@ -58,24 +56,21 @@ def run_list_tasks(*, limit: int) -> int:
 
 def run_show_task(*, task_id: str) -> int:
     try:
-        identifier = _parse_uuid(task_id, label="task ID")
-    except ValueError as exc:
+        view = build_default_application().task(
+            _parse_uuid(task_id, label="task ID")
+        )
+    except (ApplicationNotFoundError, ValueError) as exc:
         print(exc)
         return 2
 
-    store = build_task_store()
-    task = store.get(identifier)
-    if task is None:
-        print(f"Task not found: {identifier}")
-        return 2
-
+    task = view.task
     print(f"Task: {task.id}")
     print(f"Goal: {task.goal}")
     print(f"Status: {task.status}")
     if task.failure is not None:
         print(f"Failure: {task.failure}")
     print("Steps:")
-    for step in store.list_steps(identifier):
+    for step in view.steps:
         line = (
             f"  {step.position}  {step.id}  {step.status}  "
             f"attempts={step.attempts}  {step.tool_name}"
@@ -92,25 +87,17 @@ def run_task(*, task_id: str, approved_steps: tuple[str, ...]) -> int:
         approvals = tuple(
             _parse_uuid(value, label="step ID") for value in approved_steps
         )
-    except ValueError as exc:
-        print(exc)
-        return 2
-
-    store = build_task_store()
-    runner = TaskRunner(
-        store,
-        ToolExecutor(
-            build_default_tool_registry(),
-            DefaultToolPolicy(),
-            build_tool_audit_store(),
-        ),
-    )
-    try:
-        task = runner.run(identifier, approved_steps=approvals)
-    except KeyError as exc:
+        view = build_default_application().run_task(
+            RunTaskRequest(
+                task_id=identifier,
+                approved_steps=approvals,
+            )
+        )
+    except (ApplicationNotFoundError, ValueError) as exc:
         print(f"Task error: {exc}")
         return 2
 
+    task = view.task
     print(f"Task: {task.id}")
     print(f"Status: {task.status}")
     if task.failure is not None:
@@ -121,18 +108,11 @@ def run_task(*, task_id: str, approved_steps: tuple[str, ...]) -> int:
 
 def run_retry_task_step(*, task_id: str, step_id: str) -> int:
     try:
-        task_identifier = _parse_uuid(task_id, label="task ID")
-        step_identifier = _parse_uuid(step_id, label="step ID")
-    except ValueError as exc:
-        print(exc)
-        return 2
-
-    try:
-        step = build_task_store().retry_failed_step(
-            task_identifier,
-            step_identifier,
+        step = build_default_application().retry_task_step(
+            task_id=_parse_uuid(task_id, label="task ID"),
+            step_id=_parse_uuid(step_id, label="step ID"),
         )
-    except (KeyError, ValueError) as exc:
+    except (ApplicationNotFoundError, ValueError) as exc:
         print(f"Task retry error: {exc}")
         return 2
 
