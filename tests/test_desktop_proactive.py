@@ -11,6 +11,7 @@ from ally.service import (
     DESKTOP_NOTIFICATION_SINK_ID,
     DesktopProactiveCoordinator,
     ServiceLeaseUnavailableError,
+    ServiceRunConflictError,
     SQLiteServiceLeaseStore,
 )
 from ally.storage.sqlite import (
@@ -116,6 +117,7 @@ def test_successful_native_result_removes_future_candidate(tmp_path: Path) -> No
     assert completed.status == "succeeded"
     assert completed.delivery_attempts == 1
     assert completed.delivery_failures == 0
+    assert coordinator.complete(first.run.id) == completed
     assert SQLiteServiceLeaseStore(
         tmp_path / "runtime.sqlite3"
     ).get("proactive-cycle") is None
@@ -165,6 +167,14 @@ def test_failed_native_result_remains_retryable(tmp_path: Path) -> None:
     retry = coordinator.prepare().candidates
     assert len(retry) == 1
     assert retry[0].delivery_key == candidate.delivery_key
+
+    with pytest.raises(ServiceRunConflictError, match="no longer running"):
+        coordinator.record_delivery_result(
+            run_id=prepared.run.id,
+            event_id=event.id,
+            delivery_key_value=candidate.delivery_key,
+            succeeded=False,
+        )
 
 
 def test_native_result_rejects_wrong_key_and_non_deliverable_event(
