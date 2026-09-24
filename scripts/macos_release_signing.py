@@ -67,6 +67,9 @@ def sign(
         ],
         dry_run=dry_run,
     )
+    if not dry_run:
+        macos_app_bundle.refresh_helper_hash(root)
+        macos_app_bundle.verify(root)
     _run(
         [
             "codesign",
