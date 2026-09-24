@@ -261,6 +261,8 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                 "attention.get",
                 "attention.mark_handled",
                 "attention.delivery_history",
+                "attention.notification_result",
+                "service.prepare_proactive",
                 "service.health",
             ],
         }
