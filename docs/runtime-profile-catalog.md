@@ -65,9 +65,15 @@ credentials, source-evidence paths, or secrets.
 
 ## Composition contract
 
-`resolve_active_runtime_profile()` is the reusable boundary for future
-production composition.
+`resolve_active_runtime_profile()` verifies the selected profile bytes.
+`resolve_inference_target()` is the daily private-inference composition
+boundary used by chat, planning, memory proposals, and future UI/application
+layers.
 
-Daily-use interfaces should resolve a validated active profile. Explicit raw
-endpoint/model values remain appropriate for candidate development and
-validation, but should not become an alternate production selection path.
+Normal daily inference resolves the active validated profile automatically.
+Candidate development remains separate through an explicit paired
+`--development-endpoint` + `--development-model` override. Partial
+overrides, remote endpoints, and silent fallback to arbitrary/default model
+coordinates are rejected.
+
+See [Daily Inference Target Resolution](daily-inference.md).
