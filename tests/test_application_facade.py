@@ -9,6 +9,8 @@ from ally.application import (
     AllyApplication,
     ApplicationNotFoundError,
     ChatTurnRequest,
+    KnowledgeTextIngestRequest,
+    MemoryProposalRequest,
     RememberMemoryRequest,
     SupersedeMemoryRequest,
 )
@@ -282,3 +284,57 @@ def test_application_knowledge_views_and_search_are_serializable(
     assert hits[0].source.id == ingested.source.id
     assert "drip irrigation" in hits[0].chunk.content
     assert '"score"' in hits[0].model_dump_json()
+
+
+def test_application_memory_proposals_remain_reviewable_until_acceptance(
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider(
+        [
+            '{"memories":[{"kind":"preference","content":"Prefers jasmine tea.",'
+            '"confidence":0.95,"importance":0.8}]}'
+        ]
+    )
+    app, _ = _application(tmp_path, provider=provider)
+
+    bundle = app.propose_memories(
+        MemoryProposalRequest(
+            text="I prefer jasmine tea.",
+            source_type="user",
+        )
+    )
+
+    assert bundle.memories[0].content == "Prefers jasmine tea."
+    assert app.list_memories() == ()
+
+    created = app.accept_memory_proposals(bundle, indices=(0,))
+
+    assert len(created) == 1
+    assert created[0].content == "Prefers jasmine tea."
+    assert app.list_memories()[0].id == created[0].id
+
+    with pytest.raises(ValueError, match="at least one"):
+        app.accept_memory_proposals(bundle, indices=())
+    with pytest.raises(ValueError, match="unique"):
+        app.accept_memory_proposals(bundle, indices=(0, 0))
+
+
+def test_application_supports_in_memory_text_knowledge_ingestion(
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider([])
+    app, _ = _application(tmp_path, provider=provider)
+
+    result = app.ingest_knowledge_text(
+        KnowledgeTextIngestRequest(
+            uri="ally-ui://synthetic/note",
+            title="Synthetic note",
+            text="The hydroponic validation marker is ROOT-519.",
+        )
+    )
+
+    assert result.source.uri == "ally-ui://synthetic/note"
+    assert result.source.title == "Synthetic note"
+    hits = app.search_knowledge("hydroponic marker")
+    assert hits[0].source.id == result.source.id
+    assert "ROOT-519" in hits[0].chunk.content
