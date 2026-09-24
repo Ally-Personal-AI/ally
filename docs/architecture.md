@@ -116,9 +116,15 @@ Security decisions are explicit architecture, not implementation detail:
 - skill installation is non-executing;
 - executable skills run outside the Ally Core interpreter;
 - credentials remain outside ordinary configuration;
-- service health/readiness is read-only.
+- service health/readiness is read-only;
+- private model inference never uses the external egress boundary; and
+- future external tools use typed, adapter-owned field classifications and
+  payload-minimized egress audit.
 
-See [Security Model](security-model.md) and the ADR log for exact decisions.
+See [Security Model](security-model.md),
+[Private Intelligence Boundary](private-intelligence-boundary.md),
+[Controlled External Egress](controlled-egress.md), and the ADR log for exact
+decisions.
 
 ## Initial runtime and interfaces
 
