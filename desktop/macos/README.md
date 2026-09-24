@@ -29,8 +29,13 @@ Release builds are designed to run from a stable `Ally.app` identity and an
 embedded verified helper. They do not rely on `ALLY_DESKTOP_BRIDGE` or
 `PATH`.
 
-After building the Swift release executable and a standalone helper artifact,
-assemble the app with:
+The release CI builds the standalone helper with
+`scripts/build_macos_desktop_helper.py`. For a Developer ID release, pass the
+same Developer ID Application identity to that helper build so PyInstaller can
+sign its embedded binary payload.
+
+After building the Swift release executable and standalone helper, assemble the
+app with:
 
 ```bash
 python scripts/macos_app_bundle.py assemble \
@@ -46,6 +51,5 @@ Developer ID signing and notarization use
 `notarytool` Keychain profile rather than credential values on the command
 line.
 
-See `docs/macos-release-security.md` for the trust and rollback model. The
-standalone Python helper artifact and real Developer ID/notarization acceptance
-remain pending.
+See `docs/macos-release-security.md` for the trust and rollback model. Real
+Developer ID/notarization and installed-machine acceptance remain pending.
