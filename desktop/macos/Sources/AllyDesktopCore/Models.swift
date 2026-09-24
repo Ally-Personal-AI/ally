@@ -91,8 +91,19 @@ public struct EventSummary: Decodable, Sendable, Equatable, Identifiable {
     public let source: String
     public let importance: String
     public let attention: String
+    public let payload: [String: JSONValue]
+    public let dedupeKey: String?
     public let createdAt: String
     public let handledAt: String?
+
+    public var displayText: String {
+        for key in ["summary", "message"] {
+            if case let .string(value)? = payload[key], !value.isEmpty {
+                return value
+            }
+        }
+        return type
+    }
 }
 
 public struct AttentionDeliverySummary: Decodable, Sendable, Equatable, Identifiable {
@@ -105,6 +116,11 @@ public struct AttentionDeliverySummary: Decodable, Sendable, Equatable, Identifi
     public let createdAt: String
     public let updatedAt: String
     public let deliveredAt: String?
+}
+
+public struct AttentionEventView: Decodable, Sendable, Equatable {
+    public let event: EventSummary
+    public let deliveries: [AttentionDeliverySummary]
 }
 
 public struct ServiceCycleSummary: Decodable, Sendable, Equatable, Identifiable {

@@ -24,7 +24,9 @@ The first application slice exposes:
 - direct in-memory text ingestion for non-CLI interfaces;
 - persisted task create/list/detail/run/retry through the existing deterministic
   tool policy and exact-step approval boundary;
-- pending attention and durable delivery-history reads; and
+- pending attention, full user-facing attention history, event detail, and
+  explicit handled-state mutation;
+- durable per-event and global delivery-history reads; and
 - payload-free service health and lifecycle-history reads.
 
 All request/result models are Pydantic models or existing immutable Ally domain
@@ -145,9 +147,11 @@ exactly one task/step pair, requires that durable step to currently be
 `approval_required`, and then forwards only that one step ID to the existing
 runner. It cannot approve a future step or a batch of steps.
 
-Notification delivery and proactive service-cycle execution are intentionally
-not application-facade operations yet. They remain explicit presentation/runtime
-actions until their future UI authorization flow is modeled separately.
+Notification delivery and proactive service-cycle execution remain intentionally
+outside the application-facade desktop mutation surface. The facade can mark an
+existing event handled, but that does not trigger delivery or alter durable
+delivery history. Native macOS notification authorization is owned by the
+Swift app and likewise does not grant delivery authority to the bridge.
 
 ## Presentation rule
 

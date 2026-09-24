@@ -16,11 +16,16 @@ final class AppModel: ObservableObject {
     @Published var selectedConversationID: String?
     @Published var conversation: ConversationView?
     @Published var taskDetail: TaskView?
+    @Published var attentionEvents: [EventSummary] = []
+    @Published var attentionDetail: AttentionEventView?
+    @Published var attentionDeliveryHistory: [AttentionDeliverySummary] = []
+    @Published var notificationAuthorization: DesktopNotificationAuthorizationState = .unknown
     @Published var composer = ""
     @Published var isBusy = false
     @Published var errorMessage: String?
 
     private let client: DesktopBridgeClient?
+    private let notificationAuthorizationClient = DesktopNotificationAuthorizationClient()
 
     init() {
         do {
@@ -292,6 +297,80 @@ final class AppModel: ObservableObject {
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    func refreshAttention() async {
+        guard let client else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            async let events: [EventSummary] = client.call(
+                "attention.events",
+                params: ["limit": .number(100)]
+            )
+            async let history: [AttentionDeliverySummary] = client.call(
+                "attention.delivery_history",
+                params: ["limit": .number(100)]
+            )
+            attentionEvents = try await events
+            attentionDeliveryHistory = try await history
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func selectAttention(_ id: String) async {
+        guard let client else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            attentionDetail = try await client.call(
+                "attention.get",
+                params: ["event_id": .string(id)]
+            )
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func markAttentionHandled(_ id: String) async {
+        guard let client else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let updated: AttentionEventView = try await client.call(
+                "attention.mark_handled",
+                params: ["event_id": .string(id)]
+            )
+            attentionDetail = updated
+            async let events: [EventSummary] = client.call(
+                "attention.events",
+                params: ["limit": .number(100)]
+            )
+            async let snapshot: BootstrapSnapshot = client.call("bootstrap")
+            attentionEvents = try await events
+            self.snapshot = try await snapshot
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func refreshNotificationAuthorization() async {
+        notificationAuthorization = await notificationAuthorizationClient.currentState()
+    }
+
+    func requestNotificationAuthorization() async {
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            notificationAuthorization = try await notificationAuthorizationClient.requestAuthorization()
+            errorMessage = nil
+        } catch {
+            errorMessage = "Notification authorization request failed."
         }
     }
 

@@ -31,7 +31,7 @@ from ally.application import (
 from ally.composition import build_default_application
 from ally.runtime_profiles import InferenceTargetError
 
-BRIDGE_PROTOCOL_VERSION = 4
+BRIDGE_PROTOCOL_VERSION = 5
 MAX_REQUEST_BYTES = 1024 * 1024
 
 BridgeMethod = Literal[
@@ -56,6 +56,10 @@ BridgeMethod = Literal[
     "task.run",
     "task.approve_step",
     "task.retry_step",
+    "attention.events",
+    "attention.get",
+    "attention.mark_handled",
+    "attention.delivery_history",
     "service.health",
 ]
 BridgeErrorCode = Literal[
@@ -170,6 +174,20 @@ class _RuntimeProfileParams(BaseModel):
     profile_id: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class _AttentionListParams(_ListParams):
+    handled: bool | None = None
+
+
+class _AttentionEventParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    event_id: UUID
+
+
+class _AttentionHistoryParams(_ListParams):
+    status: Literal["succeeded", "failed"] | None = None
+
+
 class _TaskParams(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -224,6 +242,10 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                 "task.run",
                 "task.approve_step",
                 "task.retry_step",
+                "attention.events",
+                "attention.get",
+                "attention.mark_handled",
+                "attention.delivery_history",
                 "service.health",
             ],
         }
@@ -410,6 +432,48 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
         )
         app.retry_task_step(task_id=params.task_id, step_id=params.step_id)
         return _json_value(app.task(params.task_id).model_dump(mode="json"))
+
+    if request.method == "attention.events":
+        params = cast(
+            _AttentionListParams,
+            _validate_params(_AttentionListParams, request.params),
+        )
+        return _models_json(
+            app.list_attention_events(
+                limit=params.limit,
+                handled=params.handled,
+            )
+        )
+
+    if request.method == "attention.get":
+        params = cast(
+            _AttentionEventParams,
+            _validate_params(_AttentionEventParams, request.params),
+        )
+        return _json_value(
+            app.attention_event(params.event_id).model_dump(mode="json")
+        )
+
+    if request.method == "attention.mark_handled":
+        params = cast(
+            _AttentionEventParams,
+            _validate_params(_AttentionEventParams, request.params),
+        )
+        return _json_value(
+            app.mark_attention_handled(params.event_id).model_dump(mode="json")
+        )
+
+    if request.method == "attention.delivery_history":
+        params = cast(
+            _AttentionHistoryParams,
+            _validate_params(_AttentionHistoryParams, request.params),
+        )
+        return _models_json(
+            app.attention_history(
+                limit=params.limit,
+                status=params.status,
+            )
+        )
 
     if request.method == "service.health":
         _validate_params(_EmptyParams, request.params)
