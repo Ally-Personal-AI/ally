@@ -8,7 +8,6 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from ally.conversations import Conversation, ConversationMessage
-from ally.diagnostics.validation import RuntimeProfile
 from ally.knowledge import KnowledgeChunk, KnowledgeRevision, KnowledgeSource
 from ally.memory import MemoryKind, MemoryPrivacy, MemoryRecord
 from ally.models import ChatResponse
@@ -114,13 +113,3 @@ class KnowledgeSearchResult(BaseModel):
     source: KnowledgeSource
     chunk: KnowledgeChunk
     score: float = Field(ge=0.0)
-
-
-class RuntimeProfileSummary(BaseModel):
-    """Small serializable runtime identity for presentation surfaces."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    profile_id: str = Field(pattern=r"^[0-9a-f]{64}$")
-    model: str
-    runtime: RuntimeProfile
