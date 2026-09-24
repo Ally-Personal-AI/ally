@@ -18,21 +18,42 @@ public struct DesktopBridgeClient: Sendable {
     }
 
     public init(environment: [String: String] = ProcessInfo.processInfo.environment) throws {
-        self.executableURL = try Self.resolveHelper(environment: environment)
+        self.executableURL = try Self.resolveHelper(
+            environment: environment,
+            bundleURL: Bundle.main.bundleURL,
+            bundleIdentifier: Bundle.main.bundleIdentifier
+        )
     }
 
-    public static func resolveHelper(environment: [String: String]) throws -> URL {
-        guard let configured = environment[helperEnvironmentKey], !configured.isEmpty else {
-            throw DesktopBridgeError.helperNotFound
+    #if DEBUG
+    public static let developmentHelperOverrideEnabled = true
+    #else
+    public static let developmentHelperOverrideEnabled = false
+    #endif
+
+    public static func resolveHelper(
+        environment: [String: String],
+        bundleURL: URL = Bundle.main.bundleURL,
+        bundleIdentifier: String? = Bundle.main.bundleIdentifier,
+        allowDevelopmentOverride: Bool = developmentHelperOverrideEnabled
+    ) throws -> URL {
+        if allowDevelopmentOverride,
+           let configured = environment[helperEnvironmentKey],
+           !configured.isEmpty {
+            guard configured.hasPrefix("/") else {
+                throw DesktopBridgeError.helperNotExecutable
+            }
+            let url = URL(fileURLWithPath: configured).standardizedFileURL
+            guard FileManager.default.isExecutableFile(atPath: url.path) else {
+                throw DesktopBridgeError.helperNotExecutable
+            }
+            return url
         }
-        guard configured.hasPrefix("/") else {
-            throw DesktopBridgeError.helperNotExecutable
-        }
-        let url = URL(fileURLWithPath: configured).standardizedFileURL
-        guard FileManager.default.isExecutableFile(atPath: url.path) else {
-            throw DesktopBridgeError.helperNotExecutable
-        }
-        return url
+
+        return try DesktopReleaseBundle.resolveVerifiedHelper(
+            bundleURL: bundleURL,
+            bundleIdentifier: bundleIdentifier
+        )
     }
 
     static func helperEnvironment(
