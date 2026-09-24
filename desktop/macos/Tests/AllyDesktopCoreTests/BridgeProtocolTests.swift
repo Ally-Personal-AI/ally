@@ -188,7 +188,6 @@ private func makeSyntheticReleaseBundle(
         "bridge_protocol_version": bridgeProtocolVersion,
         "helper_relative_path": DesktopReleaseBundle.helperRelativePath,
         "helper_sha256": helperHash,
-        "app_executable_sha256": String(repeating: "a", count: 64),
         "source_revision": "synthetic",
     ]
     let manifestData = try JSONSerialization.data(
