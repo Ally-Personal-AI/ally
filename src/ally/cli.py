@@ -108,12 +108,6 @@ from ally.commands.tasks import (
     run_task,
 )
 from ally.commands.tools import run_list_tools, run_tool, run_tool_audit
-from ally.commands.validation_sessions import (
-    run_init_validation_session,
-    run_refresh_validation_session,
-    run_show_validation_session,
-    run_verify_validation_session,
-)
 from ally.commands.validate import (
     run_compare_candidate_evidence,
     run_compare_validation_reports,
@@ -127,6 +121,12 @@ from ally.commands.validate import (
     run_synthetic_workflow_validation,
     run_verify_functional_workflow_report,
     run_verify_runtime_privacy_report,
+)
+from ally.commands.validation_sessions import (
+    run_init_validation_session,
+    run_refresh_validation_session,
+    run_show_validation_session,
+    run_verify_validation_session,
 )
 from ally.diagnostics import NetworkObservationMethod, RuntimeIsolationMode
 from ally.events import (
