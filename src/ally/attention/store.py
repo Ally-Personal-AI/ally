@@ -16,6 +16,12 @@ class AttentionDeliveryStore(Protocol):
     ) -> AttentionDeliveryRecord | None:
         ...
 
+    def list_for_event(
+        self,
+        event_id: UUID,
+    ) -> tuple[AttentionDeliveryRecord, ...]:
+        ...
+
     def record_attempt(
         self,
         *,
