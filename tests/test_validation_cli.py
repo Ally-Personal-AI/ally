@@ -281,6 +281,10 @@ def test_validation_session_init_parser_requires_directory() -> None:
     assert args.validation_session_command == "init"
     assert args.candidate_label == "candidate-a"
     assert args.directory == "validation/candidate-a"
+    assert args.capability_artifact == "capability.json"
+    assert args.privacy_artifact == "privacy.json"
+    assert args.workflow_artifact == "workflows.json"
+    assert args.profile_artifact == "profile.json"
     assert args.json_output is True
 
 
