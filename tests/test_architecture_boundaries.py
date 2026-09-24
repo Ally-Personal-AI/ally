@@ -11,6 +11,7 @@ SRC_ROOT = Path(__file__).parents[1] / "src" / "ally"
 # composition/infrastructure edges rather than reusable domain/runtime code.
 SQLITE_IMPLEMENTATION_ALLOWED = {
     "commands",
+    "composition",
     "diagnostics",
     "portability",
     "storage",
