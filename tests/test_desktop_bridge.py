@@ -385,6 +385,61 @@ def test_bridge_rejects_bulk_or_stale_task_approval(
     assert tool.calls == 0
 
 
+def test_bridge_retry_requires_an_explicit_failed_step(
+    tmp_path: Path,
+) -> None:
+    app, _ = _task_application(tmp_path)
+    view = app.create_task(
+        TaskPlan(
+            goal="Retry one failed desktop step",
+            steps=(NewTaskStep(tool_name="test.missing"),),
+        )
+    )
+
+    failed = handle_request_json(
+        app,
+        _request("task.run", {"task_id": str(view.task.id)}),
+    )
+    assert failed.ok
+    assert isinstance(failed.result, dict)
+    failed_steps = failed.result["steps"]
+    assert isinstance(failed_steps, list)
+    assert failed_steps[0]["status"] == "failed"
+
+    retried = handle_request_json(
+        app,
+        _request(
+            "task.retry_step",
+            {
+                "task_id": str(view.task.id),
+                "step_id": str(view.steps[0].id),
+            },
+        ),
+    )
+    assert retried.ok
+    assert isinstance(retried.result, dict)
+    task = retried.result["task"]
+    steps = retried.result["steps"]
+    assert isinstance(task, dict)
+    assert isinstance(steps, list)
+    assert task["status"] == "pending"
+    assert steps[0]["status"] == "pending"
+
+    stale = handle_request_json(
+        app,
+        _request(
+            "task.retry_step",
+            {
+                "task_id": str(view.task.id),
+                "step_id": str(view.steps[0].id),
+            },
+        ),
+    )
+    assert not stale.ok
+    assert stale.error is not None
+    assert stale.error.code == "invalid_state"
+
+
 def test_bridge_bounds_stdio_requests_without_echoing_payload(tmp_path: Path) -> None:
     provider = CapturingProvider([])
     app = _application(tmp_path, provider=provider)
