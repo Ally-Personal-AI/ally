@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from ally.application import (
-    ApplicationNotFoundError,
-    ChatTurnRequest,
-)
+from uuid import UUID
+
+from ally.application import ApplicationNotFoundError, ChatTurnRequest
 from ally.composition import build_default_application
 from ally.models.errors import ModelProviderError
 from ally.runtime_profiles import InferenceTargetError
@@ -86,11 +85,9 @@ def run_chat(
         return 2
 
 
-def _conversation_id(value: str | None):
+def _conversation_id(value: str | None) -> UUID | None:
     if value is None:
         return None
-
-    from uuid import UUID
 
     try:
         return UUID(value)
