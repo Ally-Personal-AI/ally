@@ -90,8 +90,10 @@ variables.
 
 ## Release packaging direction
 
-Development may resolve `ally-desktop-bridge` from an explicit environment path
-or `PATH`. A release build must not depend on either.
+Development requires an explicit absolute `ALLY_DESKTOP_BRIDGE` path. The native
+client does not search `PATH`, and it launches the helper with a minimal
+allowlisted environment rather than inheriting arbitrary shell variables. A
+release build must not depend on the development environment override.
 
 The intended release shape is one signed/notarized Ally app bundle containing a
 pinned local helper/runtime built from the same release revision. The Swift app
