@@ -61,7 +61,7 @@ class ValidatedRuntimeProfile(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     profile_id: str = Field(pattern=r"^[0-9a-f]{64}$")
     generated_at: datetime
     ally_version: str = Field(min_length=1, max_length=100)
@@ -82,12 +82,21 @@ class ValidatedRuntimeProfile(BaseModel):
         if not is_loopback_http_url(self.endpoint):
             raise ValueError("validated private runtime profiles require loopback inference")
         expected = runtime_profile_id(
-            capability_sha256=self.capability_evidence.sha256,
-            privacy_sha256=self.privacy_evidence.sha256,
-            workflow_sha256=self.workflow_evidence.sha256,
+            ally_version=self.ally_version,
+            endpoint=self.endpoint,
+            model=self.model,
+            runtime=self.runtime,
+            hardware=self.hardware,
+            evaluation_suite=self.evaluation_suite,
+            observations=self.observations,
+            capability_evidence=self.capability_evidence,
+            privacy_evidence=self.privacy_evidence,
+            workflow_evidence=self.workflow_evidence,
         )
         if self.profile_id != expected:
-            raise ValueError("runtime profile ID does not match its evidence digests")
+            raise ValueError(
+                "runtime profile ID does not match its evidence-backed metadata"
+            )
         return self
 
 
@@ -101,17 +110,40 @@ def _sha256(path: Path) -> str:
 
 def runtime_profile_id(
     *,
-    capability_sha256: str,
-    privacy_sha256: str,
-    workflow_sha256: str,
+    ally_version: str,
+    endpoint: str,
+    model: str,
+    runtime: RuntimeProfile,
+    hardware: HardwareProfile,
+    evaluation_suite: EvaluationSuiteProfile,
+    observations: PerformanceObservations,
+    capability_evidence: EvidenceReference,
+    privacy_evidence: EvidenceReference,
+    workflow_evidence: EvidenceReference,
 ) -> str:
-    """Derive one deterministic profile identity from all required evidence."""
+    """Derive identity from exact evidence plus all copied operational metadata."""
 
+    payload = {
+        "ally_version": ally_version,
+        "endpoint": endpoint,
+        "model": model,
+        "runtime": runtime.model_dump(mode="json"),
+        "hardware": hardware.model_dump(mode="json"),
+        "evaluation_suite": evaluation_suite.model_dump(mode="json"),
+        "observations": observations.model_dump(mode="json"),
+        "capability_evidence": capability_evidence.model_dump(mode="json"),
+        "privacy_evidence": privacy_evidence.model_dump(mode="json"),
+        "workflow_evidence": workflow_evidence.model_dump(mode="json"),
+    }
+    rendered = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    ).encode("utf-8")
     digest = hashlib.sha256()
-    digest.update(b"ally-validated-runtime-profile-v1\0")
-    for value in (capability_sha256, privacy_sha256, workflow_sha256):
-        digest.update(value.encode("ascii"))
-        digest.update(b"\0")
+    digest.update(b"ally-validated-runtime-profile-v2\0")
+    digest.update(rendered)
     return digest.hexdigest()
 
 
@@ -152,9 +184,16 @@ def build_validated_runtime_profile(
 
     return ValidatedRuntimeProfile(
         profile_id=runtime_profile_id(
-            capability_sha256=capability.sha256,
-            privacy_sha256=privacy.sha256,
-            workflow_sha256=workflow.sha256,
+            ally_version=validation.ally_version,
+            endpoint=validation.endpoint,
+            model=validation.model,
+            runtime=validation.runtime,
+            hardware=validation.hardware,
+            evaluation_suite=validation.evaluation_suite,
+            observations=validation.observations,
+            capability_evidence=capability,
+            privacy_evidence=privacy,
+            workflow_evidence=workflow,
         ),
         generated_at=datetime.now(UTC),
         ally_version=validation.ally_version,
