@@ -445,16 +445,27 @@ final class AppModel: ObservableObject {
                 let _: AttentionDeliverySummary = try await client.call(
                     "attention.notification_result",
                     params: [
+                        "run_id": .string(prepared.run.id),
                         "event_id": .string(outcome.eventId),
                         "delivery_key": .string(outcome.deliveryKey),
                         "succeeded": .bool(outcome.succeeded),
                     ]
                 )
             }
-            lastProactiveCycleAt = Date()
-            proactiveCycleError = nil
+            var completedRun = prepared.run
+            if prepared.run.status == "running" {
+                completedRun = try await client.call(
+                    "service.complete_proactive",
+                    params: ["run_id": .string(prepared.run.id)]
+                )
+            }
 
-            if prepared.run.scheduledEvents > 0 || !outcomes.isEmpty {
+            lastProactiveCycleAt = Date()
+            proactiveCycleError = completedRun.status == "degraded"
+                ? "The proactive cycle completed with notification delivery failures."
+                : nil
+
+            if completedRun.scheduledEvents > 0 || !outcomes.isEmpty {
                 async let snapshot: BootstrapSnapshot = client.call("bootstrap")
                 async let events: [EventSummary] = client.call(
                     "attention.events",
