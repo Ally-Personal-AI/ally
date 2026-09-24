@@ -662,9 +662,13 @@ def test_bridge_attention_center_detail_history_and_handled_state(
     )
     assert listed.ok
     assert isinstance(listed.result, list)
-    assert [item["id"] for item in listed if isinstance(item, dict)] == [
-        str(event.id)
-    ]
+    listed_ids: list[str] = []
+    for item in listed.result:
+        assert isinstance(item, dict)
+        item_id = item["id"]
+        assert isinstance(item_id, str)
+        listed_ids.append(item_id)
+    assert listed_ids == [str(event.id)]
 
     detail = handle_request_json(
         app,
@@ -676,8 +680,16 @@ def test_bridge_attention_center_detail_history_and_handled_state(
     detail_deliveries = detail.result["deliveries"]
     assert isinstance(detail_event, dict)
     assert isinstance(detail_deliveries, list)
-    assert detail_event["payload"]["summary"] == "Synthetic attention summary."
-    assert detail_deliveries[0]["id"] == str(delivery.id)
+    payload = detail_event["payload"]
+    assert isinstance(payload, dict)
+    summary = payload["summary"]
+    assert isinstance(summary, str)
+    assert summary == "Synthetic attention summary."
+    first_delivery = detail_deliveries[0]
+    assert isinstance(first_delivery, dict)
+    first_delivery_id = first_delivery["id"]
+    assert isinstance(first_delivery_id, str)
+    assert first_delivery_id == str(delivery.id)
 
     history = handle_request_json(
         app,
@@ -688,7 +700,11 @@ def test_bridge_attention_center_detail_history_and_handled_state(
     )
     assert history.ok
     assert isinstance(history.result, list)
-    assert history.result[0]["event_id"] == str(event.id)
+    first_history = history.result[0]
+    assert isinstance(first_history, dict)
+    history_event_id = first_history["event_id"]
+    assert isinstance(history_event_id, str)
+    assert history_event_id == str(event.id)
 
     rejected = handle_request_json(
         app,
