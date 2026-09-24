@@ -3,13 +3,13 @@ import Testing
 @testable import AllyDesktopCore
 
 @Test func decodesBridgeInfoEnvelope() throws {
-    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":1,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap"]}}"#.utf8)
+    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":2,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap"]}}"#.utf8)
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let envelope = try decoder.decode(BridgeEnvelope<BridgeInfo>.self, from: data)
 
     #expect(envelope.ok)
-    #expect(envelope.result?.protocolVersion == 1)
+    #expect(envelope.result?.protocolVersion == 2)
     #expect(envelope.result?.transport == "stdio")
     #expect(envelope.result?.capabilities == ["bootstrap"])
 }
@@ -57,4 +57,16 @@ import Testing
     #expect(filtered["HTTP_PROXY"] == nil)
     #expect(filtered["API_TOKEN"] == nil)
     #expect(filtered["PATH"] == nil)
+}
+
+@Test func decodesTaskDetailWithExactApprovalState() throws {
+    let data = Data(#"{"id":"1","ok":true,"result":{"task":{"id":"00000000-0000-0000-0000-000000000001","goal":"Synthetic task","status":"waiting_approval","failure":null,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:01Z"},"steps":[{"id":"00000000-0000-0000-0000-000000000002","task_id":"00000000-0000-0000-0000-000000000001","position":0,"tool_name":"test.reversible","arguments":{"value":"synthetic"},"status":"approval_required","attempts":1,"last_output":null,"last_error":null,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:01Z"}]}}"#.utf8)
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    let envelope = try decoder.decode(BridgeEnvelope<TaskView>.self, from: data)
+
+    #expect(envelope.result?.task.status == "waiting_approval")
+    #expect(envelope.result?.steps.count == 1)
+    #expect(envelope.result?.steps[0].status == "approval_required")
+    #expect(envelope.result?.steps[0].argumentsText == "value: synthetic")
 }
