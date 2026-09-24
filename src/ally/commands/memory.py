@@ -1,17 +1,16 @@
-"""Human-facing memory inspection and correction commands."""
+"""Human-facing memory presentation adapter."""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from uuid import UUID
 
-from ally.commands._storage import build_memory_store
-from ally.memory import (
-    MemoryKind,
-    MemoryPrivacy,
-    MemorySource,
-    NewMemory,
+from ally.application import (
+    ApplicationNotFoundError,
+    RememberMemoryRequest,
+    SupersedeMemoryRequest,
 )
+from ally.composition import build_default_application
+from ally.memory import MemoryKind, MemoryPrivacy
 
 
 def _parse_id(value: str) -> UUID:
@@ -29,18 +28,19 @@ def run_remember(
     importance: float,
     privacy: MemoryPrivacy,
 ) -> int:
-    store = build_memory_store()
-    record = store.create(
-        NewMemory(
-            kind=kind,
-            content=content,
-            source=MemorySource(type="user"),
-            confidence=confidence,
-            importance=importance,
-            privacy=privacy,
-            observed_at=datetime.now(UTC),
+    try:
+        record = build_default_application().remember(
+            RememberMemoryRequest(
+                content=content,
+                kind=kind,
+                confidence=confidence,
+                importance=importance,
+                privacy=privacy,
+            )
         )
-    )
+    except ValueError as exc:
+        print(f"Memory error: {exc}")
+        return 2
     print(record.id)
     return 0
 
@@ -51,12 +51,16 @@ def run_list_memories(
     include_inactive: bool,
     limit: int,
 ) -> int:
-    store = build_memory_store()
-    records = store.list(
-        kind=kind,
-        include_inactive=include_inactive,
-        limit=limit,
-    )
+    try:
+        records = build_default_application().list_memories(
+            kind=kind,
+            include_inactive=include_inactive,
+            limit=limit,
+        )
+    except ValueError as exc:
+        print(f"Memory error: {exc}")
+        return 2
+
     if not records:
         print("No memories.")
         return 0
@@ -72,7 +76,12 @@ def run_list_memories(
 
 
 def run_search_memories(*, query: str, limit: int) -> int:
-    records = build_memory_store().search(query, limit=limit)
+    try:
+        records = build_default_application().search_memories(query, limit=limit)
+    except ValueError as exc:
+        print(f"Memory error: {exc}")
+        return 2
+
     if not records:
         print("No matching memories.")
         return 0
@@ -83,14 +92,9 @@ def run_search_memories(*, query: str, limit: int) -> int:
 
 def run_show_memory(*, memory_id: str) -> int:
     try:
-        identifier = _parse_id(memory_id)
-    except ValueError as exc:
+        record = build_default_application().memory(_parse_id(memory_id))
+    except (ApplicationNotFoundError, ValueError) as exc:
         print(exc)
-        return 2
-
-    record = build_memory_store().get(identifier)
-    if record is None:
-        print(f"Memory not found: {identifier}")
         return 2
 
     print(f"Memory: {record.id}")
@@ -114,32 +118,15 @@ def run_show_memory(*, memory_id: str) -> int:
 
 def run_supersede_memory(*, memory_id: str, content: str) -> int:
     try:
-        identifier = _parse_id(memory_id)
-    except ValueError as exc:
+        replacement = build_default_application().supersede_memory(
+            SupersedeMemoryRequest(
+                memory_id=_parse_id(memory_id),
+                content=content,
+            )
+        )
+    except ApplicationNotFoundError as exc:
         print(exc)
         return 2
-
-    store = build_memory_store()
-    existing = store.get(identifier)
-    if existing is None:
-        print(f"Memory not found: {identifier}")
-        return 2
-
-    try:
-        _, replacement = store.supersede(
-            existing.id,
-            NewMemory(
-                kind=existing.kind,
-                content=content,
-                source=MemorySource(type="user"),
-                confidence=1.0,
-                importance=existing.importance,
-                privacy=existing.privacy,
-                observed_at=datetime.now(UTC),
-                valid_from=existing.valid_from,
-                valid_until=existing.valid_until,
-            ),
-        )
     except ValueError as exc:
         print(f"Memory cannot be superseded: {exc}")
         return 2
@@ -150,15 +137,9 @@ def run_supersede_memory(*, memory_id: str, content: str) -> int:
 
 def run_retract_memory(*, memory_id: str) -> int:
     try:
-        identifier = _parse_id(memory_id)
-    except ValueError as exc:
+        record = build_default_application().retract_memory(_parse_id(memory_id))
+    except (ApplicationNotFoundError, ValueError) as exc:
         print(exc)
-        return 2
-
-    try:
-        record = build_memory_store().retract(identifier)
-    except KeyError:
-        print(f"Memory not found: {identifier}")
         return 2
 
     print(record.id)
