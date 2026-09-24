@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from contextlib import AbstractContextManager
 from pathlib import Path
 
@@ -82,7 +83,10 @@ def _application(
     tmp_path: Path,
     *,
     provider: CapturingProvider,
-    resolver=_target,
+    resolver: Callable[
+        [str | None, str | None],
+        ResolvedInferenceTarget,
+    ] = _target,
 ) -> tuple[AllyApplication, SQLiteUserInstructionsStore]:
     database = SQLiteDatabase(tmp_path / "ally.sqlite3")
     instructions = SQLiteUserInstructionsStore(database)
