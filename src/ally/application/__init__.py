@@ -1,4 +1,3 @@
-from ally.application.operations import ApplicationOperations, ServiceHealthProvider
 """UI-neutral application services for Ally presentation adapters."""
 
 from ally.application.facade import (
@@ -24,12 +23,13 @@ from ally.application.models import (
     SupersedeMemoryRequest,
     TaskView,
 )
+from ally.application.operations import ApplicationOperations, ServiceHealthProvider
 
 __all__ = [
     "AllyApplication",
-    "ApplicationOperations",
     "ApplicationError",
     "ApplicationNotFoundError",
+    "ApplicationOperations",
     "ApplicationUnavailableError",
     "ChatTurnRequest",
     "ChatTurnResult",
@@ -48,4 +48,3 @@ __all__ = [
     "SupersedeMemoryRequest",
     "TaskView",
 ]
-
