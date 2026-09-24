@@ -10,6 +10,7 @@ final class AppModel: ObservableObject {
     @Published var knowledge: [KnowledgeSourceSummary] = []
     @Published var selectedConversationID: String?
     @Published var conversation: ConversationView?
+    @Published var taskDetail: TaskView?
     @Published var composer = ""
     @Published var isBusy = false
     @Published var errorMessage: String?
@@ -84,6 +85,80 @@ final class AppModel: ObservableObject {
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    func selectTask(_ id: String) async {
+        guard let client else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            taskDetail = try await client.call(
+                "task.get",
+                params: ["task_id": .string(id)]
+            )
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func runTask(_ id: String) async {
+        guard let client else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let updated: TaskView = try await client.call(
+                "task.run",
+                params: ["task_id": .string(id)]
+            )
+            taskDetail = updated
+            snapshot = try await client.call("bootstrap")
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func approveTaskStep(taskID: String, stepID: String) async {
+        guard let client else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let updated: TaskView = try await client.call(
+                "task.approve_step",
+                params: [
+                    "task_id": .string(taskID),
+                    "step_id": .string(stepID),
+                ]
+            )
+            taskDetail = updated
+            snapshot = try await client.call("bootstrap")
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+            await selectTask(taskID)
+        }
+    }
+
+    func retryTaskStep(taskID: String, stepID: String) async {
+        guard let client else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let updated: TaskView = try await client.call(
+                "task.retry_step",
+                params: [
+                    "task_id": .string(taskID),
+                    "step_id": .string(stepID),
+                ]
+            )
+            taskDetail = updated
+            snapshot = try await client.call("bootstrap")
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+            await selectTask(taskID)
         }
     }
 
