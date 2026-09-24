@@ -32,6 +32,8 @@ def test_validate_local_model_parser_has_reproducible_defaults() -> None:
     assert args.runtime == "llama.cpp"
     assert args.runtime_version == "b1234"
     assert args.runtime_parameters == []
+    assert args.model_artifacts == []
+    assert args.runtime_artifacts == []
     assert args.memory_pressure == "unknown"
 
 
