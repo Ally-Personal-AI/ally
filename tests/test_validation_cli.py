@@ -211,3 +211,54 @@ def test_validate_workflows_show_and_verify_parsers_support_json() -> None:
     assert verify.report == "workflows.json"
     assert verify.validation_report == "validation.json"
     assert verify.json_output is True
+
+
+
+def test_profiles_create_parser_accepts_complete_evidence_set() -> None:
+    args = build_parser().parse_args(
+        [
+            "profiles",
+            "create",
+            "validation.json",
+            "privacy.json",
+            "workflows.json",
+            "--output",
+            "profile.json",
+            "--json",
+        ]
+    )
+
+    assert args.command == "profiles"
+    assert args.profiles_command == "create"
+    assert args.validation_report == "validation.json"
+    assert args.privacy_report == "privacy.json"
+    assert args.workflow_report == "workflows.json"
+    assert args.output == "profile.json"
+    assert args.json_output is True
+
+
+def test_profiles_show_and_verify_parsers() -> None:
+    show = build_parser().parse_args(
+        ["profiles", "show", "profile.json", "--json"]
+    )
+    verify = build_parser().parse_args(
+        [
+            "profiles",
+            "verify",
+            "profile.json",
+            "validation.json",
+            "privacy.json",
+            "workflows.json",
+            "--json",
+        ]
+    )
+
+    assert show.profiles_command == "show"
+    assert show.profile == "profile.json"
+    assert show.json_output is True
+    assert verify.profiles_command == "verify"
+    assert verify.profile == "profile.json"
+    assert verify.validation_report == "validation.json"
+    assert verify.privacy_report == "privacy.json"
+    assert verify.workflow_report == "workflows.json"
+    assert verify.json_output is True
