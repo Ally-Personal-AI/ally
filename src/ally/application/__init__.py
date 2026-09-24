@@ -8,6 +8,7 @@ from ally.application.facade import (
 from ally.application.models import (
     ApplicationError,
     ApplicationNotFoundError,
+    ApplicationUnavailableError,
     ChatTurnRequest,
     ChatTurnResult,
     ConversationView,
@@ -17,14 +18,17 @@ from ally.application.models import (
     KnowledgeTextIngestRequest,
     MemoryProposalRequest,
     RememberMemoryRequest,
+    RunTaskRequest,
     RuntimeInferenceStatus,
     SupersedeMemoryRequest,
+    TaskView,
 )
 
 __all__ = [
     "AllyApplication",
     "ApplicationError",
     "ApplicationNotFoundError",
+    "ApplicationUnavailableError",
     "ChatTurnRequest",
     "ChatTurnResult",
     "ConversationView",
@@ -36,6 +40,9 @@ __all__ = [
     "MemoryProposalRequest",
     "ProviderFactory",
     "RememberMemoryRequest",
+    "RunTaskRequest",
     "RuntimeInferenceStatus",
     "SupersedeMemoryRequest",
+    "TaskView",
 ]
+
