@@ -26,6 +26,15 @@ external network access and does not require prompt/telemetry egress.
 
 ## 1. Prepare the machine
 
+Install Git and `uv`, clone the repository, and install the development
+environment:
+
+```bash
+git clone https://github.com/Ally-Personal-AI/ally.git
+cd ally
+uv sync --extra dev
+```
+
 Create a dedicated validation session for each candidate so progress can be
 resumed safely across process exits or reboots:
 
@@ -40,15 +49,6 @@ point, inspect live derived progress with:
 ```bash
 uv run ally validation-session refresh \
   validation/candidate-a/session.json
-```
-
-Install Git and `uv`, clone the repository, and install the development
-environment:
-
-```bash
-git clone https://github.com/Ally-Personal-AI/ally.git
-cd ally
-uv sync --extra dev
 ```
 
 Before any mutable acceptance step, run the read-only first-machine preflight:
