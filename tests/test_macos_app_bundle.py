@@ -1,0 +1,170 @@
+from __future__ import annotations
+
+import json
+import plistlib
+import stat
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "macos_app_bundle.py"
+
+
+def _executable(path: Path, contents: str) -> Path:
+    path.write_text(contents, encoding="utf-8")
+    path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    return path
+
+
+def _assemble(tmp_path: Path) -> Path:
+    app_executable = _executable(
+        tmp_path / "AllyDesktop",
+        "#!/bin/sh\necho synthetic-app\n",
+    )
+    helper = _executable(
+        tmp_path / "ally-desktop-bridge",
+        "#!/bin/sh\necho synthetic-helper\n",
+    )
+    output = tmp_path / "Ally.app"
+    subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "assemble",
+            "--app-executable",
+            str(app_executable),
+            "--helper",
+            str(helper),
+            "--output",
+            str(output),
+            "--source-revision",
+            "synthetic-revision",
+            "--build-version",
+            "7",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return output
+
+
+def test_assemble_creates_release_contract_and_manifest(tmp_path: Path) -> None:
+    app = _assemble(tmp_path)
+
+    with (app / "Contents/Info.plist").open("rb") as handle:
+        info = plistlib.load(handle)
+    assert info["CFBundleIdentifier"] == "ai.ally.personal"
+    assert info["CFBundleExecutable"] == "AllyDesktop"
+    assert info["CFBundleShortVersionString"] == "0.1.0"
+    assert info["CFBundleVersion"] == "7"
+
+    manifest = json.loads(
+        (app / "Contents/Resources/release-manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert manifest["schema_version"] == 1
+    assert manifest["bundle_identifier"] == "ai.ally.personal"
+    assert manifest["ally_version"] == "0.1.0.dev0"
+    assert manifest["bridge_protocol_version"] == 5
+    assert (
+        manifest["helper_relative_path"]
+        == "Contents/Helpers/ally-desktop-bridge"
+    )
+    assert len(manifest["helper_sha256"]) == 64
+    assert len(manifest["app_executable_sha256"]) == 64
+    assert manifest["source_revision"] == "synthetic-revision"
+
+    verified = subprocess.run(
+        [sys.executable, str(SCRIPT), "verify", str(app)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    verified_manifest = json.loads(verified.stdout)
+    assert verified_manifest["helper_sha256"] == manifest["helper_sha256"]
+
+
+def test_verify_rejects_tampered_helper(tmp_path: Path) -> None:
+    app = _assemble(tmp_path)
+    helper = app / "Contents/Helpers/ally-desktop-bridge"
+    helper.write_text("#!/bin/sh\necho tampered\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "verify", str(app)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "helper hash" in result.stderr.lower()
+
+
+def test_assemble_refuses_overwrite_without_explicit_replace(
+    tmp_path: Path,
+) -> None:
+    app = _assemble(tmp_path)
+    assert app.exists()
+
+    app_executable = _executable(
+        tmp_path / "second-app",
+        "#!/bin/sh\necho second-app\n",
+    )
+    helper = _executable(
+        tmp_path / "second-helper",
+        "#!/bin/sh\necho second-helper\n",
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "assemble",
+            "--app-executable",
+            str(app_executable),
+            "--helper",
+            str(helper),
+            "--output",
+            str(app),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "already exists" in result.stderr.lower()
+
+
+@pytest.mark.parametrize("build_version", ["0", "-1", "1.2", "synthetic"])
+def test_assemble_rejects_invalid_build_version(
+    tmp_path: Path,
+    build_version: str,
+) -> None:
+    app_executable = _executable(tmp_path / "app", "#!/bin/sh\nexit 0\n")
+    helper = _executable(tmp_path / "helper", "#!/bin/sh\nexit 0\n")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "assemble",
+            "--app-executable",
+            str(app_executable),
+            "--helper",
+            str(helper),
+            "--output",
+            str(tmp_path / "Ally.app"),
+            "--build-version",
+            build_version,
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "positive integer" in result.stderr.lower()
