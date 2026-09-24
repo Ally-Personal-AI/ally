@@ -21,6 +21,7 @@ from ally.diagnostics import (
     RuntimePrivacyEvidenceError,
     RuntimePrivacyQualificationReport,
     RuntimeProfile,
+    SyntheticWorkflowReport,
     ValidationReportError,
     build_candidate_evidence,
     build_runtime_privacy_report,
@@ -31,6 +32,7 @@ from ally.diagnostics import (
     fingerprint_artifact,
     load_runtime_privacy_report,
     load_validation_report,
+    run_isolated_synthetic_workflows,
     run_local_model_validation,
     verify_runtime_privacy_source,
     write_runtime_privacy_report,
@@ -584,3 +586,49 @@ def run_first_machine_readiness(*, json_output: bool) -> int:
             print(f"[{check.severity.upper()}] {check.id}: {check.summary}")
 
     return 0 if report.ready_to_begin_validation else 2
+
+
+
+def run_synthetic_workflow_validation(
+    *,
+    endpoint: str,
+    model: str,
+    json_output: bool,
+) -> int:
+    """Run end-to-end synthetic workflows in disposable local state."""
+
+    try:
+        with OpenAICompatibleProvider(
+            base_url=endpoint,
+            model=model,
+        ) as provider:
+            report: SyntheticWorkflowReport = run_isolated_synthetic_workflows(
+                provider=provider,
+                model=model,
+            )
+    except (ModelProviderError, OSError, ValueError) as exc:
+        print(f"Synthetic workflow validation error: {exc}")
+        return 2
+
+    if json_output:
+        rendered = report.model_dump(mode="json")
+        rendered["successful"] = report.successful
+        print(json.dumps(rendered, indent=2, sort_keys=True))
+    else:
+        print(
+            "Synthetic workflows: "
+            f"{'pass' if report.successful else 'fail'}"
+        )
+        for check in report.checks:
+            suffix = (
+                ""
+                if check.error_class is None
+                else f" error={check.error_class}"
+            )
+            print(
+                f"[{check.status.upper()}] {check.id} "
+                f"({check.duration_ms:.1f} ms){suffix}"
+            )
+        print(f"Total duration: {report.duration_ms:.1f} ms")
+
+    return 0 if report.successful else 1
