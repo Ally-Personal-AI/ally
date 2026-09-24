@@ -34,7 +34,13 @@ public struct DesktopNotificationDeliveryClient {
         guard settings.authorizationStatus == .authorized
                 || settings.authorizationStatus == .provisional
         else {
-            return []
+            return candidates.map {
+                DesktopNotificationDeliveryOutcome(
+                    eventId: $0.eventId,
+                    deliveryKey: $0.deliveryKey,
+                    succeeded: false
+                )
+            }
         }
 
         let delivered = await center.deliveredNotifications()
