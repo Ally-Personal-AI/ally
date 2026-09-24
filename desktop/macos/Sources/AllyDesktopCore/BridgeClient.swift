@@ -22,27 +22,28 @@ public struct DesktopBridgeClient: Sendable {
     }
 
     public static func resolveHelper(environment: [String: String]) throws -> URL {
-        if let configured = environment[helperEnvironmentKey], !configured.isEmpty {
-            let url = URL(fileURLWithPath: configured)
-            guard configured.hasPrefix("/") else {
-                throw DesktopBridgeError.helperNotExecutable
-            }
-            guard FileManager.default.isExecutableFile(atPath: url.path) else {
-                throw DesktopBridgeError.helperNotExecutable
-            }
-            return url
+        guard let configured = environment[helperEnvironmentKey], !configured.isEmpty else {
+            throw DesktopBridgeError.helperNotFound
         }
+        guard configured.hasPrefix("/") else {
+            throw DesktopBridgeError.helperNotExecutable
+        }
+        let url = URL(fileURLWithPath: configured).standardizedFileURL
+        guard FileManager.default.isExecutableFile(atPath: url.path) else {
+            throw DesktopBridgeError.helperNotExecutable
+        }
+        return url
+    }
 
-        if let path = environment["PATH"] {
-            for directory in path.split(separator: ":", omittingEmptySubsequences: true) {
-                let candidate = URL(fileURLWithPath: String(directory))
-                    .appendingPathComponent("ally-desktop-bridge")
-                if FileManager.default.isExecutableFile(atPath: candidate.path) {
-                    return candidate
-                }
+    static func helperEnvironment(
+        source: [String: String] = ProcessInfo.processInfo.environment
+    ) -> [String: String] {
+        let allowed = ["HOME", "TMPDIR", "LANG", "LC_ALL"]
+        return Dictionary(
+            uniqueKeysWithValues: allowed.compactMap { key in
+                source[key].map { (key, $0) }
             }
-        }
-        throw DesktopBridgeError.helperNotFound
+        )
     }
 
     public func call<Result: Decodable & Sendable>(
@@ -73,6 +74,7 @@ public struct DesktopBridgeClient: Sendable {
         let errors = Pipe()
         process.executableURL = executableURL
         process.arguments = ["--once"]
+        process.environment = helperEnvironment()
         process.standardInput = input
         process.standardOutput = output
         process.standardError = errors
