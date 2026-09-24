@@ -20,12 +20,19 @@ final class AppModel: ObservableObject {
     @Published var attentionDetail: AttentionEventView?
     @Published var attentionDeliveryHistory: [AttentionDeliverySummary] = []
     @Published var notificationAuthorization: DesktopNotificationAuthorizationState = .unknown
+    @Published var backgroundServiceState: DesktopBackgroundServiceState = .unknown
+    @Published var lastProactiveCycleAt: Date?
+    @Published var proactiveCycleError: String?
     @Published var composer = ""
     @Published var isBusy = false
     @Published var errorMessage: String?
 
     private let client: DesktopBridgeClient?
     private let notificationAuthorizationClient = DesktopNotificationAuthorizationClient()
+    private let notificationDeliveryClient = DesktopNotificationDeliveryClient()
+    private let backgroundServiceClient = DesktopBackgroundServiceClient()
+    private var proactiveLoopTask: Task<Void, Never>?
+    private var proactiveCycleRunning = false
 
     init() {
         do {
@@ -33,6 +40,14 @@ final class AppModel: ObservableObject {
         } catch {
             self.client = nil
             self.errorMessage = error.localizedDescription
+        }
+
+        proactiveLoopTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                await self.runProactiveCycleIfEnabled()
+                try? await Task.sleep(for: .seconds(60))
+            }
         }
     }
 
@@ -369,8 +384,92 @@ final class AppModel: ObservableObject {
         do {
             notificationAuthorization = try await notificationAuthorizationClient.requestAuthorization()
             errorMessage = nil
+            if notificationAuthorization.canPresentNotifications {
+                await runProactiveCycleIfEnabled()
+            }
         } catch {
             errorMessage = "Notification authorization request failed."
+        }
+    }
+
+    func refreshBackgroundServiceState() {
+        backgroundServiceState = backgroundServiceClient.currentState()
+    }
+
+    func enableBackgroundService() async {
+        do {
+            backgroundServiceState = try backgroundServiceClient.register()
+            errorMessage = nil
+            if backgroundServiceState == .enabled {
+                await runProactiveCycleIfEnabled()
+            }
+        } catch {
+            refreshBackgroundServiceState()
+            errorMessage = "Background proactivity could not be enabled."
+        }
+    }
+
+    func disableBackgroundService() {
+        do {
+            backgroundServiceState = try backgroundServiceClient.unregister()
+            errorMessage = nil
+        } catch {
+            refreshBackgroundServiceState()
+            errorMessage = "Background proactivity could not be disabled."
+        }
+    }
+
+    func openBackgroundServiceSettings() {
+        backgroundServiceClient.openSystemSettings()
+    }
+
+    func runProactiveCycleIfEnabled() async {
+        refreshBackgroundServiceState()
+        guard backgroundServiceState == .enabled else { return }
+        await runProactiveCycle()
+    }
+
+    private func runProactiveCycle() async {
+        guard let client, !proactiveCycleRunning else { return }
+        proactiveCycleRunning = true
+        defer { proactiveCycleRunning = false }
+
+        do {
+            let prepared: DesktopProactivePreparation = try await client.call(
+                "service.prepare_proactive"
+            )
+            let outcomes = await notificationDeliveryClient.deliver(
+                prepared.candidates
+            )
+            for outcome in outcomes {
+                let _: AttentionDeliverySummary = try await client.call(
+                    "attention.notification_result",
+                    params: [
+                        "event_id": .string(outcome.eventId),
+                        "delivery_key": .string(outcome.deliveryKey),
+                        "succeeded": .bool(outcome.succeeded),
+                    ]
+                )
+            }
+            lastProactiveCycleAt = Date()
+            proactiveCycleError = nil
+
+            if prepared.run.scheduledEvents > 0 || !outcomes.isEmpty {
+                async let snapshot: BootstrapSnapshot = client.call("bootstrap")
+                async let events: [EventSummary] = client.call(
+                    "attention.events",
+                    params: ["limit": .number(100)]
+                )
+                async let history: [AttentionDeliverySummary] = client.call(
+                    "attention.delivery_history",
+                    params: ["limit": .number(100)]
+                )
+                self.snapshot = try await snapshot
+                attentionEvents = try await events
+                attentionDeliveryHistory = try await history
+            }
+        } catch {
+            proactiveCycleError = "The proactive cycle failed."
         }
     }
 
