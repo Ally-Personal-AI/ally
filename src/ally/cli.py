@@ -107,7 +107,10 @@ from ally.commands.validate import (
     run_compare_validation_reports,
     run_hardware_report,
     run_local_model_validation_command,
+    run_runtime_privacy_qualification,
+    run_show_runtime_privacy_report,
 )
+from ally.diagnostics import NetworkObservationMethod, RuntimeIsolationMode
 from ally.events import (
     ATTENTION_CLASSES,
     EVENT_IMPORTANCE_LEVELS,
@@ -1013,6 +1016,58 @@ def build_parser() -> argparse.ArgumentParser:
     validate_compare.add_argument("reports", nargs="+")
     validate_compare.add_argument("--json", action="store_true", dest="json_output")
 
+    validate_privacy = validate_commands.add_parser(
+        "runtime-privacy",
+        help="Record fail-closed no-egress/privacy evidence for one validated runtime.",
+    )
+    validate_privacy.add_argument("validation_report")
+    validate_privacy.add_argument(
+        "--isolation-mode",
+        choices=(
+            "unverified",
+            "host_offline",
+            "process_egress_denied",
+            "system_content_filter",
+        ),
+        default="unverified",
+    )
+    validate_privacy.add_argument(
+        "--network-observation",
+        choices=("none", "system_tools", "content_filter", "external_monitor"),
+        default="none",
+    )
+    for option in (
+        "inference-with-egress-blocked",
+        "synthetic-chat",
+        "synthetic-planning",
+        "synthetic-memory-proposal",
+        "synthetic-grounding",
+        "no-cloud-auth-required",
+        "no-cloud-fallback-observed",
+        "no-prompt-telemetry-observed",
+        "no-unexpected-outbound-connections",
+    ):
+        validate_privacy.add_argument(
+            f"--{option}",
+            choices=("pass", "fail", "not_run"),
+            default="not_run",
+        )
+    validate_privacy.add_argument(
+        "--output",
+        default="validation/ally-runtime-privacy.json",
+    )
+
+    validate_privacy_show = validate_commands.add_parser(
+        "runtime-privacy-show",
+        help="Inspect one runtime privacy qualification artifact.",
+    )
+    validate_privacy_show.add_argument("report")
+    validate_privacy_show.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
     plan = subcommands.add_parser(
         "plan",
         help="Ask a model to propose TaskPlan data without executing it.",
@@ -1445,6 +1500,48 @@ def _run_command(argv: Sequence[str] | None) -> int:
         if args.validate_command == "compare":
             return run_compare_validation_reports(
                 report_paths=cast(Sequence[str], args.reports),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.validate_command == "runtime-privacy":
+            return run_runtime_privacy_qualification(
+                validation_report=cast(str, args.validation_report),
+                isolation_mode=cast(RuntimeIsolationMode, args.isolation_mode),
+                network_observation=cast(
+                    NetworkObservationMethod,
+                    args.network_observation,
+                ),
+                inference_with_egress_blocked=cast(
+                    str,
+                    args.inference_with_egress_blocked,
+                ),
+                synthetic_chat=cast(str, args.synthetic_chat),
+                synthetic_planning=cast(str, args.synthetic_planning),
+                synthetic_memory_proposal=cast(
+                    str,
+                    args.synthetic_memory_proposal,
+                ),
+                synthetic_grounding=cast(str, args.synthetic_grounding),
+                no_cloud_auth_required=cast(
+                    str,
+                    args.no_cloud_auth_required,
+                ),
+                no_cloud_fallback_observed=cast(
+                    str,
+                    args.no_cloud_fallback_observed,
+                ),
+                no_prompt_telemetry_observed=cast(
+                    str,
+                    args.no_prompt_telemetry_observed,
+                ),
+                no_unexpected_outbound_connections=cast(
+                    str,
+                    args.no_unexpected_outbound_connections,
+                ),
+                output=cast(str, args.output),
+            )
+        if args.validate_command == "runtime-privacy-show":
+            return run_show_runtime_privacy_report(
+                report_path=cast(str, args.report),
                 json_output=cast(bool, args.json_output),
             )
 
