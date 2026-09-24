@@ -34,6 +34,10 @@ class ApplicationUnavailableError(ApplicationError):
     """Requested application capability is not composed in this instance."""
 
 
+class ApplicationStateError(ApplicationError):
+    """Requested action is not valid for the current durable state."""
+
+
 class ChatTurnRequest(BaseModel):
     """One private conversational turn."""
 
@@ -168,6 +172,15 @@ class RunTaskRequest(BaseModel):
 
     task_id: UUID
     approved_steps: tuple[UUID, ...] = ()
+
+
+class ApproveTaskStepRequest(BaseModel):
+    """Approve exactly one task step that is currently waiting for approval."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    task_id: UUID
+    step_id: UUID
 
 
 BootstrapSectionState = Literal["available", "unavailable", "error"]
