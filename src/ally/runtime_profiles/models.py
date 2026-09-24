@@ -19,7 +19,6 @@ from ally.diagnostics.validation import (
     EvaluationSuiteProfile,
     PerformanceObservations,
     RuntimeProfile,
-    ValidationReportError,
     load_validation_report,
 )
 from ally.security.network import is_loopback_http_url
@@ -46,8 +45,14 @@ class EvidenceReference(BaseModel):
             or self.name in {".", ".."}
             or "/" in self.name
             or "\\" in self.name
+            or any(
+                ord(character) < 32 or ord(character) == 127
+                for character in self.name
+            )
         ):
-            raise ValueError("evidence reference names must be leaf filenames")
+            raise ValueError(
+                "evidence reference names must be printable leaf filenames"
+            )
         return self
 
 
