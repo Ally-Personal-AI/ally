@@ -64,6 +64,39 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func selectRuntimeProfile(_ profileID: String) async {
+        guard let client else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let updated: RuntimeProfileCatalogView = try await client.call(
+                "runtime.select_profile",
+                params: ["profile_id": .string(profileID)]
+            )
+            runtimeProfiles = updated
+            snapshot = try await client.call("bootstrap")
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func deselectRuntimeProfile() async {
+        guard let client else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let updated: RuntimeProfileCatalogView = try await client.call(
+                "runtime.deselect_profile"
+            )
+            runtimeProfiles = updated
+            snapshot = try await client.call("bootstrap")
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func selectConversation(_ id: String) async {
         guard let client else { return }
         selectedConversationID = id
