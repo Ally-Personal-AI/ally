@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from ally.validation_sessions import (
+    ValidationArtifactPlan,
     ValidationSessionError,
     ValidationSessionManifest,
     ValidationSessionStatus,
@@ -41,6 +42,10 @@ def run_init_validation_session(
     *,
     candidate_label: str,
     directory: str,
+    capability_artifact: str,
+    privacy_artifact: str,
+    workflow_artifact: str,
+    profile_artifact: str,
     json_output: bool,
 ) -> int:
     """Create one immutable session plan in an isolated directory."""
@@ -49,6 +54,12 @@ def run_init_validation_session(
         manifest, path = initialize_validation_session(
             directory=Path(directory),
             candidate_label=candidate_label,
+            artifacts=ValidationArtifactPlan(
+                capability=capability_artifact,
+                privacy=privacy_artifact,
+                workflows=workflow_artifact,
+                profile=profile_artifact,
+            ),
         )
     except (FileExistsError, OSError, ValueError) as exc:
         print(f"Validation session error: {exc}")
