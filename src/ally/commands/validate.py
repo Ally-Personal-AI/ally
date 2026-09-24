@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from ally.diagnostics import (
     ArtifactFingerprint,
     CandidateEvidence,
+    FirstMachineReadinessReport,
     LocalModelValidationReport,
     NetworkObservationMethod,
     PerformanceObservations,
@@ -23,6 +24,7 @@ from ally.diagnostics import (
     ValidationReportError,
     build_candidate_evidence,
     build_runtime_privacy_report,
+    collect_first_machine_readiness,
     collect_hardware_profile,
     compare_candidate_evidence,
     compare_validation_reports,
@@ -557,3 +559,28 @@ def run_compare_candidate_evidence(
         "production-eligible candidates."
     )
     return 0
+
+
+
+def run_first_machine_readiness(*, json_output: bool) -> int:
+    """Inspect readiness without mutating Ally state or external services."""
+
+    report: FirstMachineReadinessReport = collect_first_machine_readiness()
+
+    if json_output:
+        rendered = report.model_dump(mode="json")
+        rendered["ready_to_begin_validation"] = report.ready_to_begin_validation
+        print(json.dumps(rendered, indent=2, sort_keys=True))
+    else:
+        print(
+            "Ready to begin validation: "
+            f"{'yes' if report.ready_to_begin_validation else 'no'}"
+        )
+        print(f"Ally version: {report.ally_version}")
+        print(f"Target: {report.hardware.system} {report.hardware.machine}")
+        if report.hardware.apple_chip is not None:
+            print(f"Apple chip: {report.hardware.apple_chip}")
+        for check in report.checks:
+            print(f"[{check.severity.upper()}] {check.id}: {check.summary}")
+
+    return 0 if report.ready_to_begin_validation else 2
