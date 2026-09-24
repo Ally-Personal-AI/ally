@@ -222,9 +222,18 @@ class DesktopNotificationResultRequest(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    run_id: UUID
     event_id: UUID
     delivery_key: str = Field(min_length=1, max_length=512)
     succeeded: bool
+
+
+class CompleteDesktopProactiveRequest(BaseModel):
+    """Finish one prepared proactive run without caller-supplied counters."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    run_id: UUID
 
 
 class TaskView(BaseModel):
