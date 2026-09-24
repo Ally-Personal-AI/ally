@@ -25,8 +25,11 @@ from ally.application.models import (
     SupersedeMemoryRequest,
     TaskView,
 )
+from ally.application.operations import ApplicationOperations
+from ally.attention import AttentionDeliveryRecord, AttentionDeliveryStatus
 from ally.context import CompositeContextProvider, ContextProvider
 from ally.conversations import Conversation, ConversationStore
+from ally.events import AttentionClass, EventRecord
 from ally.instructions import (
     InstructionContext,
     UserInstructionsStore,
@@ -46,11 +49,8 @@ from ally.memory import (
     NewMemory,
 )
 from ally.memory.retrieval import LexicalMemoryRetriever, MemoryContextProvider
-from ally.attention import AttentionDeliveryRecord, AttentionDeliveryStatus
-from ally.events import AttentionClass, EventRecord
 from ally.models import ModelProvider
 from ally.runtime import PersistentConversationRuntime
-from ally.application.operations import ApplicationOperations
 from ally.runtime_profiles import (
     InferenceTargetError,
     ResolvedInferenceTarget,
