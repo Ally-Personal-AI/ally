@@ -18,6 +18,7 @@ from ally.application.models import (
     AttentionHistoryBootstrapSection,
     BootstrapLimits,
     ChatTurnRequest,
+    CompleteDesktopProactiveRequest,
     ChatTurnResult,
     ConversationBootstrapSection,
     ConversationView,
@@ -706,6 +707,7 @@ class AllyApplication:
             )
         try:
             return coordinator.record_delivery_result(
+                run_id=request.run_id,
                 event_id=request.event_id,
                 delivery_key_value=request.delivery_key,
                 succeeded=request.succeeded,
@@ -713,6 +715,25 @@ class AllyApplication:
         except KeyError as exc:
             raise ApplicationNotFoundError(
                 f"Attention event not found: {request.event_id}"
+            ) from exc
+
+    def complete_desktop_proactive(
+        self,
+        request: CompleteDesktopProactiveRequest,
+    ) -> ServiceCycleRunRecord:
+        """Finish one prepared desktop proactive run using durable counters."""
+
+        operations = self._require_operations()
+        coordinator = operations.desktop_proactive
+        if coordinator is None:
+            raise ApplicationUnavailableError(
+                "desktop proactive coordinator is not available"
+            )
+        try:
+            return coordinator.complete(request.run_id)
+        except KeyError as exc:
+            raise ApplicationNotFoundError(
+                f"Service run not found: {request.run_id}"
             ) from exc
 
     def service_history(
