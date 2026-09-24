@@ -27,6 +27,7 @@ class ServiceCycleRunStore(Protocol):
         *,
         observed_at: datetime,
         started_at: datetime,
+        run_id: UUID | None = None,
     ) -> ServiceCycleRunRecord:
         ...
 
