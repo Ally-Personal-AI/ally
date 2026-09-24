@@ -11,6 +11,8 @@ from pydantic import ValidationError
 from ally.diagnostics import (
     LocalModelValidationReport,
     PerformanceObservations,
+    NetworkObservationMethod,
+    RuntimeIsolationMode,
     RuntimeParameter,
     RuntimePrivacyChecks,
     RuntimePrivacyEvidenceError,
@@ -229,8 +231,8 @@ def run_compare_validation_reports(
 def run_runtime_privacy_qualification(
     *,
     validation_report: str,
-    isolation_mode: str,
-    network_observation: str,
+    isolation_mode: RuntimeIsolationMode,
+    network_observation: NetworkObservationMethod,
     inference_with_egress_blocked: str,
     synthetic_chat: str,
     synthetic_planning: str,
@@ -262,8 +264,8 @@ def run_runtime_privacy_qualification(
         )
         report = build_runtime_privacy_report(
             validation_path=Path(validation_report),
-            isolation_mode=isolation_mode,  # type: ignore[arg-type]
-            network_observation=network_observation,  # type: ignore[arg-type]
+            isolation_mode=isolation_mode,
+            network_observation=network_observation,
             checks=checks,
         )
         destination = write_runtime_privacy_report(report, Path(output))
