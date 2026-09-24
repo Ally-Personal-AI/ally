@@ -366,6 +366,16 @@ All privacy checks default to `not_run`, so the example above remains
 unqualified until each check is explicitly recorded as passed. See
 [Runtime Privacy Qualification](docs/runtime-privacy-qualification.md).
 
+On the dedicated machine, begin with the non-mutating readiness preflight:
+
+```bash
+uv run ally validate readiness
+```
+
+It checks the target platform, privacy configuration, packaged evaluation suites,
+state/path boundaries, and native-attention API readiness without contacting a
+model or mutating Ally state.
+
 See [Apple Silicon First-Machine Validation](docs/hardware/apple-silicon-validation.md) for the full procedure and exit criteria.
 
 ## Proactive events
