@@ -151,14 +151,19 @@ def run_workflows(root: Path) -> None:
     endpoint = f"http://127.0.0.1:{server.server_port}/v1"
     try:
         first = cli(
-            "chat", "--endpoint", endpoint, "--model", "synthetic",
+            "chat",
+            "--development-endpoint", endpoint,
+            "--development-model", "synthetic",
             "--prompt", "Synthetic chat first turn",
         )
         require("SYNTHETIC_FIRST_REPLY" in first, "chat response")
         conversation = identifier(cli("conversations", "list"))
         second = cli(
-            "chat", "--endpoint", endpoint, "--model", "synthetic",
-            "--conversation", conversation, "--prompt", "Synthetic second turn",
+            "chat",
+            "--development-endpoint", endpoint,
+            "--development-model", "synthetic",
+            "--conversation", conversation,
+            "--prompt", "Synthetic second turn",
         )
         require("SYNTHETIC_SECOND_REPLY" in second, "chat resumed in a new process")
         require("SYNTHETIC_FIRST_REPLY" in request_bodies[1], "conversation history")
@@ -329,6 +334,46 @@ def run_workflows(root: Path) -> None:
             '"active": true' in cli("profiles", "installed", "--json").lower(),
             "installed runtime profile listing",
         )
+
+        active_memory: dict[str, object] = {
+            "memories": [{
+                "kind": "preference",
+                "content": "Prefers tea over coffee.",
+                "confidence": 0.95,
+                "importance": 0.7,
+            }]
+        }
+        responses.extend((
+            "ACTIVE_PROFILE_CHAT_OK",
+            json.dumps(plan),
+            json.dumps(active_memory),
+        ))
+        active_chat = cli(
+            "chat",
+            "--prompt", "Use the selected validated runtime.",
+        )
+        require(
+            "ACTIVE_PROFILE_CHAT_OK" in active_chat,
+            "daily chat resolves active validated profile",
+        )
+        active_plan = json.loads(cli(
+            "plan", "propose",
+            "--goal", "Inspect the local runtime",
+        ))
+        require(
+            active_plan["goal"] == "Inspect the local runtime",
+            "daily planning resolves active validated profile",
+        )
+        active_memory_output = json.loads(cli(
+            "memory", "propose",
+            "I prefer tea over coffee.",
+        ))
+        require(
+            active_memory_output["memories"][0]["content"] == "Prefers tea over coffee."
+            and not responses,
+            "daily memory proposal resolves active validated profile",
+        )
+
         cli("profiles", "deselect")
         cli("profiles", "remove", profile_id)
     finally:
