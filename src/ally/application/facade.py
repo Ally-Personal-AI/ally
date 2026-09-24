@@ -16,6 +16,8 @@ from ally.application.models import (
     KnowledgeIngestResult,
     KnowledgeSearchResult,
     KnowledgeSourceView,
+    KnowledgeTextIngestRequest,
+    MemoryProposalRequest,
     RememberMemoryRequest,
     RuntimeInferenceStatus,
     SupersedeMemoryRequest,
@@ -33,9 +35,11 @@ from ally.knowledge.ingestion import TextKnowledgeIngestor
 from ally.knowledge.retrieval import KnowledgeContextProvider, LexicalKnowledgeRetriever
 from ally.memory import (
     MemoryKind,
+    MemoryProposalBundle,
     MemoryRecord,
     MemorySource,
     MemoryStore,
+    ModelMemoryProposer,
     NewMemory,
 )
 from ally.memory.retrieval import LexicalMemoryRetriever, MemoryContextProvider
@@ -158,6 +162,43 @@ class AllyApplication:
             target=target,
         )
 
+    def propose_memories(
+        self,
+        request: MemoryProposalRequest,
+    ) -> MemoryProposalBundle:
+        """Generate reviewable memory candidates without durable writes."""
+
+        target = self.resolve_inference_target(
+            development_endpoint=request.development_endpoint,
+            development_model=request.development_model,
+        )
+        source = MemorySource(
+            type=request.source_type,
+            id=request.source_id,
+            uri=request.source_uri,
+        )
+        with self._provider_factory(target) as provider:
+            return ModelMemoryProposer(provider).propose(
+                text=request.text,
+                source=source,
+                privacy=request.privacy,
+            )
+
+    def accept_memory_proposals(
+        self,
+        bundle: MemoryProposalBundle,
+        *,
+        indices: tuple[int, ...],
+    ) -> tuple[MemoryRecord, ...]:
+        """Persist only explicitly selected reviewable memory candidates."""
+
+        if not indices:
+            raise ValueError("at least one proposal index is required")
+        if len(indices) != len(set(indices)):
+            raise ValueError("proposal indices must be unique")
+        selected = tuple(bundle.accepted_memory(index) for index in indices)
+        return tuple(self._memories.create(memory) for memory in selected)
+
     def list_memories(
         self,
         *,
@@ -264,6 +305,18 @@ class AllyApplication:
             )
             for hit in hits
         )
+
+    def ingest_knowledge_text(
+        self,
+        request: KnowledgeTextIngestRequest,
+    ) -> KnowledgeIngestResult:
+        source, revision = TextKnowledgeIngestor(self._knowledge).ingest_text(
+            uri=request.uri,
+            title=request.title,
+            text=request.text,
+            media_type=request.media_type,
+        )
+        return KnowledgeIngestResult(source=source, revision=revision)
 
     def ingest_knowledge_file(self, path: Path) -> KnowledgeIngestResult:
         source, revision = TextKnowledgeIngestor(self._knowledge).ingest_file(path)
