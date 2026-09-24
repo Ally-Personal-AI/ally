@@ -1,15 +1,16 @@
 import Foundation
 import Testing
+import UserNotifications
 @testable import AllyDesktopCore
 
 @Test func decodesBridgeInfoEnvelope() throws {
-    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":4,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap"]}}"#.utf8)
+    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":5,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap"]}}"#.utf8)
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let envelope = try decoder.decode(BridgeEnvelope<BridgeInfo>.self, from: data)
 
     #expect(envelope.ok)
-    #expect(envelope.result?.protocolVersion == 4)
+    #expect(envelope.result?.protocolVersion == 5)
     #expect(envelope.result?.transport == "stdio")
     #expect(envelope.result?.capabilities == ["bootstrap"])
 }
@@ -115,4 +116,40 @@ import Testing
     #expect(envelope.result?.items[0].model == "synthetic-model")
     #expect(envelope.result?.items[0].appleChip == "Apple M5 Max")
     #expect(envelope.result?.activeProfileId == String(repeating: "a", count: 64))
+}
+
+
+@Test func decodesAttentionEventWithLocalPayloadAndDeliveryHistory() throws {
+    let data = Data(#"{"id":"1","ok":true,"result":{"event":{"id":"00000000-0000-0000-0000-000000000030","type":"synthetic.desktop-attention","source":"swift-test","importance":"urgent","attention":"notify","payload":{"summary":"Synthetic attention summary.","count":2},"dedupe_key":"synthetic:30","created_at":"2026-09-24T00:00:00Z","handled_at":null},"deliveries":[{"id":"00000000-0000-0000-0000-000000000031","event_id":"00000000-0000-0000-0000-000000000030","sink_id":"macos.notification","status":"succeeded","attempts":1,"last_error":null,"created_at":"2026-09-24T00:00:01Z","updated_at":"2026-09-24T00:00:01Z","delivered_at":"2026-09-24T00:00:01Z"}]}}"#.utf8)
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    let envelope = try decoder.decode(
+        BridgeEnvelope<AttentionEventView>.self,
+        from: data
+    )
+
+    #expect(envelope.result?.event.displayText == "Synthetic attention summary.")
+    #expect(envelope.result?.event.dedupeKey == "synthetic:30")
+    #expect(envelope.result?.deliveries.count == 1)
+    #expect(envelope.result?.deliveries[0].sinkId == "macos.notification")
+    #expect(envelope.result?.deliveries[0].status == "succeeded")
+}
+
+@Test func mapsModernNotificationAuthorizationStates() {
+    #expect(
+        DesktopNotificationAuthorizationClient.state(for: .authorized)
+            == .authorized
+    )
+    #expect(
+        DesktopNotificationAuthorizationClient.state(for: .denied)
+            == .denied
+    )
+    #expect(
+        DesktopNotificationAuthorizationClient.state(for: .notDetermined)
+            == .notDetermined
+    )
+    #expect(
+        DesktopNotificationAuthorizationClient.state(for: .provisional)
+            == .provisional
+    )
 }
