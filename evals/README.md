@@ -35,9 +35,14 @@ uv run ally eval provider \
 ```
 
 The default endpoint is `http://127.0.0.1:8080/v1`.
-An optional JSONL path overrides the bundled provider suite. CI exercises its
-installed wiring with synthetic HTTP responses; real model behavior remains a
-manual hardware-validation step.
+An optional JSONL path overrides the bundled provider suite for local inference.
+CI exercises its installed wiring with synthetic HTTP responses; real model
+behavior remains a manual hardware-validation step.
+
+An operator may explicitly benchmark a remote model with
+`--allow-remote-public`, but only with Ally's bundled frozen synthetic/public
+suite. Remote runs reject custom JSONL case files before contacting the
+endpoint.
 
 Provider smoke cases validate basic inference contract behavior such as exact-token instruction following and system-message handling. They are not intended to measure general intelligence.
 
