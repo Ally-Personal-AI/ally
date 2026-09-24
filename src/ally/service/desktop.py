@@ -138,20 +138,22 @@ class DesktopProactiveCoordinator:
                 candidates=candidates,
             )
         except Exception as exc:
-            if run is not None and run.status == "running":
-                self._runs.finish(
-                    run.id,
-                    status="failed",
-                    finished_at=datetime.now(UTC),
-                    scheduled_events=run.scheduled_events,
-                    delivery_attempts=run.delivery_attempts,
-                    delivery_failures=run.delivery_failures,
-                    error_class=type(exc).__name__,
+            try:
+                if run is not None and run.status == "running":
+                    self._runs.finish(
+                        run.id,
+                        status="failed",
+                        finished_at=datetime.now(UTC),
+                        scheduled_events=run.scheduled_events,
+                        delivery_attempts=run.delivery_attempts,
+                        delivery_failures=run.delivery_failures,
+                        error_class=type(exc).__name__,
+                    )
+            finally:
+                self._leases.release(
+                    name=DESKTOP_PROACTIVE_LEASE_NAME,
+                    owner_id=run_id,
                 )
-            self._leases.release(
-                name=DESKTOP_PROACTIVE_LEASE_NAME,
-                owner_id=run_id,
-            )
             raise
 
     def _candidates(
@@ -270,6 +272,10 @@ class DesktopProactiveCoordinator:
 
         current = self._runs.get(run_id)
         if current is None:
+            self._leases.release(
+                name=DESKTOP_PROACTIVE_LEASE_NAME,
+                owner_id=run_id,
+            )
             raise KeyError(f"Unknown service cycle run: {run_id}")
         if current.status != "running":
             self._leases.release(
