@@ -8,9 +8,15 @@ Private Ally intelligence must not be transmitted to an external inference
 provider.
 
 Today, private inference is allowed only through loopback HTTP endpoints on the
-same machine. There is intentionally no CLI, config, or provider-level override
-that permits private chat, planning, memory extraction, grounding, or user
-instructions to use a non-loopback model endpoint.
+same machine. Daily chat, planning, and memory proposal commands resolve the
+explicitly selected validated runtime profile before inference. There is
+intentionally no CLI, config, or provider-level override that permits private
+chat, planning, memory extraction, grounding, or user instructions to use a
+non-loopback model endpoint.
+
+Raw model coordinates are available only as an explicit paired development
+override for local candidate testing; they remain loopback-only and do not claim
+validated-profile provenance.
 
 Future user-controlled nodes may join the Ally trust domain only after Ally has
 an explicit authenticated, encrypted trust-domain membership protocol. An
