@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
@@ -79,6 +80,57 @@ class RuntimeInferenceStatus(BaseModel):
     state: Literal["ready", "unavailable"]
     target: ResolvedInferenceTarget | None = None
     error_code: Literal["active_profile_unavailable"] | None = None
+
+
+class RuntimeProfileSummary(BaseModel):
+    """Path-free presentation summary for one installed validated runtime profile."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    profile_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+    generated_at: datetime
+    ally_version: str
+    model: str
+    runtime_name: str
+    runtime_version: str
+    model_source: str | None = None
+    quantization: str | None = None
+    precision: str | None = None
+    model_size_bytes: int | None = None
+    context_length: int | None = None
+    apple_model: str | None = None
+    apple_chip: str | None = None
+    total_memory_bytes: int | None = None
+    time_to_first_token_ms: float | None = None
+    generation_tokens_per_second: float | None = None
+    maximum_tested_context_tokens: int | None = None
+    capability_evidence_name: str
+    capability_evidence_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    privacy_evidence_name: str
+    privacy_evidence_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    workflow_evidence_name: str
+    workflow_evidence_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    active: bool = False
+
+
+class RuntimeProfileCatalogView(BaseModel):
+    """Installed validated profiles plus the exact active selection."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    items: tuple[RuntimeProfileSummary, ...]
+    active_profile_id: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+
+
+class SelectRuntimeProfileRequest(BaseModel):
+    """Select exactly one already-installed validated runtime profile."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    profile_id: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class RememberMemoryRequest(BaseModel):
