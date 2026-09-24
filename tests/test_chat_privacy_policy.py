@@ -36,12 +36,12 @@ def test_private_chat_rejects_remote_endpoint_before_inference(
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
 
     result = run_chat(
-        endpoint="https://example.com/v1",
-        model="remote-model",
+        development_endpoint="https://example.com/v1",
+        development_model="remote-model",
         prompt="Private prompt that must not leave Ally.",
         conversation_id=None,
     )
 
     output = capsys.readouterr().out
     assert result == 2
-    assert "loopback-only" in output
+    assert "development inference override" in output
