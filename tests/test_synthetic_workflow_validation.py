@@ -95,6 +95,7 @@ def test_isolated_synthetic_workflows_pass_all_checks() -> None:
         "task.persistence",
         "model.planning",
         "model.memory_proposal",
+        "data.backup_restore",
         "workspace.isolation",
     }
     assert all(check.status == "passed" for check in report.checks)
