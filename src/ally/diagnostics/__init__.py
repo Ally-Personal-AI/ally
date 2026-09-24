@@ -10,6 +10,7 @@ from ally.diagnostics.runtime_privacy import (
     RuntimePrivacyQualificationReport,
     build_runtime_privacy_report,
     load_runtime_privacy_report,
+    verify_runtime_privacy_source,
     write_runtime_privacy_report,
 )
 from ally.diagnostics.service_health import build_service_health
@@ -48,6 +49,7 @@ __all__ = [
     "compare_validation_reports",
     "load_runtime_privacy_report",
     "load_validation_report",
+    "verify_runtime_privacy_source",
     "run_local_model_validation",
     "write_runtime_privacy_report",
     "write_validation_report",
