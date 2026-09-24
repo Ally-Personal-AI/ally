@@ -7,6 +7,14 @@ from ally.diagnostics.candidates import (
     compare_candidate_evidence,
 )
 from ally.diagnostics.hardware import HardwareProfile, collect_hardware_profile
+from ally.diagnostics.readiness import (
+    EvaluationSuiteCounts,
+    FirstMachineReadinessCheck,
+    FirstMachineReadinessReport,
+    ReadinessSeverity,
+    build_first_machine_readiness,
+    collect_first_machine_readiness,
+)
 from ally.diagnostics.runtime_privacy import (
     NetworkObservationMethod,
     RuntimeIsolationMode,
@@ -40,11 +48,15 @@ __all__ = [
     "ArtifactFingerprint",
     "CandidateEvidence",
     "CandidateEvidenceComparison",
+    "EvaluationSuiteCounts",
     "EvaluationSuiteProfile",
+    "FirstMachineReadinessCheck",
+    "FirstMachineReadinessReport",
     "HardwareProfile",
     "LocalModelValidationReport",
     "NetworkObservationMethod",
     "PerformanceObservations",
+    "ReadinessSeverity",
     "RuntimeIsolationMode",
     "RuntimeParameter",
     "RuntimePrivacyCheck",
@@ -55,8 +67,10 @@ __all__ = [
     "ValidationComparison",
     "ValidationReportError",
     "build_candidate_evidence",
+    "build_first_machine_readiness",
     "build_runtime_privacy_report",
     "build_service_health",
+    "collect_first_machine_readiness",
     "collect_hardware_profile",
     "compare_candidate_evidence",
     "compare_validation_reports",

@@ -162,3 +162,13 @@ def test_validate_local_model_parser_accepts_repeated_artifacts() -> None:
         "model-00002.gguf",
     ]
     assert args.runtime_artifacts == ["llama-server"]
+
+
+def test_validate_readiness_parser_supports_json() -> None:
+    args = build_parser().parse_args(
+        ["validate", "readiness", "--json"]
+    )
+
+    assert args.command == "validate"
+    assert args.validate_command == "readiness"
+    assert args.json_output is True

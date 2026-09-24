@@ -35,7 +35,19 @@ cd ally
 uv sync --extra dev
 ```
 
-Verify the repository-independent environment:
+Before any mutable acceptance step, run the read-only first-machine preflight:
+
+```bash
+uv run ally validate readiness
+uv run ally validate readiness --json
+```
+
+The readiness command does not contact a model, create/migrate databases,
+initialize config, write Keychain, mutate launchd, or deliver a notification.
+Warnings such as unconfirmed notification authorization do not block synthetic
+model validation. Any `error` check must be resolved before continuing.
+
+Then verify the repository-independent environment:
 
 ```bash
 uv run ally doctor
