@@ -21,6 +21,7 @@ from ally.application.models import (
     ChatTurnResult,
     CompleteDesktopProactiveRequest,
     ConversationBootstrapSection,
+    ConversationSearchResult,
     ConversationView,
     DesktopNotificationResultRequest,
     InstructionResolutionView,
@@ -55,7 +56,12 @@ from ally.attention import (
     AttentionDeliveryStatus,
 )
 from ally.context import CompositeContextProvider, ContextProvider
-from ally.conversations import Conversation, ConversationStore
+from ally.conversations import (
+    Conversation,
+    ConversationStore,
+    LexicalConversationRetriever,
+    conversation_snippet,
+)
 from ally.egress import EgressInspection
 from ally.events import AttentionClass, EventRecord
 from ally.instructions import (
@@ -328,6 +334,37 @@ class AllyApplication:
 
     def list_conversations(self, *, limit: int = 50) -> tuple[Conversation, ...]:
         return self._conversations.list(limit=limit)
+
+    def search_conversations(
+        self,
+        query: str,
+        *,
+        limit: int = 20,
+    ) -> tuple[ConversationSearchResult, ...]:
+        """Search recent local conversation history without model inference."""
+
+        if limit < 1 or limit > 50:
+            raise ValueError("conversation search limit must be between 1 and 50")
+        hits = LexicalConversationRetriever(
+            self._conversations,
+            limit=limit,
+        ).retrieve(query)
+        return tuple(
+            ConversationSearchResult(
+                conversation=hit.conversation,
+                score=hit.score,
+                match_kind="title" if hit.message is None else "message",
+                message_id=None if hit.message is None else hit.message.id,
+                message_position=None if hit.message is None else hit.message.position,
+                message_role=None if hit.message is None else hit.message.role,
+                snippet=(
+                    None
+                    if hit.message is None
+                    else conversation_snippet(query, hit.message.content)
+                ),
+            )
+            for hit in hits
+        )
 
     def conversation(self, conversation_id: UUID) -> ConversationView:
         conversation = self._conversations.get(conversation_id)
