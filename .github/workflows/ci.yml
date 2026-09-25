@@ -90,7 +90,7 @@ jobs:
             --current "$RUNNER_TEMP/ally-release/Ally.app" \
             --candidate "$RUNNER_TEMP/Ally-Candidate.app"
           if uv run python scripts/macos_update_trust.py verify-update \
-            --current "$RUNNER_TEMP/Ally.app" \
+            --current "$RUNNER_TEMP/ally-release/Ally.app" \
             --candidate "$RUNNER_TEMP/Ally-Candidate.app" \
             --team-id ABCDE12345; then
             echo "ad-hoc signed bundle unexpectedly passed production update trust"
