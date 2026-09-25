@@ -7,6 +7,8 @@ import AllyDesktopCore
 final class AppModel: ObservableObject {
     @Published var snapshot: BootstrapSnapshot?
     @Published var runtimeProfiles: RuntimeProfileCatalogView?
+    @Published var portableBackupManifest: BackupManifestSummary?
+    @Published var portableBackupStatus: String?
     @Published var memories: [MemorySummary] = []
     @Published var memoryDetail: MemorySummary?
     @Published var memorySearchResults: [MemorySummary] = []
@@ -103,6 +105,55 @@ final class AppModel: ObservableObject {
         } catch {
             self.errorMessage = error.localizedDescription
         }
+    }
+
+    func exportPortableBackup(to url: URL) async {
+        guard let client else { return }
+        guard let path = portableBackupPath(url) else {
+            errorMessage = "Portable backups require an absolute .ally-backup file path."
+            return
+        }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            portableBackupManifest = try await client.call(
+                "data.backup",
+                params: ["path": .string(path)]
+            )
+            portableBackupStatus = "Backup created and validated"
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func validatePortableBackup(at url: URL) async {
+        guard let client else { return }
+        guard let path = portableBackupPath(url) else {
+            errorMessage = "Portable backups require an absolute .ally-backup file path."
+            return
+        }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            portableBackupManifest = try await client.call(
+                "data.validate_backup",
+                params: ["path": .string(path)]
+            )
+            portableBackupStatus = "Backup validated"
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func portableBackupPath(_ url: URL) -> String? {
+        guard url.isFileURL else { return nil }
+        let path = url.path
+        guard path.hasPrefix("/"), url.pathExtension == "ally-backup" else {
+            return nil
+        }
+        return path
     }
 
     func selectRuntimeProfile(_ profileID: String) async {
