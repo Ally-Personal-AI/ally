@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import UniformTypeIdentifiers
 import AllyDesktopCore
 
 private enum SidebarSelection: Hashable {
@@ -823,6 +824,7 @@ private struct KnowledgeScreen: View {
     @ObservedObject var model: AppModel
     @State private var searchText = ""
     @State private var showingIngest = false
+    @State private var showingFileImporter = false
 
     private var isSearching: Bool {
         !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -873,10 +875,19 @@ private struct KnowledgeScreen: View {
             }
             .toolbar {
                 ToolbarItem {
-                    Button {
-                        showingIngest = true
+                    Menu {
+                        Button {
+                            showingIngest = true
+                        } label: {
+                            Label("Add Note", systemImage: "square.and.pencil")
+                        }
+                        Button {
+                            showingFileImporter = true
+                        } label: {
+                            Label("Import Text File", systemImage: "doc.badge.plus")
+                        }
                     } label: {
-                        Label("Add Note", systemImage: "plus")
+                        Label("Add Knowledge", systemImage: "plus")
                     }
                     .disabled(model.isBusy)
                 }
@@ -894,6 +905,24 @@ private struct KnowledgeScreen: View {
                     Task { await model.ingestKnowledge(title: title, text: text) }
                 }
             )
+        }
+        .fileImporter(
+            isPresented: $showingFileImporter,
+            allowedContentTypes: [.text],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                do {
+                    let imported = try KnowledgeFileImporter.load(url)
+                    Task { await model.ingestImportedKnowledge(imported) }
+                } catch {
+                    model.errorMessage = error.localizedDescription
+                }
+            case .failure(let error):
+                model.errorMessage = error.localizedDescription
+            }
         }
     }
 }
