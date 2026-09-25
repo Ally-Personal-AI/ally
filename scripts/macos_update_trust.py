@@ -218,7 +218,9 @@ def main(argv: list[str] | None = None) -> int:
             )
         print(_render(decision))
         return 0
-    except (UpdateTrustError, macos_app_bundle.BundleError):
+    except UpdateTrustError as exc:
+        raise SystemExit(str(exc)) from None
+    except macos_app_bundle.BundleError:
         raise SystemExit("update candidate verification failed") from None
     except FileNotFoundError:
         raise SystemExit("application bundle is unavailable") from None
