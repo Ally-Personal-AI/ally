@@ -3,19 +3,65 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
 import macos_update_trust
+from ally.portability import BackupValidationError, create_backup, validate_backup
 from ally.release.update_preparation import (
+    PreMigrationBackupEvidence,
     UpdatePreparationError,
     UpdatePreparationRecord,
     prepare_update,
 )
 from ally.storage import default_database_path
 from ally.storage.sqlite import SQLiteDatabase
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _create_backup_evidence(
+    database: SQLiteDatabase,
+    destination: Path,
+) -> PreMigrationBackupEvidence:
+    try:
+        created = create_backup(database, destination)
+        validated = validate_backup(destination)
+    except (
+        BackupValidationError,
+        FileExistsError,
+        OSError,
+        ValueError,
+    ) as exc:
+        raise UpdatePreparationError(
+            "pre-update backup could not be created and validated"
+        ) from exc
+
+    if created != validated:
+        raise UpdatePreparationError(
+            "pre-update backup changed between creation and validation"
+        )
+    try:
+        archive_sha256 = _sha256(destination.expanduser().resolve(strict=True))
+    except OSError as exc:
+        raise UpdatePreparationError(
+            "pre-update backup could not be bound to the preparation record"
+        ) from exc
+
+    return PreMigrationBackupEvidence(
+        archive_sha256=archive_sha256,
+        database_sha256=validated.database.sha256,
+        schema_versions=validated.database.schema_versions,
+    )
 
 
 def _render(record: UpdatePreparationRecord) -> str:
@@ -61,16 +107,13 @@ def main(argv: list[str] | None = None) -> int:
             args.candidate,
             expected_team_identifier=args.team_id,
         )
-        database = None
+        backup_evidence = None
         if args.backup_output is not None:
             database = SQLiteDatabase(
                 default_database_path() if args.database is None else args.database
             )
-        record = prepare_update(
-            decision,
-            database=database,
-            backup_destination=args.backup_output,
-        )
+            backup_evidence = _create_backup_evidence(database, args.backup_output)
+        record = prepare_update(decision, backup=backup_evidence)
         print(_render(record))
         return 0
     except (
