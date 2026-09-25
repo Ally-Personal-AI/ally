@@ -239,6 +239,14 @@ class SQLiteKnowledgeStore:
             )
         return tuple(self._source_from_row(row) for row in rows)
 
+    def delete_source(self, source_id: UUID) -> bool:
+        with self._database.connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM knowledge_sources WHERE id = ?",
+                (str(source_id),),
+            )
+        return cursor.rowcount == 1
+
     def list_revisions(self, source_id: UUID) -> tuple[KnowledgeRevision, ...]:
         if self.get_source(source_id) is None:
             raise KeyError(f"Unknown knowledge source: {source_id}")
