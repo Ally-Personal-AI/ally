@@ -17,8 +17,8 @@ implementation of an earlier one.
 | Personal knowledge | Implemented V1.1 | versioned plain-text ingestion plus deterministic BM25 chunk retrieval/grounding; semantic/hybrid retrieval remains future |
 | Tools | Implemented V1 | typed capabilities, risk policy, local audit |
 | Skills | Implemented V1 | declarative manifests, safe install lifecycle, explicit process-isolated Python execution |
-| Reliable agency | Implemented core | persisted tasks, approval pauses, verification, retries |
-| Model plan proposals | Implemented boundary | strict TaskPlan proposals; no persistence or execution authority |
+| Reliable agency | Implemented core + native reviewed creation | local-model TaskPlan proposal remains untrusted until native review and explicit creation; persisted tasks retain separate run, exact-step approval, verification, and retry boundaries |
+| Model plan proposals | Implemented boundary + native review flow | strict local TaskPlan proposals over the same reviewed tool registry used by execution; native review can explicitly persist the exact plan but never executes or approves it |
 | Model memory proposals | Implemented boundary | reviewable extraction bundles; explicit selected acceptance only |
 | Private intelligence boundary | Core implemented; runtime evidence contract implemented; machine acceptance pending | private chat/planning/memory/grounding loopback-only; remote access limited to bundled synthetic/public evals; separate fail-closed runtime privacy artifact ties no-egress evidence to exact capability validation |
 | Controlled external egress | Implemented foundation + first concrete lookup | trusted adapter-owned field classifications, explicit outbound approval, private/secret denial, payload-free audit, network-import guard, and a Brave Search adapter whose exact query is approval-gated |
