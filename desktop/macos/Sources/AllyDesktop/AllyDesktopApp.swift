@@ -426,6 +426,35 @@ private struct ResearchScreen: View {
 
             Divider()
 
+            if let synthesis = model.researchSynthesis {
+                GroupBox(
+                    synthesis.insufficientEvidence
+                        ? "Answer — limited evidence"
+                        : "Answer"
+                ) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(synthesis.answer)
+                            .textSelection(.enabled)
+                        if !synthesis.citedResultIndices.isEmpty {
+                            Text(
+                                "Sources: " + synthesis.citedResultIndices
+                                    .map { "[\($0)]" }
+                                    .joined(separator: " ")
+                            )
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                        }
+                        Text(
+                            "This answer was synthesized locally from the bounded public results below. Source content is treated as untrusted evidence."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(4)
+                }
+            }
+
             if model.researchResults.isEmpty {
                 ContentUnavailableView(
                     "No Research Results",
@@ -438,8 +467,11 @@ private struct ResearchScreen: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List(model.researchResults) { result in
+                List(Array(model.researchResults.enumerated()), id: \.element.id) { index, result in
                     VStack(alignment: .leading, spacing: 6) {
+                        Text("[\(index + 1)]")
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
                         if let destination = URL(string: result.url) {
                             Link(result.title, destination: destination)
                                 .font(.headline)
