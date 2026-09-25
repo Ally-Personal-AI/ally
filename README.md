@@ -944,6 +944,12 @@ uv run ally data backup backups/ally-2026-09-19.ally-backup
 uv run ally data validate backups/ally-2026-09-19.ally-backup
 ```
 
+The native macOS **System → Portable data** section exposes the same explicit
+backup and validation boundaries through a save/open panel. The desktop bridge
+accepts only one exact absolute `.ally-backup` path and returns manifest
+metadata only; it does not send archive/database contents over IPC and does not
+expose restore authority.
+
 Restore into a clean database path:
 
 ```bash
