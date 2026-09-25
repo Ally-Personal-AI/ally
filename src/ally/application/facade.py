@@ -82,7 +82,10 @@ from ally.models import ModelProvider
 from ally.planning import ModelTaskPlanner
 from ally.research import (
     ResearchService,
+    WebResearchAnswerExecution,
     WebResearchExecution,
+    WebResearchSynthesis,
+    WebResearchSynthesizer,
     WebSearchRequest,
 )
 from ally.runtime import PersistentConversationRuntime
@@ -652,6 +655,38 @@ class AllyApplication:
 
         research = self._require_research()
         return research.search(request, approved=approved)
+
+    def answer_web_research(
+        self,
+        request: WebSearchRequest,
+        *,
+        approved: bool = False,
+    ) -> WebResearchAnswerExecution:
+        """Run approved search, then synthesize only through the validated local model."""
+
+        search = self.search_web(request, approved=approved)
+        if search.status != "succeeded":
+            return WebResearchAnswerExecution(search=search)
+
+        if not search.results:
+            return WebResearchAnswerExecution(
+                search=search,
+                synthesis=WebResearchSynthesis(
+                    answer="No public search results were returned for this query.",
+                    insufficient_evidence=True,
+                ),
+            )
+
+        target = self.resolve_inference_target()
+        with self._provider_factory(target) as provider:
+            synthesis = WebResearchSynthesizer(provider).synthesize(
+                query=request.query,
+                results=search.results,
+            )
+        return WebResearchAnswerExecution(
+            search=search,
+            synthesis=synthesis,
+        )
 
     def propose_task(self, request: TaskProposalRequest) -> TaskPlan:
         """Return an untrusted plan proposal without persisting or executing it."""
