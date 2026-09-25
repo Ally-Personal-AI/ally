@@ -50,6 +50,7 @@ from ally.attention import (
 )
 from ally.context import CompositeContextProvider, ContextProvider
 from ally.conversations import Conversation, ConversationStore
+from ally.egress import EgressInspection
 from ally.events import AttentionClass, EventRecord
 from ally.instructions import (
     InstructionContext,
@@ -71,7 +72,6 @@ from ally.memory import (
 )
 from ally.memory.retrieval import LexicalMemoryRetriever, MemoryContextProvider
 from ally.models import ModelProvider
-from ally.egress import EgressInspection
 from ally.research import (
     WebResearchExecution,
     WebSearchRequest,
