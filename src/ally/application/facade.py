@@ -71,6 +71,11 @@ from ally.memory import (
 )
 from ally.memory.retrieval import LexicalMemoryRetriever, MemoryContextProvider
 from ally.models import ModelProvider
+from ally.egress import EgressInspection
+from ally.research import (
+    WebResearchExecution,
+    WebSearchRequest,
+)
 from ally.runtime import PersistentConversationRuntime
 from ally.runtime_profiles import (
     InferenceTargetError,
@@ -533,6 +538,23 @@ class AllyApplication:
         source, revision = TextKnowledgeIngestor(self._knowledge).ingest_file(path)
         return KnowledgeIngestResult(source=source, revision=revision)
 
+    def inspect_web_research(self, request: WebSearchRequest) -> EgressInspection:
+        """Inspect exact outbound search fields without network access."""
+
+        research = self._require_research()
+        return research.inspect_search(request)
+
+    def search_web(
+        self,
+        request: WebSearchRequest,
+        *,
+        approved: bool = False,
+    ) -> WebResearchExecution:
+        """Run one exact-query web search through controlled egress."""
+
+        research = self._require_research()
+        return research.search(request, approved=approved)
+
     def create_task(self, plan: TaskPlan) -> TaskView:
         operations = self._require_operations()
         task, steps = operations.tasks.create(plan)
@@ -799,6 +821,12 @@ class AllyApplication:
                 "legacy managed-service retirement is not safe in the current state"
             ) from exc
         return self.legacy_managed_service_status()
+
+    def _require_research(self) -> ResearchService:
+        operations = self._require_operations()
+        if operations.research is None:
+            raise ApplicationUnavailableError("web research is not available")
+        return operations.research
 
     def _require_runtime_profiles(self) -> RuntimeProfileCatalog:
         if self._runtime_profiles is None:
