@@ -23,7 +23,7 @@ implementation of an earlier one.
 | Private intelligence boundary | Core implemented; runtime evidence contract implemented; machine acceptance pending | private chat/planning/memory/grounding loopback-only; remote access limited to bundled synthetic/public evals; separate fail-closed runtime privacy artifact ties no-egress evidence to exact capability validation |
 | Controlled external egress | Implemented foundation | trusted adapter-owned field classifications, explicit outbound approval, private/secret denial, payload-free audit, and network-import guard; concrete integrations deferred |
 | Dedicated-hardware validation | Ready to run | resumable evidence-derived validation sessions, read-only first-machine readiness preflight, source-bound disposable workflow evidence, versioned capability evidence, path-free model/runtime artifact fingerprints, separate runtime privacy qualification, cryptographically verified three-artifact candidate comparison, immutable validated runtime profiles, Ally-owned profile catalog/active selection, daily active-profile inference resolution, behavioral qualification, and first-machine runbook |
-| Proactivity | Implemented substrate + app-owned macOS delivery path; machine acceptance pending | persisted events, deterministic scheduling/attention, payload-minimized rendering, exact stable delivery IDs, retry/interruption lifecycle accounting, modern signed-app `UNUserNotificationCenter` delivery, and explicit `SMAppService` launch-at-login; deprecated Python Notification Center/LaunchAgent paths remain legacy CLI compatibility only |
+| Proactivity | Implemented substrate + app-owned macOS delivery path; machine acceptance pending | persisted events, deterministic scheduling/attention, payload-minimized rendering, exact stable delivery IDs, retry/interruption lifecycle accounting, modern signed-app `UNUserNotificationCenter` delivery, explicit `SMAppService` launch-at-login, and fail-closed migration from the historical LaunchAgent; deprecated Python Notification Center/LaunchAgent paths remain legacy CLI compatibility only |
 | Voice | Not started | local ASR/TTS and conversational voice |
 | Multi-user households | Not started | identities, shared/private state, permissions |
 | Extension ecosystem | Implemented local foundation | local lifecycle + isolated execution; signing, mediated tool requests, and registry deferred |
@@ -68,11 +68,12 @@ Recovery tests cover every existing schema prefix, atomic rollback, simultaneous
 startup, invalid history, foreign-key corruption, and backup/restore destination
 collisions. These checks protect persistent state before first-machine usage.
 
-The macOS managed-service definition and lifecycle are testable without the
-dedicated machine. Installation remains disabled by default, Linux inspection
-is non-mutating, and mocked launchd tests cover install/start/stop/uninstall,
-idempotency, rollback, races, and definition ownership. Real login and restart
-acceptance remains hardware-gated.
+The historical macOS LaunchAgent definition and lifecycle remain testable
+without the dedicated machine for compatibility and migration. New signed-app
+installations use `SMAppService.mainApp` instead. Linux inspection is
+non-mutating, and deterministic tests cover legacy recognition, modified/symlink
+refusal, retirement identity races, and the existing launchd lifecycle. Real
+Login Items, migration, login, and restart acceptance remains hardware-gated.
 
 These controls keep the first-machine evidence comparable over time: a model or
 runtime comparison should not silently change because unrelated dependencies
@@ -104,7 +105,7 @@ After hardware/runtime validation:
 2. decide whether direct MLX or other hardware-specific adapters are justified;
 3. calibrate planning and memory proposal quality thresholds;
 4. upgrade retrieval/embeddings only where measured need justifies it;
-5. validate the macOS service/native notification adapters and add calendar/email/weather source adapters on the persisted proactivity substrate;
+5. validate signed-app Login Items, legacy-service migration, and native notifications, then add calendar/email/weather source adapters on the persisted proactivity substrate;
 6. add voice;
 7. add multi-user household boundaries;
 8. add skill signing and remote registry on top of the local installation boundary;
