@@ -33,7 +33,7 @@ from ally.application import (
 from ally.composition import build_default_application
 from ally.runtime_profiles import InferenceTargetError
 
-BRIDGE_PROTOCOL_VERSION = 6
+BRIDGE_PROTOCOL_VERSION = 7
 MAX_REQUEST_BYTES = 1024 * 1024
 
 BridgeMethod = Literal[
@@ -65,6 +65,8 @@ BridgeMethod = Literal[
     "attention.notification_result",
     "service.prepare_proactive",
     "service.complete_proactive",
+    "service.legacy_status",
+    "service.retire_legacy",
     "service.health",
 ]
 BridgeErrorCode = Literal[
@@ -273,6 +275,8 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                 "attention.notification_result",
                 "service.prepare_proactive",
                 "service.complete_proactive",
+                "service.legacy_status",
+                "service.retire_legacy",
                 "service.health",
             ],
         }
@@ -539,6 +543,18 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
             app.complete_desktop_proactive(
                 CompleteDesktopProactiveRequest(run_id=params.run_id)
             ).model_dump(mode="json")
+        )
+
+    if request.method == "service.legacy_status":
+        _validate_params(_EmptyParams, request.params)
+        return _json_value(
+            app.legacy_managed_service_status().model_dump(mode="json")
+        )
+
+    if request.method == "service.retire_legacy":
+        _validate_params(_EmptyParams, request.params)
+        return _json_value(
+            app.retire_legacy_managed_service().model_dump(mode="json")
         )
 
     if request.method == "service.health":
