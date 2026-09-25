@@ -60,8 +60,6 @@ jobs:
         run: uv run pytest
       - name: Core behavioral evaluations
         run: uv run ally eval run
-      - name: Test native macOS desktop package
-        run: swift test --package-path desktop/macos
       - name: Build ad-hoc release through production orchestrator
         run: |
           set -euo pipefail
@@ -73,6 +71,8 @@ jobs:
             --clean
           python scripts/macos_app_bundle.py verify \
             "$RUNNER_TEMP/ally-release/Ally.app"
+      - name: Test native macOS desktop package
+        run: swift test --package-path desktop/macos
       - name: Exercise update-candidate trust boundary
         run: |
           set -euo pipefail
