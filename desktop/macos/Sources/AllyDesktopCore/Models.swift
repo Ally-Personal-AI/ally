@@ -307,6 +307,26 @@ public struct KnowledgeSourceSummary: Decodable, Sendable, Equatable, Identifiab
 }
 
 
+public struct KnowledgeSourceUpdatePayload: Sendable, Equatable {
+    public let source: KnowledgeSourceSummary
+    public let text: String
+
+    public init(source: KnowledgeSourceSummary, text: String) {
+        self.source = source
+        self.text = text
+    }
+
+    public var bridgeParams: [String: JSONValue] {
+        [
+            "uri": .string(source.uri),
+            "title": .string(source.title),
+            "text": .string(text),
+            "media_type": .string(source.mediaType),
+        ]
+    }
+}
+
+
 public struct KnowledgeRevisionSummary: Decodable, Sendable, Equatable, Identifiable {
     public let id: String
     public let sourceId: String

@@ -189,6 +189,13 @@ non-regular files, invalid UTF-8, and whitespace-only content, and does not pass
 the filesystem path through Ally's stdio bridge. Stored native imports use a
 synthetic `ally-desktop://import/<uuid>` URI rather than a `file://` path.
 
+A native source can also be explicitly updated while preserving its Ally-owned
+source identity. **Update Source** can replace the complete text directly or
+from one explicitly selected UTF-8 text file. Changed content creates the next
+immutable revision; unchanged content reuses the current revision. The selected
+filesystem path never crosses the desktop bridge, and the existing source title
+and URI remain authoritative.
+
 A native source can also be explicitly deleted by exact ID after destructive
 confirmation. Deletion removes the source plus its owned revisions/chunks from
 the active database. It does not alter separately created backup archives.
