@@ -438,10 +438,19 @@ final class AppModel: ObservableObject {
             let prepared: DesktopProactivePreparation = try await client.call(
                 "service.prepare_proactive"
             )
-            let outcomes = await notificationDeliveryClient.deliver(
-                prepared.candidates
-            )
-            for outcome in outcomes {
+            let deliveryContext = await notificationDeliveryClient.context()
+            var knownIdentifiers = deliveryContext.knownIdentifiers
+            var outcomes: [DesktopNotificationDeliveryOutcome] = []
+            outcomes.reserveCapacity(prepared.candidates.count)
+
+            for candidate in prepared.candidates {
+                let outcome = await notificationDeliveryClient.deliver(
+                    candidate,
+                    context: DesktopNotificationDeliveryContext(
+                        canDeliver: deliveryContext.canDeliver,
+                        knownIdentifiers: knownIdentifiers
+                    )
+                )
                 let _: AttentionDeliverySummary = try await client.call(
                     "attention.notification_result",
                     params: [
@@ -451,7 +460,12 @@ final class AppModel: ObservableObject {
                         "succeeded": .bool(outcome.succeeded),
                     ]
                 )
+                outcomes.append(outcome)
+                if outcome.succeeded {
+                    knownIdentifiers.insert(outcome.deliveryKey)
+                }
             }
+
             var completedRun = prepared.run
             if prepared.run.status == "running" {
                 completedRun = try await client.call(
