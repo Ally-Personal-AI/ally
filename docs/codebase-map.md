@@ -26,6 +26,8 @@ The most important rule is dependency direction:
 | `src/ally/context/` | Provider-neutral retrieval/context composition and rendering. |
 | `src/ally/models/` | Model-provider contracts, registry, errors, and provider adapters under `models/providers/`. |
 | `src/ally/planning/` | Strict model-generated task-plan proposal boundary. |
+| `src/ally/research/` | Provider-neutral exact-query public research models and controlled-egress orchestration. |
+| `src/ally/egress/` | Trusted field classification, disclosure policy, payload-free audit, and reviewed external transport adapters. |
 | `src/ally/tools/` | Tool specifications, registry, execution, and audit contracts. |
 | `src/ally/security/` | Deterministic network and tool-permission policy. |
 | `src/ally/tasks/` | Persisted task state machine, execution, verification, and storage contract. |
