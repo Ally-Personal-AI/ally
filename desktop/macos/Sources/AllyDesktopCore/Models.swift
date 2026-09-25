@@ -48,6 +48,40 @@ public struct ChatTurnResult: Decodable, Sendable, Equatable {
     public let target: RuntimeTarget
 }
 
+public struct TaskPlanStepProposal: Decodable, Sendable, Equatable {
+    public let toolName: String
+    public let arguments: [String: JSONValue]
+
+    public var argumentsText: String {
+        if arguments.isEmpty {
+            return "No arguments"
+        }
+        return arguments.keys.sorted().map { key in
+            "\(key): \(arguments[key]?.displayText ?? "null")"
+        }.joined(separator: "\n")
+    }
+
+    public var bridgeValue: JSONValue {
+        .object([
+            "tool_name": .string(toolName),
+            "arguments": .object(arguments),
+        ])
+    }
+}
+
+public struct TaskPlanProposal: Decodable, Sendable, Equatable {
+    public let goal: String
+    public let steps: [TaskPlanStepProposal]
+
+    public var bridgeValue: JSONValue {
+        .object([
+            "goal": .string(goal),
+            "steps": .array(steps.map(\.bridgeValue)),
+        ])
+    }
+}
+
+
 public struct TaskSummary: Decodable, Sendable, Equatable, Identifiable {
     public let id: String
     public let goal: String

@@ -5,13 +5,13 @@ import UserNotifications
 @testable import AllyDesktopCore
 
 @Test func decodesBridgeInfoEnvelope() throws {
-    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":9,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap","instructions.list","instructions.resolve","research.inspect","research.search"]}}"#.utf8)
+    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":10,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap","instructions.list","instructions.resolve","research.inspect","research.search","task.propose","task.create"]}}"#.utf8)
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let envelope = try decoder.decode(BridgeEnvelope<BridgeInfo>.self, from: data)
 
     #expect(envelope.ok)
-    #expect(envelope.result?.protocolVersion == 9)
+    #expect(envelope.result?.protocolVersion == 10)
     #expect(envelope.result?.transport == "stdio")
     #expect(
         envelope.result?.capabilities == [
@@ -20,6 +20,8 @@ import UserNotifications
             "instructions.resolve",
             "research.inspect",
             "research.search",
+            "task.propose",
+            "task.create",
         ]
     )
 }
@@ -149,6 +151,42 @@ import UserNotifications
     #expect(filtered["HTTP_PROXY"] == nil)
     #expect(filtered["API_TOKEN"] == nil)
     #expect(filtered["PATH"] == nil)
+}
+
+@Test func decodesReviewedTaskPlanProposal() throws {
+    let data = Data(#"{"id":"1","ok":true,"result":{"goal":"Inspect the local runtime","steps":[{"tool_name":"system.info","arguments":{}}]}}"#.utf8)
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    let envelope = try decoder.decode(
+        BridgeEnvelope<TaskPlanProposal>.self,
+        from: data
+    )
+
+    #expect(envelope.result?.goal == "Inspect the local runtime")
+    #expect(envelope.result?.steps.count == 1)
+    #expect(envelope.result?.steps[0].toolName == "system.info")
+    #expect(envelope.result?.steps[0].argumentsText == "No arguments")
+}
+
+@Test func reviewedTaskPlanEncodesAsStrictCreatePayload() throws {
+    let proposalData = Data(#"{"goal":"Inspect the local runtime","steps":[{"tool_name":"system.info","arguments":{}}]}"#.utf8)
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    let proposal = try decoder.decode(TaskPlanProposal.self, from: proposalData)
+    let request = BridgeRequest(
+        id: "synthetic-create",
+        method: "task.create",
+        params: ["plan": proposal.bridgeValue]
+    )
+    let rendered = String(
+        decoding: try JSONEncoder().encode(request),
+        as: UTF8.self
+    )
+
+    #expect(rendered.contains("task.create"))
+    #expect(rendered.contains("Inspect the local runtime"))
+    #expect(rendered.contains("system.info"))
+    #expect(rendered.contains("approved") == false)
 }
 
 @Test func decodesTaskDetailWithExactApprovalState() throws {

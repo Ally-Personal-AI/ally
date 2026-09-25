@@ -75,12 +75,14 @@ def build_default_application() -> AllyApplication:
     event_store = SQLiteEventStore(database)
     delivery_store = SQLiteAttentionDeliveryStore(database)
     service_run_store = SQLiteServiceCycleRunStore(database)
+    tool_registry = build_default_tool_registry()
+    planning_tools = tuple(tool.spec for tool in tool_registry.list())
     operations = ApplicationOperations(
         tasks=task_store,
         task_runner=TaskRunner(
             task_store,
             ToolExecutor(
-                build_default_tool_registry(),
+                tool_registry,
                 DefaultToolPolicy(),
                 SQLiteToolAuditStore(database),
             ),
@@ -88,6 +90,7 @@ def build_default_application() -> AllyApplication:
         events=event_store,
         attention_deliveries=delivery_store,
         service_runs=service_run_store,
+        planning_tools=planning_tools,
         service_health=lambda: build_service_health(
             config_path=default_config_path(),
             database_path=database_path,

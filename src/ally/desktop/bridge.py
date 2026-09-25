@@ -33,12 +33,14 @@ from ally.application import (
     SetUserInstructionsEnabledRequest,
     SetUserInstructionsRequest,
     SupersedeMemoryRequest,
+    TaskProposalRequest,
 )
 from ally.composition import build_default_application
 from ally.research import WebSearchRequest
 from ally.runtime_profiles import InferenceTargetError
+from ally.tasks import NewTaskStep, TaskPlan
 
-BRIDGE_PROTOCOL_VERSION = 9
+BRIDGE_PROTOCOL_VERSION = 10
 MAX_REQUEST_BYTES = 1024 * 1024
 
 BridgeMethod = Literal[
@@ -67,6 +69,8 @@ BridgeMethod = Literal[
     "runtime.profiles",
     "runtime.select_profile",
     "runtime.deselect_profile",
+    "task.propose",
+    "task.create",
     "task.get",
     "task.run",
     "task.approve_step",
@@ -244,6 +248,32 @@ class _CompleteProactiveParams(BaseModel):
     run_id: UUID
 
 
+class _TaskProposalParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    goal: str = Field(min_length=1, max_length=100_000)
+
+
+class _TaskPlanStepParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    tool_name: str = Field(min_length=1, max_length=256)
+    arguments: dict[str, JsonValue] = Field(default_factory=dict)
+
+
+class _TaskPlanParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    goal: str = Field(min_length=1, max_length=100_000)
+    steps: tuple[_TaskPlanStepParams, ...] = Field(min_length=1, max_length=100)
+
+
+class _TaskCreateParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    plan: _TaskPlanParams
+
+
 class _TaskParams(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -302,6 +332,8 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                 "runtime.profiles",
                 "runtime.select_profile",
                 "runtime.deselect_profile",
+                "task.propose",
+                "task.create",
                 "task.get",
                 "task.run",
                 "task.approve_step",
@@ -540,6 +572,34 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
         return _json_value(
             app.deselect_runtime_profile().model_dump(mode="json")
         )
+
+    if request.method == "task.propose":
+        params = cast(
+            _TaskProposalParams,
+            _validate_params(_TaskProposalParams, request.params),
+        )
+        return _json_value(
+            app.propose_task(
+                TaskProposalRequest(goal=params.goal)
+            ).model_dump(mode="json")
+        )
+
+    if request.method == "task.create":
+        params = cast(
+            _TaskCreateParams,
+            _validate_params(_TaskCreateParams, request.params),
+        )
+        plan = TaskPlan(
+            goal=params.plan.goal,
+            steps=tuple(
+                NewTaskStep(
+                    tool_name=step.tool_name,
+                    arguments=step.arguments,
+                )
+                for step in params.plan.steps
+            ),
+        )
+        return _json_value(app.create_task(plan).model_dump(mode="json"))
 
     if request.method == "task.get":
         params = cast(

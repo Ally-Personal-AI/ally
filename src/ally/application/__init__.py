@@ -43,6 +43,7 @@ from ally.application.models import (
     SetUserInstructionsRequest,
     SupersedeMemoryRequest,
     TaskBootstrapSection,
+    TaskProposalRequest,
     TaskView,
 )
 from ally.application.operations import ApplicationOperations, ServiceHealthProvider
@@ -97,6 +98,7 @@ __all__ = [
     "SetUserInstructionsRequest",
     "SupersedeMemoryRequest",
     "TaskBootstrapSection",
+    "TaskProposalRequest",
     "TaskView",
     "VoiceChatApplication",
     "VoiceTrustError",

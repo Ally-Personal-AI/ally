@@ -10,6 +10,7 @@ from io import StringIO
 from pathlib import Path
 from typing import cast
 
+import pytest
 from pydantic import JsonValue
 
 from ally import __version__
@@ -300,6 +301,8 @@ def _installed_runtime_profile(
 
 def _task_application(
     tmp_path: Path,
+    *,
+    provider: CapturingProvider | None = None,
 ) -> tuple[AllyApplication, ReversibleTool]:
     database = SQLiteDatabase(tmp_path / "ally.sqlite3")
     tasks = SQLiteTaskStore(database)
@@ -314,16 +317,18 @@ def _task_application(
             SQLiteToolAuditStore(database),
         ),
     )
+    planning_provider = provider or CapturingProvider([])
     app = AllyApplication(
         conversations=SQLiteConversationStore(database),
         memories=SQLiteMemoryStore(database),
         knowledge=SQLiteKnowledgeStore(database),
         instructions=SQLiteUserInstructionsStore(database),
         target_resolver=_target,
-        provider_factory=lambda target: CapturingProvider([]),
+        provider_factory=lambda target: planning_provider,
         operations=ApplicationOperations(
             tasks=tasks,
             task_runner=runner,
+            planning_tools=tuple(item.spec for item in registry.list()),
             events=SQLiteEventStore(database),
             attention_deliveries=SQLiteAttentionDeliveryStore(database),
             service_runs=SQLiteServiceCycleRunStore(database),
@@ -1224,6 +1229,165 @@ def test_bridge_prepares_minimized_notification_and_requires_exact_result(
     assert prepared_again.ok
     assert isinstance(prepared_again.result, dict)
     assert prepared_again.result["candidates"] == []
+
+
+def test_bridge_task_proposal_is_review_only_and_uses_registered_tools(
+    tmp_path: Path,
+) -> None:
+    goal = "Use the reviewed reversible tool"
+    provider = CapturingProvider(
+        [
+            json.dumps(
+                {
+                    "goal": goal,
+                    "steps": [
+                        {
+                            "tool_name": "test.reversible",
+                            "arguments": {"value": "synthetic"},
+                        }
+                    ],
+                }
+            )
+        ]
+    )
+    app, tool = _task_application(tmp_path, provider=provider)
+
+    assert app.list_tasks() == ()
+    proposed = handle_request_json(
+        app,
+        _request("task.propose", {"goal": goal}),
+    )
+
+    assert proposed.ok
+    assert isinstance(proposed.result, dict)
+    assert proposed.result["goal"] == goal
+    assert app.list_tasks() == ()
+    assert tool.calls == 0
+    assert len(provider.requests) == 1
+    prompt = provider.requests[0].messages[-1].content
+    assert "test.reversible" in prompt
+    assert "Synthetic reversible desktop bridge tool." in prompt
+    assert "system.info" not in prompt
+
+
+def test_bridge_task_proposal_rejects_undeclared_model_tool_before_persistence(
+    tmp_path: Path,
+) -> None:
+    goal = "Invent no tools"
+    provider = CapturingProvider(
+        [
+            json.dumps(
+                {
+                    "goal": goal,
+                    "steps": [
+                        {
+                            "tool_name": "undeclared.tool",
+                            "arguments": {},
+                        }
+                    ],
+                }
+            )
+        ]
+    )
+    app, tool = _task_application(tmp_path, provider=provider)
+
+    response = handle_request_json(
+        app,
+        _request("task.propose", {"goal": goal}),
+    )
+
+    assert not response.ok
+    assert response.error is not None
+    assert response.error.code == "invalid_request"
+    assert app.list_tasks() == ()
+    assert tool.calls == 0
+
+
+def test_bridge_task_create_persists_reviewed_plan_without_execution(
+    tmp_path: Path,
+) -> None:
+    app, tool = _task_application(tmp_path)
+    plan = {
+        "goal": "Persist the reviewed plan",
+        "steps": [
+            {
+                "tool_name": "test.reversible",
+                "arguments": {"value": "reviewed"},
+            }
+        ],
+    }
+
+    created = handle_request_json(
+        app,
+        _request("task.create", {"plan": plan}),
+    )
+
+    assert created.ok
+    assert isinstance(created.result, dict)
+    task = created.result["task"]
+    steps = created.result["steps"]
+    assert isinstance(task, dict)
+    assert isinstance(steps, list)
+    assert task["goal"] == plan["goal"]
+    assert task["status"] == "pending"
+    assert len(app.list_tasks()) == 1
+    assert tool.calls == 0
+    assert isinstance(steps[0], dict)
+    assert steps[0]["arguments"] == {"value": "reviewed"}
+
+
+@pytest.mark.parametrize(
+    "forbidden",
+    (
+        {"development_endpoint": "http://127.0.0.1:9999/v1"},
+        {"development_model": "unreviewed-model"},
+        {"tools": [{"name": "caller.tool"}]},
+        {"approved": True},
+        {"run": True},
+    ),
+)
+def test_bridge_task_proposal_rejects_authority_bearing_fields(
+    tmp_path: Path,
+    forbidden: dict[str, object],
+) -> None:
+    app, tool = _task_application(tmp_path)
+    params: dict[str, object] = {"goal": "Strict proposal"}
+    params.update(forbidden)
+
+    response = handle_request_json(app, _request("task.propose", params))
+
+    assert not response.ok
+    assert response.error is not None
+    assert response.error.code == "invalid_request"
+    assert app.list_tasks() == ()
+    assert tool.calls == 0
+
+
+def test_bridge_task_create_rejects_approval_or_execution_fields(
+    tmp_path: Path,
+) -> None:
+    app, tool = _task_application(tmp_path)
+    response = handle_request_json(
+        app,
+        _request(
+            "task.create",
+            {
+                "plan": {
+                    "goal": "Strict creation",
+                    "steps": [
+                        {"tool_name": "test.reversible", "arguments": {}}
+                    ],
+                },
+                "approved": True,
+            },
+        ),
+    )
+
+    assert not response.ok
+    assert response.error is not None
+    assert response.error.code == "invalid_request"
+    assert app.list_tasks() == ()
+    assert tool.calls == 0
 
 
 def test_bridge_task_approval_is_exactly_one_paused_step(

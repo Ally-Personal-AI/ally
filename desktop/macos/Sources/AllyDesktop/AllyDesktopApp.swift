@@ -696,9 +696,11 @@ private struct KnowledgeIngestSheet: View {
 
 private struct TasksScreen: View {
     @ObservedObject var model: AppModel
+    @State private var path: [String] = []
+    @State private var showingNewTask = false
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List(model.snapshot?.tasks.items ?? []) { task in
                 NavigationLink(value: task.id) {
                     VStack(alignment: .leading, spacing: 5) {
@@ -716,8 +718,126 @@ private struct TasksScreen: View {
                 }
             }
             .navigationTitle("Tasks")
+            .toolbar {
+                ToolbarItem {
+                    Button {
+                        model.clearTaskProposal()
+                        showingNewTask = true
+                    } label: {
+                        Label("New Task", systemImage: "plus")
+                    }
+                    .disabled(model.isBusy)
+                }
+            }
             .navigationDestination(for: String.self) { taskID in
                 TaskDetailScreen(model: model, taskID: taskID)
+            }
+            .sheet(isPresented: $showingNewTask) {
+                NewTaskSheet(
+                    model: model,
+                    created: { taskID in
+                        showingNewTask = false
+                        path.append(taskID)
+                    },
+                    cancel: {
+                        model.clearTaskProposal()
+                        showingNewTask = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+private struct NewTaskSheet: View {
+    @ObservedObject var model: AppModel
+    let created: (String) -> Void
+    let cancel: () -> Void
+    @State private var goal = ""
+
+    private var compactGoal: String {
+        goal.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("New Task")
+                .font(.title2)
+            Text(
+                "Describe the goal. Ally's validated local model can propose tool steps, but the proposal is untrusted until you review it. Creating the task does not execute it."
+            )
+            .font(.callout)
+            .foregroundStyle(.secondary)
+
+            TextField("Task goal", text: $goal, axis: .vertical)
+                .lineLimit(2...6)
+                .textFieldStyle(.roundedBorder)
+
+            HStack {
+                Button(model.taskProposal == nil ? "Propose Plan" : "Re-propose") {
+                    Task { await model.proposeTask(compactGoal) }
+                }
+                .disabled(model.isBusy || compactGoal.isEmpty)
+                Spacer()
+            }
+
+            if let proposal = model.taskProposal {
+                GroupBox("Reviewed proposal") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        LabeledContent("Goal", value: proposal.goal)
+                        Text("Proposed steps")
+                            .font(.headline)
+                        ForEach(Array(proposal.steps.enumerated()), id: \.offset) { index, step in
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("Step \(index + 1): \(step.toolName)")
+                                    .font(.headline)
+                                Text(step.argumentsText)
+                                    .font(.caption.monospaced())
+                                    .textSelection(.enabled)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        Text(
+                            "Create Task persists exactly this reviewed plan. It does not run tools or approve any step."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(4)
+                }
+            } else {
+                ContentUnavailableView(
+                    "No Proposed Plan",
+                    systemImage: "list.bullet.clipboard",
+                    description: Text(
+                        "Propose a plan to review the exact tools and arguments before creating a durable task."
+                    )
+                )
+                .frame(maxWidth: .infinity, minHeight: 180)
+            }
+
+            Spacer()
+            HStack {
+                Button("Cancel", action: cancel)
+                Spacer()
+                Button("Create Task") {
+                    Task {
+                        if let taskID = await model.createProposedTask() {
+                            created(taskID)
+                        }
+                    }
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(model.isBusy || model.taskProposal == nil)
+            }
+        }
+        .padding()
+        .frame(minWidth: 640, minHeight: 520)
+        .onChange(of: goal) { _, value in
+            if let proposal = model.taskProposal,
+               proposal.goal != value.trimmingCharacters(in: .whitespacesAndNewlines) {
+                model.clearTaskProposal()
             }
         }
     }
