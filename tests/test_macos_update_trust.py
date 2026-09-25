@@ -132,12 +132,17 @@ def test_codesign_identity_requires_exact_bundle_and_team() -> None:
     identity = parse_codesign_identity(
         "Executable=/Applications/Ally.app/Contents/MacOS/AllyDesktop\n"
         "Identifier=ai.ally.personal\n"
+        "CodeDirectory v=20500 size=999 flags=0x10000(runtime) hashes=1+0 location=embedded\n"
+        "Identifier=ai.ally.personal\n"
         "TeamIdentifier=ABCDE12345\n"
+        "Timestamp=Sep 25, 2026 at 01:00:00\n"
     )
 
     assert identity == ReleaseIdentity(
         bundle_identifier="ai.ally.personal",
         team_identifier="ABCDE12345",
+        hardened_runtime=True,
+        has_timestamp=True,
     )
     require_signing_identity(
         identity,
@@ -218,3 +223,31 @@ def test_structural_compare_requires_release_grade_candidate_revision(
 
     assert result.returncode != 0
     assert "source revision" in result.stderr.lower()
+
+
+def test_codesign_identity_rejects_missing_runtime_or_timestamp() -> None:
+    base = ReleaseIdentity(
+        bundle_identifier="ai.ally.personal",
+        team_identifier="ABCDE12345",
+        hardened_runtime=False,
+        has_timestamp=True,
+    )
+    with pytest.raises(UpdateTrustError, match="hardened runtime"):
+        require_signing_identity(
+            base,
+            expected_bundle_identifier="ai.ally.personal",
+            expected_team_identifier="ABCDE12345",
+        )
+
+    without_timestamp = ReleaseIdentity(
+        bundle_identifier="ai.ally.personal",
+        team_identifier="ABCDE12345",
+        hardened_runtime=True,
+        has_timestamp=False,
+    )
+    with pytest.raises(UpdateTrustError, match="timestamp"):
+        require_signing_identity(
+            without_timestamp,
+            expected_bundle_identifier="ai.ally.personal",
+            expected_team_identifier="ABCDE12345",
+        )
