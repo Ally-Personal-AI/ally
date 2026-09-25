@@ -12,6 +12,7 @@ from ally.egress.adapters import BraveSearchAdapter
 from ally.events import EventRuntime
 from ally.models import ModelProvider
 from ally.models.providers import OpenAICompatibleProvider
+from ally.portability import create_backup, validate_backup
 from ally.research import ResearchService
 from ally.runtime_profiles import (
     ResolvedInferenceTarget,
@@ -97,6 +98,8 @@ def build_default_application() -> AllyApplication:
             runtime_database_path=default_runtime_database_path(),
         ),
         legacy_managed_service=MacOSLaunchdService(),
+        backup_creator=lambda destination: create_backup(database, destination),
+        backup_validator=validate_backup,
         research=ResearchService(
             executor=EgressExecutor(
                 DefaultEgressPolicy(),
