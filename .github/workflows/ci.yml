@@ -60,45 +60,25 @@ jobs:
         run: uv run pytest
       - name: Core behavioral evaluations
         run: uv run ally eval run
+      - name: Build ad-hoc release through production orchestrator
+        run: |
+          set -euo pipefail
+          uv run python scripts/macos_release_pipeline.py build \
+            --mode adhoc \
+            --source-revision "$GITHUB_SHA" \
+            --build-version "1" \
+            --output-dir "$RUNNER_TEMP/ally-release" \
+            --clean
+          python scripts/macos_app_bundle.py verify \
+            "$RUNNER_TEMP/ally-release/Ally.app"
       - name: Test native macOS desktop package
         run: swift test --package-path desktop/macos
-      - name: Build native macOS release executable
-        run: swift build --package-path desktop/macos -c release
-      - name: Build standalone desktop helper
-        run: |
-          set -euo pipefail
-          uv run \
-            --with pyinstaller==6.22.3 \
-            --with pyinstaller-hooks-contrib==2026.7 \
-            python scripts/build_macos_desktop_helper.py build \
-              --output "$RUNNER_TEMP/ally-desktop-bridge" \
-              --clean
-      - name: Assemble and verify release bundle structure
-        run: |
-          set -euo pipefail
-          BIN_DIR="$(swift build --package-path desktop/macos -c release --show-bin-path)"
-          python scripts/macos_app_bundle.py assemble \
-            --app-executable "$BIN_DIR/AllyDesktop" \
-            --helper "$RUNNER_TEMP/ally-desktop-bridge" \
-            --output "$RUNNER_TEMP/Ally.app" \
-            --source-revision "$GITHUB_SHA" \
-            --build-version "1"
-          python scripts/macos_app_bundle.py verify "$RUNNER_TEMP/Ally.app"
-      - name: Ad-hoc sign and verify release bundle
-        run: |
-          set -euo pipefail
-          python scripts/macos_release_signing.py sign \
-            "$RUNNER_TEMP/Ally.app" \
-            --identity - \
-            --no-timestamp
-          python scripts/macos_app_bundle.py verify "$RUNNER_TEMP/Ally.app"
       - name: Exercise update-candidate trust boundary
         run: |
           set -euo pipefail
-          BIN_DIR="$(swift build --package-path desktop/macos -c release --show-bin-path)"
           python scripts/macos_app_bundle.py assemble \
-            --app-executable "$BIN_DIR/AllyDesktop" \
-            --helper "$RUNNER_TEMP/ally-desktop-bridge" \
+            --app-executable "$RUNNER_TEMP/ally-release/Ally.app/Contents/MacOS/AllyDesktop" \
+            --helper "$RUNNER_TEMP/ally-release/Ally.app/Contents/Helpers/ally-desktop-bridge" \
             --output "$RUNNER_TEMP/Ally-Candidate.app" \
             --source-revision "$GITHUB_SHA" \
             --build-version "2"
@@ -107,10 +87,10 @@ jobs:
             --identity - \
             --no-timestamp
           uv run python scripts/macos_update_trust.py compare \
-            --current "$RUNNER_TEMP/Ally.app" \
+            --current "$RUNNER_TEMP/ally-release/Ally.app" \
             --candidate "$RUNNER_TEMP/Ally-Candidate.app"
           if uv run python scripts/macos_update_trust.py verify-update \
-            --current "$RUNNER_TEMP/Ally.app" \
+            --current "$RUNNER_TEMP/ally-release/Ally.app" \
             --candidate "$RUNNER_TEMP/Ally-Candidate.app" \
             --team-id ABCDE12345; then
             echo "ad-hoc signed bundle unexpectedly passed production update trust"

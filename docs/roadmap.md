@@ -10,7 +10,7 @@ implementation of an earlier one.
 | Configuration / secrets | Adapter implemented; machine acceptance pending | strict non-secret config, direct macOS Security-framework adapter, reference-only CLI, fail-closed tests |
 | Local conversation | Implemented | provider-neutral private chat with active validated-profile resolution by default, loopback-only development override, and no remote escape hatch |
 | Application facade | Implemented V1 + desktop proactive handshake | typed UI-neutral runtime/chat/conversation/memory/knowledge services plus task approval/execution, pending attention/history, read-only service health/history, bounded bootstrap, and an exact-ID prepare/ack/complete handshake for signed-app notification delivery; the facade still never calls OS notification APIs or accepts caller-supplied notification payloads |
-| Native desktop shell | Daily-use + release foundation advancing; machine acceptance pending | SwiftUI shell over a bounded local stdio bridge to `AllyApplication`; full daily-use state surfaces plus app-owned `UNUserNotificationCenter` delivery, duplicate reconciliation, explicit notification permission, opt-in `SMAppService.mainApp` launch-at-login, stable-ID bundle/signing, self-contained frozen bridge, offline forward-only update-candidate trust verification, and schema-aware pre-install backup preparation; real Developer ID/notarization and installed-machine replacement behavior remain |
+| Native desktop shell | Daily-use + release foundation advancing; machine acceptance pending | SwiftUI shell over a bounded local stdio bridge to `AllyApplication`; full daily-use state surfaces plus app-owned `UNUserNotificationCenter` delivery, duplicate reconciliation, explicit notification permission, opt-in `SMAppService.mainApp` launch-at-login, stable-ID bundle/signing, self-contained frozen bridge, offline forward-only update trust, schema-aware update preparation, and a CI-exercised local release orchestrator; real Developer ID/notarization and installed-machine replacement behavior remain |
 | User instructions | Implemented V2 | global/project/conversation/task profiles, enable/disable, provenance-aware composition, and ephemeral session instructions |
 | Behavioral model qualification | Implemented V1 | separate refusal, instruction-following, calibration, moralizing, and paired viewpoint-symmetry evidence integrated into local-model validation |
 | Long-term memory | Implemented V1 | temporal/provenance-aware explicit memory and grounding |
@@ -98,8 +98,13 @@ profile, and hash-bound active validated runtime profile.
 
 A final release-readiness artifact then binds that machine evidence to the exact
 capability/privacy/workflow/validated-profile chain from the candidate validation
-session. It remains evidence-only: tagging, signing, publishing, downloading,
-and application replacement are separate authorities.
+session. It remains evidence-only.
+
+The local macOS release orchestrator consumes that verified boundary in
+production mode, requires clean exact-source provenance, composes helper build,
+bundle assembly, Developer ID signing, notarization, archive verification, and
+path-free artifact metadata, and still has no tag/upload/publish or installed-app
+replacement authority.
 
 ## Hardware handoff
 
