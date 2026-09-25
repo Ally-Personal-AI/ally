@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import asdict
 from pathlib import Path
 
 import pytest
 
+from ally.portability import create_backup, validate_backup
 from ally.release import ReleaseMetadata, UpdateDecision, compare_release_metadata
 from ally.release.update_preparation import (
+    PreMigrationBackupEvidence,
     UpdatePreparationError,
     prepare_update,
 )
@@ -45,13 +48,26 @@ def _decision(*, schema_bump: bool) -> UpdateDecision:
     )
 
 
-def test_non_schema_update_can_be_prepared_without_touching_database(
+def _fresh_backup_evidence(
     tmp_path: Path,
-) -> None:
-    decision = _decision(schema_bump=False)
-    database_path = tmp_path / "must-not-exist.sqlite3"
+) -> tuple[PreMigrationBackupEvidence, Path]:
+    database = SQLiteDatabase(tmp_path / "ally.sqlite3")
+    backup = tmp_path / "before-update.ally-backup"
+    created = create_backup(database, backup)
+    validated = validate_backup(backup)
+    assert validated == created
+    return (
+        PreMigrationBackupEvidence(
+            archive_sha256=hashlib.sha256(backup.read_bytes()).hexdigest(),
+            database_sha256=validated.database.sha256,
+            schema_versions=validated.database.schema_versions,
+        ),
+        backup,
+    )
 
-    record = prepare_update(decision)
+
+def test_non_schema_update_can_be_prepared_without_backup() -> None:
+    record = prepare_update(_decision(schema_bump=False))
 
     assert record.schema_version == 1
     assert record.current_build_version == 7
@@ -59,36 +75,25 @@ def test_non_schema_update_can_be_prepared_without_touching_database(
     assert record.requires_pre_migration_backup is False
     assert record.backup_created is False
     assert record.backup_archive_sha256 is None
-    assert not database_path.exists()
 
 
-def test_schema_raising_update_requires_fresh_backup_destination() -> None:
-    decision = _decision(schema_bump=True)
-
+def test_schema_raising_update_requires_fresh_backup_evidence() -> None:
     with pytest.raises(UpdatePreparationError, match="fresh validated"):
-        prepare_update(decision)
+        prepare_update(_decision(schema_bump=True))
 
 
-def test_schema_raising_update_creates_revalidates_and_binds_backup(
+def test_schema_raising_update_accepts_revalidated_path_free_backup_evidence(
     tmp_path: Path,
 ) -> None:
-    decision = _decision(schema_bump=True)
-    database = SQLiteDatabase(tmp_path / "ally.sqlite3")
-    backup = tmp_path / "before-update.ally-backup"
+    evidence, backup = _fresh_backup_evidence(tmp_path)
 
-    record = prepare_update(
-        decision,
-        database=database,
-        backup_destination=backup,
-    )
+    record = prepare_update(_decision(schema_bump=True), backup=evidence)
 
     assert backup.is_file()
     assert record.requires_pre_migration_backup is True
     assert record.backup_created is True
-    assert record.backup_archive_sha256 is not None
-    assert len(record.backup_archive_sha256) == 64
-    assert record.backup_database_sha256 is not None
-    assert len(record.backup_database_sha256) == 64
+    assert record.backup_archive_sha256 == evidence.archive_sha256
+    assert record.backup_database_sha256 == evidence.database_sha256
     assert record.backup_schema_versions is not None
     assert record.backup_schema_versions[-1] == CURRENT_SCHEMA_VERSION
 
@@ -97,9 +102,7 @@ def test_schema_raising_update_creates_revalidates_and_binds_backup(
     assert str(backup) not in rendered
 
 
-def test_preparation_rejects_backup_that_does_not_match_release_schema(
-    tmp_path: Path,
-) -> None:
+def test_preparation_rejects_backup_that_does_not_match_release_schema() -> None:
     decision = compare_release_metadata(
         _metadata(build=7, database_schema=CURRENT_SCHEMA_VERSION - 1),
         _metadata(
@@ -109,29 +112,44 @@ def test_preparation_rejects_backup_that_does_not_match_release_schema(
         ),
         expected_bundle_identifier="ai.ally.personal",
     )
-    backup = tmp_path / "mismatch.ally-backup"
+    evidence = PreMigrationBackupEvidence(
+        archive_sha256="a" * 64,
+        database_sha256="b" * 64,
+        schema_versions=tuple(range(1, CURRENT_SCHEMA_VERSION + 1)),
+    )
 
     with pytest.raises(UpdatePreparationError, match="installed release database schema"):
-        prepare_update(
-            decision,
-            database=SQLiteDatabase(tmp_path / "ally.sqlite3"),
-            backup_destination=backup,
-        )
+        prepare_update(decision, backup=evidence)
 
-    assert backup.is_file()
+
+@pytest.mark.parametrize(
+    ("archive_digest", "database_digest", "message"),
+    [
+        ("not-a-digest", "b" * 64, "archive digest"),
+        ("a" * 64, "not-a-digest", "database digest"),
+    ],
+)
+def test_preparation_rejects_invalid_backup_hash_evidence(
+    archive_digest: str,
+    database_digest: str,
+    message: str,
+) -> None:
+    evidence = PreMigrationBackupEvidence(
+        archive_sha256=archive_digest,
+        database_sha256=database_digest,
+        schema_versions=tuple(range(1, CURRENT_SCHEMA_VERSION + 1)),
+    )
+
+    with pytest.raises(UpdatePreparationError, match=message):
+        prepare_update(_decision(schema_bump=True), backup=evidence)
 
 
 def test_explicit_safety_backup_is_allowed_without_schema_bump(
     tmp_path: Path,
 ) -> None:
-    decision = _decision(schema_bump=False)
-    backup = tmp_path / "optional.ally-backup"
+    evidence, backup = _fresh_backup_evidence(tmp_path)
 
-    record = prepare_update(
-        decision,
-        database=SQLiteDatabase(tmp_path / "ally.sqlite3"),
-        backup_destination=backup,
-    )
+    record = prepare_update(_decision(schema_bump=False), backup=evidence)
 
     assert record.requires_pre_migration_backup is False
     assert record.backup_created is True
