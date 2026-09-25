@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Self
 from urllib.parse import urlsplit
 from uuid import UUID
@@ -76,3 +77,44 @@ class WebResearchExecution(BaseModel):
     )
     more_results_available: bool = False
     error_class: str | None = Field(default=None, max_length=128)
+
+
+_CITATION_PATTERN = re.compile(r"\[(\d+)\]")
+
+
+class WebResearchSynthesis(BaseModel):
+    """One locally generated answer whose source markers are machine-checkable."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    answer: str = Field(min_length=1, max_length=20_000)
+    cited_result_indices: tuple[int, ...] = Field(
+        default=(),
+        max_length=MAX_RESEARCH_RESULTS,
+    )
+    insufficient_evidence: bool = False
+
+    @model_validator(mode="after")
+    def validate_citations(self) -> Self:
+        if tuple(sorted(set(self.cited_result_indices))) != self.cited_result_indices:
+            raise ValueError("research citations must be unique and sorted")
+        if any(index < 1 or index > MAX_RESEARCH_RESULTS for index in self.cited_result_indices):
+            raise ValueError("research citation index is outside the supported range")
+
+        markers = tuple(
+            sorted({int(value) for value in _CITATION_PATTERN.findall(self.answer)})
+        )
+        if markers != self.cited_result_indices:
+            raise ValueError("research answer citation markers do not match citation metadata")
+        if not self.insufficient_evidence and not self.cited_result_indices:
+            raise ValueError("sufficient research answers require at least one citation")
+        return self
+
+
+class WebResearchAnswerExecution(BaseModel):
+    """Approved search execution plus optional local-only answer synthesis."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    search: WebResearchExecution
+    synthesis: WebResearchSynthesis | None = None
