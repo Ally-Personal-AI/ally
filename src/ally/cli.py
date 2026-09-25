@@ -45,12 +45,12 @@ from ally.commands.knowledge import (
     run_search_knowledge,
     run_show_knowledge_source,
 )
-from ally.commands.managed_service import run_managed_service
 from ally.commands.machine_acceptance import (
     run_create_machine_acceptance,
     run_show_machine_acceptance,
     run_verify_machine_acceptance,
 )
+from ally.commands.managed_service import run_managed_service
 from ally.commands.memory import (
     run_list_memories,
     run_remember,
