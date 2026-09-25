@@ -437,6 +437,21 @@ def run_workflows(root: Path) -> None:
             and verified_acceptance["qualified_for_release_acceptance"] is True,
             "machine acceptance evidence verification",
         )
+        release_readiness = json.loads(cli(
+            "release", "readiness",
+            str(report_path),
+            str(privacy_path),
+            str(workflow_path),
+            str(machine_acceptance_path),
+            "--source-revision", source_revision,
+            "--json",
+        ))
+        require(
+            release_readiness["candidate_production_eligible"] is True
+            and release_readiness["machine_acceptance_qualified"] is True
+            and release_readiness["ready_for_tagged_prerelease"] is True,
+            "release readiness evidence aggregation",
+        )
 
         cli("profiles", "deselect")
         cli("profiles", "remove", profile_id)
