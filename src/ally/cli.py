@@ -64,12 +64,12 @@ from ally.commands.memory_proposals import (
     run_propose_memories,
 )
 from ally.commands.planning import run_propose_plan
-from ally.commands.research import run_research_inspect, run_research_search
 from ally.commands.release_readiness import (
     run_create_release_readiness,
     run_show_release_readiness,
     run_verify_release_readiness,
 )
+from ally.commands.research import run_research_inspect, run_research_search
 from ally.commands.runtime_profiles import (
     run_active_runtime_profile,
     run_create_runtime_profile,
