@@ -187,9 +187,7 @@ class _MemoryProposalParams(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     text: str = Field(min_length=1, max_length=1_000_000)
-    source_type: Literal["user", "conversation", "document", "tool", "system"] = "user"
-    source_id: str | None = Field(default=None, max_length=1024)
-    source_uri: str | None = Field(default=None, max_length=4096)
+    source_type: Literal["user"] = "user"
     privacy: Literal["private", "shared", "public"] = "private"
 
 
@@ -470,8 +468,6 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                 MemoryProposalRequest(
                     text=params.text,
                     source_type=params.source_type,
-                    source_id=params.source_id,
-                    source_uri=params.source_uri,
                     privacy=params.privacy,
                 )
             ).model_dump(mode="json")
