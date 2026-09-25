@@ -77,7 +77,7 @@ def test_assemble_creates_release_contract_and_manifest(tmp_path: Path) -> None:
         == "Contents/Helpers/ally-desktop-bridge"
     )
     assert len(manifest["helper_sha256"]) == 64
-    assert manifest["source_revision"] == "synthetic-revision"
+    assert manifest["source_revision"] == "a" * 40
 
     verified = subprocess.run(
         [sys.executable, str(SCRIPT), "verify", str(app)],
