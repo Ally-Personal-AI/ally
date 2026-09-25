@@ -16,6 +16,7 @@ from ally.research.service import (
     ResearchService,
     ResearchServiceError,
 )
+from ally.research.synthesis import ResearchSynthesisError, WebResearchSynthesizer
 
 __all__ = [
     "MAX_RESEARCH_QUERY_CHARS",
@@ -33,5 +34,3 @@ __all__ = [
     "WebSearchRequest",
     "WebSearchResult",
 ]
-
-from ally.research.synthesis import ResearchSynthesisError, WebResearchSynthesizer
