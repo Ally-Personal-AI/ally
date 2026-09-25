@@ -168,6 +168,7 @@ private struct ConversationScreen: View {
 private struct MemoryScreen: View {
     @ObservedObject var model: AppModel
     @State private var searchText = ""
+    @State private var showingAddMemory = false
 
     private var displayedMemories: [MemorySummary] {
         searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -203,8 +204,278 @@ private struct MemoryScreen: View {
                     model.memorySearchResults = []
                 }
             }
+            .toolbar {
+                ToolbarItem {
+                    Button {
+                        model.clearMemoryProposal()
+                        showingAddMemory = true
+                    } label: {
+                        Label("Add Memory", systemImage: "plus")
+                    }
+                    .disabled(model.isBusy)
+                }
+            }
             .navigationDestination(for: String.self) { memoryID in
                 MemoryDetailScreen(model: model, memoryID: memoryID)
+            }
+        }
+        .sheet(isPresented: $showingAddMemory) {
+            AddMemorySheet(
+                model: model,
+                dismiss: {
+                    model.clearMemoryProposal()
+                    showingAddMemory = false
+                }
+            )
+        }
+    }
+}
+
+private struct AddMemorySheet: View {
+    @ObservedObject var model: AppModel
+    let dismiss: () -> Void
+
+    @State private var mode = "direct"
+    @State private var content = ""
+    @State private var kind = "semantic"
+    @State private var privacy = "private"
+    @State private var confidence = 1.0
+    @State private var importance = 0.5
+    @State private var sourceText = ""
+    @State private var proposalPrivacy = "private"
+    @State private var selectedIndices: Set<Int> = []
+
+    private let kinds = [
+        "episodic",
+        "semantic",
+        "procedural",
+        "preference",
+        "relational",
+    ]
+    private let privacyLevels = ["private", "shared", "public"]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Add Memory")
+                .font(.title2)
+            Text(
+                "Long-term memory is durable user-owned state. Direct memories are saved only when you choose Save. Model-extracted candidates are proposals only until you select and accept them."
+            )
+            .font(.callout)
+            .foregroundStyle(.secondary)
+
+            Picker("Mode", selection: $mode) {
+                Text("Remember directly").tag("direct")
+                Text("Extract from text").tag("extract")
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: mode) { _, _ in
+                model.clearMemoryProposal()
+                selectedIndices.removeAll()
+            }
+
+            if mode == "direct" {
+                directMemoryForm
+            } else {
+                proposalForm
+            }
+
+            Spacer()
+            HStack {
+                Button("Cancel", action: dismiss)
+                Spacer()
+                if mode == "direct" {
+                    Button("Save Memory") {
+                        Task {
+                            let saved = await model.rememberMemory(
+                                content: content,
+                                kind: kind,
+                                confidence: confidence,
+                                importance: importance,
+                                privacy: privacy
+                            )
+                            if saved {
+                                dismiss()
+                            }
+                        }
+                    }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(
+                        model.isBusy
+                            || content.trimmingCharacters(
+                                in: .whitespacesAndNewlines
+                            ).isEmpty
+                    )
+                } else if model.memoryProposal != nil {
+                    Button("Save Selected") {
+                        let indices = Array(selectedIndices)
+                        Task {
+                            if await model.acceptMemoryProposals(indices: indices) {
+                                dismiss()
+                            }
+                        }
+                    }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(model.isBusy || selectedIndices.isEmpty)
+                }
+            }
+        }
+        .padding()
+        .frame(minWidth: 700, minHeight: 650)
+    }
+
+    private var directMemoryForm: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            TextEditor(text: $content)
+                .frame(minHeight: 180)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(.quaternary)
+                }
+
+            HStack {
+                Picker("Kind", selection: $kind) {
+                    ForEach(kinds, id: \.self) { value in
+                        Text(value.capitalized).tag(value)
+                    }
+                }
+                Picker("Privacy", selection: $privacy) {
+                    ForEach(privacyLevels, id: \.self) { value in
+                        Text(value.capitalized).tag(value)
+                    }
+                }
+            }
+
+            LabeledContent(
+                "Confidence",
+                value: confidence.formatted(
+                    .number.precision(.fractionLength(2))
+                )
+            )
+            Slider(value: $confidence, in: 0...1)
+            LabeledContent(
+                "Importance",
+                value: importance.formatted(
+                    .number.precision(.fractionLength(2))
+                )
+            )
+            Slider(value: $importance, in: 0...1)
+        }
+    }
+
+    private var proposalForm: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(
+                "The source text stays on Ally's validated local inference path. The model may suggest candidates but cannot save them."
+            )
+            .font(.callout)
+            .foregroundStyle(.secondary)
+
+            TextEditor(text: $sourceText)
+                .frame(minHeight: 150)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(.quaternary)
+                }
+                .onChange(of: sourceText) { _, _ in
+                    model.clearMemoryProposal()
+                    selectedIndices.removeAll()
+                }
+
+            HStack {
+                Picker("Privacy", selection: $proposalPrivacy) {
+                    ForEach(privacyLevels, id: \.self) { value in
+                        Text(value.capitalized).tag(value)
+                    }
+                }
+                .onChange(of: proposalPrivacy) { _, _ in
+                    model.clearMemoryProposal()
+                    selectedIndices.removeAll()
+                }
+
+                Spacer()
+                Button(model.memoryProposal == nil ? "Propose Memories" : "Re-propose") {
+                    let exactText = sourceText
+                    let exactPrivacy = proposalPrivacy
+                    Task {
+                        await model.proposeMemories(
+                            from: exactText,
+                            privacy: exactPrivacy
+                        )
+                        selectedIndices.removeAll()
+                    }
+                }
+                .disabled(
+                    model.isBusy
+                        || sourceText.trimmingCharacters(
+                            in: .whitespacesAndNewlines
+                        ).isEmpty
+                )
+            }
+
+            if let proposal = model.memoryProposal {
+                GroupBox("Review candidates") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(
+                            "Generated locally by \(proposal.model). Select only memories you want Ally to keep."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                        if proposal.memories.isEmpty {
+                            Text("The local model proposed no durable memories.")
+                                .foregroundStyle(.secondary)
+                        }
+
+                        ForEach(
+                            Array(proposal.memories.enumerated()),
+                            id: \.offset
+                        ) { index, candidate in
+                            Toggle(
+                                isOn: Binding(
+                                    get: { selectedIndices.contains(index) },
+                                    set: { selected in
+                                        if selected {
+                                            selectedIndices.insert(index)
+                                        } else {
+                                            selectedIndices.remove(index)
+                                        }
+                                    }
+                                )
+                            ) {
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text(candidate.content)
+                                        .textSelection(.enabled)
+                                    HStack {
+                                        Text(candidate.kind.capitalized)
+                                        Text(
+                                            "confidence \(candidate.confidence, format: .number.precision(.fractionLength(2)))"
+                                        )
+                                        Text(
+                                            "importance \(candidate.importance, format: .number.precision(.fractionLength(2)))"
+                                        )
+                                    }
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                }
+                            }
+                            if index != proposal.memories.indices.last {
+                                Divider()
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(4)
+                }
+            } else {
+                ContentUnavailableView(
+                    "No Memory Proposals",
+                    systemImage: "brain.head.profile",
+                    description: Text(
+                        "Ask Ally's validated local model to extract reviewable durable memory candidates from the source text."
+                    )
+                )
+                .frame(maxWidth: .infinity, minHeight: 180)
             }
         }
     }
