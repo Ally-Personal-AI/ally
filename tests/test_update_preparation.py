@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from ally.release import ReleaseMetadata, compare_release_metadata
+from ally.release import ReleaseMetadata, UpdateDecision, compare_release_metadata
 from ally.release.update_preparation import (
     UpdatePreparationError,
     prepare_update,
@@ -32,7 +32,7 @@ def _metadata(
     )
 
 
-def _decision(*, schema_bump: bool) -> object:
+def _decision(*, schema_bump: bool) -> UpdateDecision:
     candidate_schema = CURRENT_SCHEMA_VERSION + 1 if schema_bump else CURRENT_SCHEMA_VERSION
     return compare_release_metadata(
         _metadata(build=7),
