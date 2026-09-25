@@ -95,7 +95,8 @@ def write_machine_acceptance_report(
 ) -> Path:
     """Atomically publish acceptance evidence without replacing prior evidence."""
 
-    resolved = path.expanduser().resolve()
+    expanded = path.expanduser()
+    resolved = expanded.parent.resolve() / expanded.name
     if resolved.exists() or resolved.is_symlink():
         raise FileExistsError(
             f"refusing to overwrite machine acceptance report: {resolved}"
@@ -121,7 +122,12 @@ def write_machine_acceptance_report(
 def load_machine_acceptance_report(path: Path) -> MachineAcceptanceReport:
     """Load bounded, strictly versioned dedicated-machine acceptance evidence."""
 
-    resolved = path.expanduser().resolve()
+    expanded = path.expanduser()
+    if expanded.is_symlink():
+        raise MachineAcceptanceEvidenceError(
+            "machine acceptance report must not be a symlink"
+        )
+    resolved = expanded.resolve()
     try:
         if resolved.stat().st_size > _MAX_REPORT_BYTES:
             raise MachineAcceptanceEvidenceError(
