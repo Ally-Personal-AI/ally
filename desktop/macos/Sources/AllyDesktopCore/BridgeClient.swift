@@ -204,6 +204,19 @@ public struct DesktopBridgeClient: Sendable {
         let inputHandle = input.fileHandleForWriting
         let outputHandle = output.fileHandleForReading
 
+        // A helper may exit or be terminated while the request writer is still
+        // active. On Darwin, an ordinary write to that closed pipe can otherwise
+        // deliver SIGPIPE to the entire desktop process. Convert it into EPIPE so
+        // the writer records a bounded bridge failure instead.
+        guard Darwin.fcntl(
+            inputHandle.fileDescriptor,
+            F_SETNOSIGPIPE,
+            1
+        ) != -1 else {
+            stopAndReap(process)
+            throw DesktopBridgeError.writeFailed
+        }
+
         ioGroup.enter()
         DispatchQueue.global(qos: .userInitiated).async {
             defer {
