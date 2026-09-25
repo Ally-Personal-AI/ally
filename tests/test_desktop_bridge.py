@@ -10,6 +10,7 @@ from io import StringIO
 from pathlib import Path
 from typing import cast
 
+import pytest
 from pydantic import JsonValue
 
 from ally import __version__
