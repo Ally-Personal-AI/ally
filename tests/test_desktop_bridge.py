@@ -17,6 +17,7 @@ from ally import __version__
 from ally.application import (
     AllyApplication,
     ApplicationOperations,
+    ChatTurnRequest,
     RememberMemoryRequest,
 )
 from ally.desktop.bridge import MAX_REQUEST_BYTES, handle_request_json, serve
