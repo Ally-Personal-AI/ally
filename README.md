@@ -428,6 +428,26 @@ The report is bound to the current Ally version, exact source revision,
 hardware/OS profile, and hash-bound active validated runtime profile. See
 [Dedicated-Machine Acceptance Evidence](docs/machine-acceptance.md).
 
+The last evidence-only release gate ties that machine artifact back to the exact
+candidate validation session:
+
+```bash
+uv run ally release-readiness create \
+  validation/candidate-a/session.json \
+  validation/machine-acceptance.json \
+  --source-revision <40-character-git-sha> \
+  --output validation/release-readiness.json
+
+uv run ally release-readiness verify \
+  validation/release-readiness.json \
+  validation/candidate-a/session.json \
+  validation/machine-acceptance.json \
+  --source-revision <40-character-git-sha>
+```
+
+This gate performs no tagging, publishing, signing, downloading, or application
+replacement. See [Final Release Readiness Evidence](docs/release-readiness.md).
+
 ## Proactive events
 
 Ally now has a deterministic event and attention substrate. Events are persisted before any handler runs, and explicit importance maps to conservative attention classes:
