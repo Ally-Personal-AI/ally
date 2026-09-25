@@ -15,6 +15,21 @@ public struct RuntimeStatus: Decodable, Sendable, Equatable {
     public let errorCode: String?
 }
 
+public struct BackupDatabaseSummary: Decodable, Sendable, Equatable {
+    public let filename: String
+    public let sha256: String
+    public let sizeBytes: Int
+    public let schemaVersions: [Int]
+}
+
+public struct BackupManifestSummary: Decodable, Sendable, Equatable {
+    public let format: String
+    public let schemaVersion: Int
+    public let createdAt: String
+    public let allyVersion: String
+    public let database: BackupDatabaseSummary
+}
+
 public struct ConversationSummary: Decodable, Sendable, Equatable, Identifiable {
     public let id: String
     public let title: String?

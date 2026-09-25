@@ -54,6 +54,7 @@ The first shell includes:
 - task summary/status inspection;
 - task detail with explicit one-step-at-a-time approval and failed-step retry;
 - private-runtime readiness and validated-profile catalog/selection;
+- explicit portable backup export and read-only archive validation;
 - proactive-service health;
 - full attention event/delivery-history inspection with explicit handled-state mutation; and
 - modern macOS notification authorization/status through `UNUserNotificationCenter`; and
@@ -103,6 +104,27 @@ granting broader filesystem or model authority:
 
 The native UI makes those semantics visible before mutation and explains that
 correction/retraction preserve local history.
+
+## Portable data boundary
+
+Desktop protocol v15 exposes two explicit portability operations:
+
+- `data.backup` creates a new user-owned `.ally-backup` archive at one exact
+  absolute path selected by the user; and
+- `data.validate_backup` validates one exact existing archive without changing
+  it.
+
+The bridge accepts no overwrite flag, directory, wildcard, restore destination,
+or arbitrary read/write command. Creation inherits Ally's existing atomic
+no-overwrite behavior. Both operations return only manifest metadata: archive
+format/schema, creation timestamp, Ally version, database SHA-256, byte size,
+and database schema history. Archive/database bytes never cross the stdio
+presentation bridge.
+
+The native System screen obtains paths only from macOS save/open panels and
+shows only that metadata. Restore is intentionally absent because replacing the
+live database requires the existing offline recovery procedure with Ally
+processes stopped.
 
 ## Attention, notification, and proactive-service boundary
 

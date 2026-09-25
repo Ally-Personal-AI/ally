@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Literal, TextIO, cast
 from uuid import UUID
 
@@ -43,12 +44,14 @@ from ally.research import WebSearchRequest
 from ally.runtime_profiles import InferenceTargetError
 from ally.tasks import NewTaskStep, TaskPlan
 
-BRIDGE_PROTOCOL_VERSION = 14
+BRIDGE_PROTOCOL_VERSION = 15
 MAX_REQUEST_BYTES = 1024 * 1024
 
 BridgeMethod = Literal[
     "bridge.info",
     "bootstrap",
+    "data.backup",
+    "data.validate_backup",
     "conversation.create",
     "conversation.get",
     "conversation.send",
@@ -135,6 +138,21 @@ class BridgeResponse(BaseModel):
 
 class _EmptyParams(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
+
+
+class _BackupPathParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    path: str = Field(min_length=1, max_length=4096)
+
+    @property
+    def local_path(self) -> Path:
+        candidate = Path(self.path)
+        if not candidate.is_absolute():
+            raise ValueError("backup path must be absolute")
+        if candidate.suffix != ".ally-backup":
+            raise ValueError("backup path must use .ally-backup")
+        return candidate
 
 
 class _CreateConversationParams(BaseModel):
@@ -357,6 +375,8 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
             "transport": "stdio",
             "capabilities": [
                 "bootstrap",
+                "data.backup",
+                "data.validate_backup",
                 "conversation.create",
                 "conversation.get",
                 "conversation.send",
@@ -409,6 +429,24 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
     if request.method == "bootstrap":
         _validate_params(_EmptyParams, request.params)
         return _json_value(app.bootstrap().model_dump(mode="json"))
+
+    if request.method == "data.backup":
+        params = cast(
+            _BackupPathParams,
+            _validate_params(_BackupPathParams, request.params),
+        )
+        return _json_value(
+            app.create_portable_backup(params.local_path).model_dump(mode="json")
+        )
+
+    if request.method == "data.validate_backup":
+        params = cast(
+            _BackupPathParams,
+            _validate_params(_BackupPathParams, request.params),
+        )
+        return _json_value(
+            app.validate_portable_backup(params.local_path).model_dump(mode="json")
+        )
 
     if request.method == "conversation.create":
         params = cast(

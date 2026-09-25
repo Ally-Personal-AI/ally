@@ -1,4 +1,5 @@
 #if os(macOS)
+import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 import AllyDesktopCore
@@ -2237,6 +2238,10 @@ private struct SystemScreen: View {
     @State private var showingProfileSelection = false
     @State private var showingLegacyRetirement = false
 
+    private var allyBackupContentType: UTType {
+        UTType(filenameExtension: "ally-backup") ?? .data
+    }
+
     var body: some View {
         Form {
             Section("Private inference") {
@@ -2336,6 +2341,64 @@ private struct SystemScreen: View {
                             }
                         }
                         .padding(.vertical, 6)
+                    }
+                }
+            }
+
+            Section("Portable data") {
+                Text(
+                    "Create a user-owned Ally backup or validate an existing archive. These actions never invoke a model or network service. Restore remains an offline recovery operation so the running app cannot replace its own live database."
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+                HStack {
+                    Button("Export Backup") {
+                        chooseBackupExportDestination()
+                    }
+                    .disabled(model.isBusy)
+
+                    Button("Validate Backup") {
+                        chooseBackupForValidation()
+                    }
+                    .disabled(model.isBusy)
+                }
+
+                if let status = model.portableBackupStatus,
+                   let manifest = model.portableBackupManifest {
+                    GroupBox(status) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            LabeledContent("Archive format", value: manifest.format)
+                            LabeledContent(
+                                "Archive schema",
+                                value: String(manifest.schemaVersion)
+                            )
+                            LabeledContent("Ally version", value: manifest.allyVersion)
+                            LabeledContent("Created", value: manifest.createdAt)
+                            LabeledContent(
+                                "Database size",
+                                value: ByteCountFormatter.string(
+                                    fromByteCount: Int64(manifest.database.sizeBytes),
+                                    countStyle: .file
+                                )
+                            )
+                            LabeledContent(
+                                "Database schemas",
+                                value: manifest.database.schemaVersions
+                                    .map(String.init)
+                                    .joined(separator: ", ")
+                            )
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Database SHA-256")
+                                    .font(.caption)
+                                Text(manifest.database.sha256)
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(4)
                     }
                 }
             }
@@ -2465,6 +2528,28 @@ private struct SystemScreen: View {
         } message: {
             Text("Ally will unload and remove only the recognized historical ai.ally.proactive-service launch agent. Modified or unrecognized definitions are never removed automatically.")
         }
+    }
+
+    private func chooseBackupExportDestination() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [allyBackupContentType]
+        panel.canCreateDirectories = true
+        panel.isExtensionHidden = false
+        panel.nameFieldStringValue = "Ally Backup.ally-backup"
+        panel.message = "Choose a new destination for the portable Ally backup."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task { await model.exportPortableBackup(to: url) }
+    }
+
+    private func chooseBackupForValidation() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [allyBackupContentType]
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.message = "Choose one Ally backup archive to validate."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task { await model.validatePortableBackup(at: url) }
     }
 
     @ViewBuilder

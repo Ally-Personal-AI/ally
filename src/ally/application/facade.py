@@ -87,6 +87,7 @@ from ally.memory.retrieval import LexicalMemoryRetriever, MemoryContextProvider
 from ally.models import ModelProvider
 from ally.models.errors import ModelProviderError
 from ally.planning import ModelTaskPlanner
+from ally.portability import BackupManifest, BackupValidationError
 from ally.research import (
     ResearchService,
     ResearchSynthesisError,
@@ -990,6 +991,34 @@ class AllyApplication:
         except (ServiceLeaseUnavailableError, ServiceRunConflictError) as exc:
             raise ApplicationStateError(
                 "desktop proactive completion is stale"
+            ) from exc
+
+    def create_portable_backup(self, destination: Path) -> BackupManifest:
+        operations = self._require_operations()
+        creator = operations.backup_creator
+        if creator is None:
+            raise ApplicationUnavailableError(
+                "portable backup creation is not available"
+            )
+        try:
+            return creator(destination)
+        except (BackupValidationError, FileExistsError, OSError) as exc:
+            raise ApplicationStateError(
+                "portable backup creation failed safely"
+            ) from exc
+
+    def validate_portable_backup(self, archive: Path) -> BackupManifest:
+        operations = self._require_operations()
+        validator = operations.backup_validator
+        if validator is None:
+            raise ApplicationUnavailableError(
+                "portable backup validation is not available"
+            )
+        try:
+            return validator(archive)
+        except (BackupValidationError, OSError) as exc:
+            raise ApplicationStateError(
+                "portable backup validation failed safely"
             ) from exc
 
     def service_history(
