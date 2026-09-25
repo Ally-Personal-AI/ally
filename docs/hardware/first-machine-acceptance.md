@@ -590,6 +590,37 @@ test only serialization/verification mechanics and are never machine evidence.
 Detailed contract:
 [Dedicated-Machine Acceptance Evidence](../machine-acceptance.md).
 
+---
+
+## 15. Re-verify the complete release evidence chain
+
+Immediately before creating an Ally 0.1 tagged pre-release, use the exact
+candidate artifacts that produced the selected validated profile:
+
+```bash
+uv run ally release readiness \
+  validation/candidate-a/capability.json \
+  validation/candidate-a/privacy.json \
+  validation/candidate-a/workflows.json \
+  validation/machine-acceptance.json \
+  --source-revision "$SOURCE_REVISION" \
+  --json
+```
+
+This read-only gate verifies the active profile against its exact
+capability/privacy/workflow source evidence and verifies the machine-acceptance
+artifact against the live Ally version, source revision, hardware profile, and
+hash-bound active selection.
+
+### Stop condition
+
+Do not create a tagged pre-release unless the command exits `0` and reports
+`ready_for_tagged_prerelease=true`. The command does not create the tag,
+publish a release, sign code, or perform an update.
+
+Detailed contract:
+[Ally 0.1 Release Readiness](../release-readiness.md).
+
 ## Handoff to desktop shell (#66)
 
 The native desktop shell may begin after:
