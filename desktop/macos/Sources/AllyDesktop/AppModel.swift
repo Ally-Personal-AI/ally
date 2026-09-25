@@ -21,6 +21,7 @@ final class AppModel: ObservableObject {
     @Published var attentionDeliveryHistory: [AttentionDeliverySummary] = []
     @Published var notificationAuthorization: DesktopNotificationAuthorizationState = .unknown
     @Published var backgroundServiceState: DesktopBackgroundServiceState = .unknown
+    @Published var legacyManagedService: LegacyManagedServiceView?
     @Published var lastProactiveCycleAt: Date?
     @Published var proactiveCycleError: String?
     @Published var composer = ""
@@ -77,6 +78,11 @@ final class AppModel: ObservableObject {
             } catch {
                 self.runtimeProfiles = nil
                 self.errorMessage = error.localizedDescription
+            }
+            do {
+                self.legacyManagedService = try await client.call("service.legacy_status")
+            } catch {
+                self.legacyManagedService = nil
             }
         } catch {
             self.errorMessage = error.localizedDescription
@@ -391,11 +397,47 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func refreshLegacyManagedServiceStatus() async {
+        guard let client else {
+            legacyManagedService = nil
+            return
+        }
+        do {
+            legacyManagedService = try await client.call("service.legacy_status")
+        } catch {
+            legacyManagedService = nil
+        }
+    }
+
+    func retireLegacyManagedService() async {
+        guard let client else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            legacyManagedService = try await client.call("service.retire_legacy")
+            errorMessage = nil
+        } catch {
+            await refreshLegacyManagedServiceStatus()
+            errorMessage = "The legacy Ally background service could not be retired safely."
+        }
+    }
+
     func refreshBackgroundServiceState() {
         backgroundServiceState = backgroundServiceClient.currentState()
     }
 
     func enableBackgroundService() async {
+        await refreshLegacyManagedServiceStatus()
+        guard let legacyManagedService else {
+            errorMessage = "Legacy service state is unavailable. Background proactivity remains disabled."
+            return
+        }
+        guard !legacyManagedService.configured else {
+            errorMessage = legacyManagedService.canRetire
+                ? "Retire the legacy Ally background service before enabling the signed app login item."
+                : "A modified legacy service definition requires manual review before background proactivity can be enabled."
+            return
+        }
         do {
             backgroundServiceState = try backgroundServiceClient.register()
             errorMessage = nil
@@ -425,6 +467,15 @@ final class AppModel: ObservableObject {
     func runProactiveCycleIfEnabled() async {
         refreshBackgroundServiceState()
         guard backgroundServiceState == .enabled else { return }
+        await refreshLegacyManagedServiceStatus()
+        guard let legacyManagedService else {
+            proactiveCycleError = "Legacy service state is unavailable; automatic proactivity is paused."
+            return
+        }
+        guard !legacyManagedService.configured else {
+            proactiveCycleError = "Automatic proactivity is paused until the legacy Ally background service is retired."
+            return
+        }
         await runProactiveCycle()
     }
 
