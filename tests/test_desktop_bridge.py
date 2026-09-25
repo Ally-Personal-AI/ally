@@ -36,6 +36,7 @@ from ally.egress import (
 )
 from ally.events import EventRuntime, NewEvent
 from ally.models import ChatRequest, ChatResponse, ModelProvider
+from ally.portability import create_backup, validate_backup
 from ally.research import WEB_SEARCH_OPERATION, ResearchService
 from ally.runtime_profiles import (
     EvidenceReference,
@@ -339,6 +340,11 @@ def _task_application(
                 database_integrity_ok=True,
                 schema_current=True,
             ),
+            backup_creator=lambda destination: create_backup(
+                database,
+                destination,
+            ),
+            backup_validator=validate_backup,
         ),
     )
     return app, tool
@@ -650,6 +656,162 @@ def test_bridge_conversation_search_rejects_undeclared_context_fields(
     assert not response.ok
     assert response.error is not None
     assert response.error.code == "invalid_request"
+    assert provider.requests == []
+
+
+def test_bridge_backup_creates_metadata_only_archive_without_model_inference(
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider([])
+    app, _ = _task_application(tmp_path, provider=provider)
+    destination = tmp_path / "portable-state.ally-backup"
+
+    response = handle_request_json(
+        app,
+        _request(
+            "data.backup",
+            {"path": str(destination)},
+        ),
+    )
+
+    assert response.ok
+    assert destination.is_file()
+    assert isinstance(response.result, dict)
+    assert response.result["format"] == "ally-backup"
+    assert response.result["schema_version"] == 1
+    database = response.result["database"]
+    assert isinstance(database, dict)
+    assert isinstance(database["sha256"], str)
+    assert isinstance(database["size_bytes"], int)
+    rendered = response.model_dump_json()
+    assert str(tmp_path) not in rendered
+    assert "ally.sqlite3" in rendered
+    assert provider.requests == []
+
+
+def test_bridge_backup_validation_is_read_only_and_metadata_only(
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider([])
+    app, _ = _task_application(tmp_path, provider=provider)
+    archive = tmp_path / "portable-state.ally-backup"
+    created = handle_request_json(
+        app,
+        _request("data.backup", {"path": str(archive)}),
+    )
+    assert created.ok
+    before = archive.read_bytes()
+
+    validated = handle_request_json(
+        app,
+        _request("data.validate_backup", {"path": str(archive)}),
+    )
+
+    assert validated.ok
+    assert validated.result == created.result
+    assert archive.read_bytes() == before
+    assert str(tmp_path) not in validated.model_dump_json()
+    assert provider.requests == []
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    (
+        ("data.backup", "relative.ally-backup"),
+        ("data.validate_backup", "relative.ally-backup"),
+        ("data.backup", "/tmp/not-an-ally-backup.zip"),
+        ("data.validate_backup", "/tmp/not-an-ally-backup.zip"),
+    ),
+)
+def test_bridge_backup_paths_are_absolute_ally_archives_only(
+    tmp_path: Path,
+    method: str,
+    path: str,
+) -> None:
+    provider = CapturingProvider([])
+    app, _ = _task_application(tmp_path, provider=provider)
+
+    response = handle_request_json(
+        app,
+        _request(method, {"path": path}),
+    )
+
+    assert not response.ok
+    assert response.error is not None
+    assert response.error.code == "invalid_request"
+    assert provider.requests == []
+
+
+@pytest.mark.parametrize("method", ("data.backup", "data.validate_backup"))
+def test_bridge_backup_rejects_extra_filesystem_authority(
+    tmp_path: Path,
+    method: str,
+) -> None:
+    provider = CapturingProvider([])
+    app, _ = _task_application(tmp_path, provider=provider)
+    path = tmp_path / "portable-state.ally-backup"
+
+    response = handle_request_json(
+        app,
+        _request(
+            method,
+            {
+                "path": str(path),
+                "overwrite": True,
+            },
+        ),
+    )
+
+    assert not response.ok
+    assert response.error is not None
+    assert response.error.code == "invalid_request"
+    assert provider.requests == []
+
+
+def test_bridge_backup_refuses_overwrite_and_invalid_archive_safely(
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider([])
+    app, _ = _task_application(tmp_path, provider=provider)
+    occupied = tmp_path / "occupied.ally-backup"
+    occupied.write_bytes(b"keep this")
+
+    refused = handle_request_json(
+        app,
+        _request("data.backup", {"path": str(occupied)}),
+    )
+    invalid = handle_request_json(
+        app,
+        _request("data.validate_backup", {"path": str(occupied)}),
+    )
+
+    assert not refused.ok
+    assert refused.error is not None
+    assert refused.error.code == "invalid_state"
+    assert occupied.read_bytes() == b"keep this"
+    assert not invalid.ok
+    assert invalid.error is not None
+    assert invalid.error.code == "invalid_state"
+    assert provider.requests == []
+
+
+def test_bridge_backup_is_unavailable_without_portability_operations(
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider([])
+    app = _application(tmp_path, provider=provider)
+
+    response = handle_request_json(
+        app,
+        _request(
+            "data.backup",
+            {"path": str(tmp_path / "portable-state.ally-backup")},
+        ),
+    )
+
+    assert not response.ok
+    assert response.error is not None
+    assert response.error.code == "unavailable"
     assert provider.requests == []
 
 
