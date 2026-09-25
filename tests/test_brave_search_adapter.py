@@ -4,6 +4,7 @@ import json
 from collections.abc import Generator
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Thread
+from typing import ClassVar
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -19,7 +20,7 @@ from ally.secrets import InMemorySecretStore
 
 
 class SearchHandler(BaseHTTPRequestHandler):
-    requests: list[dict[str, object]] = []
+    requests: ClassVar[list[dict[str, object]]] = []
     status_code = 200
     response_payload: object = {
         "web": {
