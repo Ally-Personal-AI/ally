@@ -26,8 +26,10 @@ The first application slice exposes:
   tool policy and exact-step approval boundary;
 - pending attention, full user-facing attention history, event detail, and
   explicit handled-state mutation;
-- durable per-event and global delivery-history reads; and
-- payload-free service health and lifecycle-history reads.
+- durable per-event and global delivery-history reads;
+- payload-free service health and lifecycle-history reads; and
+- explicit portable-backup creation and read-only archive validation when the
+  composition supplies those operations.
 
 All request/result models are Pydantic models or existing immutable Ally domain
 models and are suitable for local UI serialization.
@@ -79,6 +81,12 @@ provenance-preserving application methods. Runtime selection accepts only the
 deterministic ID of an already-installed validated profile; it does not expose
 profile installation, evidence paths, endpoints, or model-name overrides.
 Bridge errors use stable sanitized codes rather than arbitrary exception text.
+
+Portable-data operations are deliberately narrow. The desktop bridge accepts
+one exact absolute `.ally-backup` path for create or validate, returns only the
+versioned manifest metadata, and exposes no restore, overwrite, delete,
+directory-enumeration, or arbitrary file-read/write operation. Restore remains
+the existing stopped-process recovery workflow.
 
 The SwiftUI shell may format, navigate, and collect explicit user intent, but
 domain state, grounding, model selection, and approval authority remain on the
