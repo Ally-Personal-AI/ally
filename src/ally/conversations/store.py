@@ -25,6 +25,9 @@ class ConversationStore(Protocol):
     def list(self, *, limit: int = 50) -> tuple[Conversation, ...]:
         ...
 
+    def delete(self, conversation_id: UUID) -> bool:
+        ...
+
     def list_messages(self, conversation_id: UUID) -> tuple[ConversationMessage, ...]:
         ...
 
