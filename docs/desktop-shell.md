@@ -28,6 +28,13 @@ The bridge is a presentation adapter, not a new service layer. It:
 - sends private request payloads over stdin rather than process arguments;
 - returns responses over stdout;
 - applies a one-MiB request bound and stable protocol version;
+- gives each helper request a bounded execution deadline;
+- writes stdin and drains bounded stdout concurrently so pipe backpressure
+  cannot deadlock the desktop process;
+- discards arbitrary helper stderr instead of buffering or surfacing potentially
+  private diagnostics;
+- terminates and reaps timed-out, cancelled, or oversized helper processes;
+- requires every decoded response to carry the exact originating request ID;
 - sanitizes failures instead of serializing arbitrary exception messages or
   local paths;
 - delegates state and authority decisions to `AllyApplication`; and
@@ -37,11 +44,14 @@ Private desktop chat therefore uses the same active, validated runtime profile
 as normal Ally daily inference. Before a real profile exists, the shell can load
 local state and health information but private inference remains unavailable.
 
-The initial Swift client uses one short-lived helper process per request. This is
+The Swift client uses one short-lived helper process per request. This is
 intentional: it keeps process ownership, failure recovery, and private transport
-simple while the product surface is still changing. A persistent bridge process
-should be introduced only if measured desktop latency justifies the additional
-lifecycle complexity.
+simple while the product surface is still changing. The lifecycle is fail
+bounded: the current default deadline is five minutes, stdout is capped at two
+MiB as it is read, blocked stdin writes are covered by the same process deadline,
+and task cancellation stops the helper. A persistent bridge process should be
+introduced only if measured desktop latency justifies the additional lifecycle
+complexity.
 
 ## Current surface
 
