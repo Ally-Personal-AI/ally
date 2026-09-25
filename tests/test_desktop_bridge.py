@@ -8,6 +8,7 @@ from contextlib import AbstractContextManager
 from datetime import UTC, datetime
 from io import StringIO
 from pathlib import Path
+from typing import cast
 
 from pydantic import JsonValue
 
@@ -349,7 +350,9 @@ def _legacy_service(tmp_path: Path) -> tuple[MacOSLaunchdService, BridgeLaunchct
         supported=True,
     )
     definition = service.definition()
-    arguments = list(definition["ProgramArguments"])
+    arguments_value = definition["ProgramArguments"]
+    assert isinstance(arguments_value, list)
+    arguments = cast(list[str], arguments_value.copy())
     arguments[0] = "/Applications/SyntheticOldAlly/bin/python"
     definition["ProgramArguments"] = arguments
     paths.plist.parent.mkdir(parents=True)
