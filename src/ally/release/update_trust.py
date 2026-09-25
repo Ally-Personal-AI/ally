@@ -28,6 +28,8 @@ class ReleaseMetadata:
 class ReleaseIdentity:
     bundle_identifier: str
     team_identifier: str
+    hardened_runtime: bool
+    has_timestamp: bool
 
 
 @dataclass(frozen=True)
@@ -64,6 +66,9 @@ def compare_release_metadata(
         raise UpdateTrustError("candidate bridge protocol moves backward")
     if candidate.database_schema_version < current.database_schema_version:
         raise UpdateTrustError("candidate database schema support moves backward")
+    current_revision = current.source_revision
+    if current_revision is None or _SOURCE_REVISION_RE.fullmatch(current_revision) is None:
+        raise UpdateTrustError("installed source revision is not release-grade")
     revision = candidate.source_revision
     if revision is None or _SOURCE_REVISION_RE.fullmatch(revision) is None:
         raise UpdateTrustError("candidate source revision is not release-grade")
@@ -87,6 +92,8 @@ def parse_codesign_identity(output: str) -> ReleaseIdentity:
 
     identifier: str | None = None
     team_identifier: str | None = None
+    hardened_runtime = False
+    has_timestamp = False
     for raw_line in output.splitlines():
         line = raw_line.strip()
         if line.startswith("Identifier="):
@@ -99,6 +106,10 @@ def parse_codesign_identity(output: str) -> ReleaseIdentity:
             if team_identifier is not None and team_identifier != value:
                 raise UpdateTrustError("code signature reports conflicting team identifiers")
             team_identifier = value
+        elif "flags=" in line and "(runtime)" in line:
+            hardened_runtime = True
+        elif line.startswith("Timestamp=") and line.removeprefix("Timestamp=").strip():
+            has_timestamp = True
 
     if not identifier:
         raise UpdateTrustError("code signature bundle identifier is unavailable")
@@ -107,6 +118,8 @@ def parse_codesign_identity(output: str) -> ReleaseIdentity:
     return ReleaseIdentity(
         bundle_identifier=identifier,
         team_identifier=team_identifier,
+        hardened_runtime=hardened_runtime,
+        has_timestamp=has_timestamp,
     )
 
 
@@ -122,3 +135,7 @@ def require_signing_identity(
         raise UpdateTrustError("signed bundle identifier does not match Ally")
     if identity.team_identifier != expected_team_identifier:
         raise UpdateTrustError("signed Developer ID team does not match Ally")
+    if not identity.hardened_runtime:
+        raise UpdateTrustError("signed application does not enable the hardened runtime")
+    if not identity.has_timestamp:
+        raise UpdateTrustError("signed application does not have a trusted timestamp")
