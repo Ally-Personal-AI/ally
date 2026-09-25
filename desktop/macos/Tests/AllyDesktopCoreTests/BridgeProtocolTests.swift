@@ -137,7 +137,7 @@ import UserNotifications
 }
 
 @Test func decodesSourcedResearchAnswerExecution() throws {
-    let data = Data(#"{"id":"1","ok":true,"result":{"search":{"request_id":"00000000-0000-0000-0000-000000000060","service":"synthetic.search","operation":"web.search","decision":"allow","status":"succeeded","results":[{"title":"Synthetic source","url":"https://example.test/source","description":"Synthetic snippet."}],"more_results_available":false,"error_class":null},"synthesis":{"answer":"Synthetic answer. [1]","cited_result_indices":[1],"insufficient_evidence":false}}}"#.utf8)
+    let data = Data(#"{"id":"1","ok":true,"result":{"search":{"request_id":"00000000-0000-0000-0000-000000000060","service":"synthetic.search","operation":"web.search","decision":"allow","status":"succeeded","results":[{"title":"Synthetic source","url":"https://example.test/source","description":"Synthetic snippet."}],"more_results_available":false,"error_class":null},"synthesis_status":"succeeded","synthesis":{"answer":"Synthetic answer. [1]","cited_result_indices":[1],"insufficient_evidence":false},"synthesis_error_class":null}}"#.utf8)
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let envelope = try decoder.decode(
@@ -147,6 +147,7 @@ import UserNotifications
 
     #expect(envelope.result?.search.status == "succeeded")
     #expect(envelope.result?.search.results.count == 1)
+    #expect(envelope.result?.synthesisStatus == "succeeded")
     #expect(envelope.result?.synthesis?.answer == "Synthetic answer. [1]")
     #expect(envelope.result?.synthesis?.citedResultIndices == [1])
     #expect(envelope.result?.synthesis?.insufficientEvidence == false)
