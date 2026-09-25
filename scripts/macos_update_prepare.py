@@ -11,14 +11,15 @@ from typing import Any
 import macos_update_trust
 from ally.release.update_preparation import (
     UpdatePreparationError,
+    UpdatePreparationRecord,
     prepare_update,
 )
 from ally.storage import default_database_path
 from ally.storage.sqlite import SQLiteDatabase
 
 
-def _render(record: object) -> str:
-    payload: dict[str, Any] = asdict(record)  # type: ignore[arg-type]
+def _render(record: UpdatePreparationRecord) -> str:
+    payload: dict[str, Any] = asdict(record)
     payload["status"] = "prepared"
     return json.dumps(payload, sort_keys=True)
 
