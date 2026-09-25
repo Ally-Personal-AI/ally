@@ -40,12 +40,16 @@ def _short_version_tuple(value: str) -> tuple[int, int, int]:
     match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", value)
     if match is None:
         raise UpdateTrustError("bundle short version is invalid")
-    return tuple(int(part) for part in match.groups())  # type: ignore[return-value]
+    major, minor, patch = match.groups()
+    return int(major), int(minor), int(patch)
 
 
 def inspect_release(app: Path) -> ReleaseMetadata:
-    root = app.expanduser().resolve(strict=True)
-    manifest = macos_app_bundle.inspect(root)
+    try:
+        root = app.expanduser().resolve(strict=True)
+        manifest = macos_app_bundle.inspect(root)
+    except (FileNotFoundError, macos_app_bundle.BundleError) as exc:
+        raise UpdateTrustError("release bundle structure is invalid") from exc
     info_path = root / "Contents/Info.plist"
     try:
         with info_path.open("rb") as handle:
@@ -122,9 +126,12 @@ def verify_platform_trust(
 ) -> None:
     if platform.system() != "Darwin":
         raise PlatformTrustError("production update trust verification requires macOS")
-    root = app.expanduser().resolve(strict=True)
+    try:
+        root = app.expanduser().resolve(strict=True)
+        macos_app_bundle.inspect(root)
+    except (FileNotFoundError, macos_app_bundle.BundleError) as exc:
+        raise PlatformTrustError("release bundle structure is invalid") from exc
     expected_bundle = str(macos_app_bundle.release_contract()["bundle_identifier"])
-    macos_app_bundle.inspect(root)
 
     _run_checked([
         str(_CODESIGN),
@@ -211,8 +218,10 @@ def main(argv: list[str] | None = None) -> int:
             )
         print(_render(decision))
         return 0
-    except (UpdateTrustError, macos_app_bundle.BundleError, FileNotFoundError) as exc:
-        raise SystemExit(str(exc)) from None
+    except (UpdateTrustError, macos_app_bundle.BundleError):
+        raise SystemExit("update candidate verification failed") from None
+    except FileNotFoundError:
+        raise SystemExit("application bundle is unavailable") from None
 
 
 if __name__ == "__main__":
