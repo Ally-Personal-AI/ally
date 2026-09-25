@@ -5,6 +5,13 @@ This Swift package is Ally's native desktop presentation surface. It includes co
 It depends on the local `ally-desktop-bridge` helper and never reimplements Ally
 Core policy, persistence, grounding, or model-selection logic.
 
+Each helper request is bounded. The native client writes stdin and drains stdout
+concurrently, discards arbitrary helper stderr, enforces a two-MiB response
+ceiling while the helper is running, requires the response ID to match the exact
+request, and terminates/reaps a helper that times out or whose calling task is
+cancelled. Private response payloads remain in memory rather than being staged
+through temporary files.
+
 For development from the repository root:
 
 ```bash
@@ -24,7 +31,7 @@ scope, and release-packaging direction.
 
 ## App-owned proactivity
 
-The signed app uses bridge protocol v6 for a narrow prepare/ack/complete flow:
+The signed app uses the current bridge protocol (v15) for a narrow prepare/ack/complete flow:
 
 - `service.prepare_proactive` returns rendered notification candidates only;
 - Swift delivers through `UNUserNotificationCenter` using the deterministic
