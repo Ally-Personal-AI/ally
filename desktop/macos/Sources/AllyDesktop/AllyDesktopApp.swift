@@ -1055,6 +1055,8 @@ private struct KnowledgeDetailScreen: View {
     let sourceID: String
     let deleted: () -> Void
     @State private var showingDeleteConfirmation = false
+    @State private var updateSource: KnowledgeSourceSummary?
+    @State private var showingReplacementFileImporter = false
 
     var body: some View {
         ScrollView {
@@ -1120,12 +1122,67 @@ private struct KnowledgeDetailScreen: View {
         .navigationTitle("Knowledge Source")
         .toolbar {
             ToolbarItem {
+                Menu {
+                    Button {
+                        updateSource = model.knowledgeDetail?.source
+                    } label: {
+                        Label("Replace with Text", systemImage: "text.badge.plus")
+                    }
+                    Button {
+                        showingReplacementFileImporter = true
+                    } label: {
+                        Label(
+                            "Import Replacement Text File",
+                            systemImage: "doc.badge.arrow.up"
+                        )
+                    }
+                } label: {
+                    Label("Update Source", systemImage: "arrow.triangle.2.circlepath")
+                }
+                .disabled(model.isBusy || model.knowledgeDetail == nil)
+            }
+            ToolbarItem {
                 Button(role: .destructive) {
                     showingDeleteConfirmation = true
                 } label: {
                     Label("Delete Knowledge", systemImage: "trash")
                 }
                 .disabled(model.isBusy)
+            }
+        }
+        .sheet(item: $updateSource) { source in
+            KnowledgeUpdateSheet(
+                model: model,
+                source: source,
+                dismiss: { updateSource = nil }
+            )
+        }
+        .fileImporter(
+            isPresented: $showingReplacementFileImporter,
+            allowedContentTypes: [.plainText],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard
+                    let url = urls.first,
+                    let source = model.knowledgeDetail?.source
+                else {
+                    return
+                }
+                do {
+                    let imported = try KnowledgeFileImporter.load(url)
+                    Task {
+                        _ = await model.updateKnowledgeSource(
+                            source,
+                            text: imported.text
+                        )
+                    }
+                } catch {
+                    model.errorMessage = error.localizedDescription
+                }
+            case .failure(let error):
+                model.errorMessage = error.localizedDescription
             }
         }
         .alert(
@@ -1148,6 +1205,58 @@ private struct KnowledgeDetailScreen: View {
         .task(id: sourceID) {
             await model.selectKnowledgeSource(sourceID)
         }
+    }
+}
+
+private struct KnowledgeUpdateSheet: View {
+    @ObservedObject var model: AppModel
+    let source: KnowledgeSourceSummary
+    let dismiss: () -> Void
+    @State private var text = ""
+
+    private var compactText: String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Update Knowledge Source")
+                .font(.title2)
+            Text(source.title)
+                .font(.headline)
+            Text(
+                "Paste the complete replacement text. Ally will reuse this source's existing identity and create a new immutable revision only when the content changed."
+            )
+            .font(.callout)
+            .foregroundStyle(.secondary)
+
+            TextEditor(text: $text)
+                .frame(minHeight: 280)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(.quaternary)
+                }
+
+            HStack {
+                Spacer()
+                Button("Cancel", action: dismiss)
+                Button("Update Source") {
+                    let replacement = compactText
+                    Task {
+                        if await model.updateKnowledgeSource(
+                            source,
+                            text: replacement
+                        ) {
+                            dismiss()
+                        }
+                    }
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(model.isBusy || compactText.isEmpty)
+            }
+        }
+        .padding()
+        .frame(minWidth: 650, minHeight: 500)
     }
 }
 
