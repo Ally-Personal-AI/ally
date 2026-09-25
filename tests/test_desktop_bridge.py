@@ -347,6 +347,10 @@ def _research_application(
     tmp_path: Path,
     *,
     provider: CapturingProvider | None = None,
+    resolver: Callable[
+        [str | None, str | None],
+        ResolvedInferenceTarget,
+    ] = _target,
 ) -> tuple[
     AllyApplication,
     RecordingResearchAdapter,
@@ -364,7 +368,7 @@ def _research_application(
         memories=SQLiteMemoryStore(database),
         knowledge=SQLiteKnowledgeStore(database),
         instructions=SQLiteUserInstructionsStore(database),
-        target_resolver=_target,
+        target_resolver=resolver,
         provider_factory=lambda target: synthesis_provider,
         operations=ApplicationOperations(
             tasks=tasks,
@@ -895,6 +899,7 @@ def test_bridge_research_answer_stops_before_search_and_model_without_approval(
     search = response.result["search"]
     assert isinstance(search, dict)
     assert search["status"] == "approval_required"
+    assert response.result["synthesis_status"] == "not_run"
     assert response.result["synthesis"] is None
     assert adapter.calls == []
     assert provider.requests == []
@@ -941,6 +946,7 @@ def test_bridge_research_answer_uses_local_model_after_approved_search(
     assert isinstance(search, dict)
     assert isinstance(synthesis, dict)
     assert search["status"] == "succeeded"
+    assert response.result["synthesis_status"] == "succeeded"
     assert synthesis["answer"].endswith("[1]")
     assert synthesis["cited_result_indices"] == [1]
     assert adapter.calls == [
@@ -954,6 +960,96 @@ def test_bridge_research_answer_uses_local_model_after_approved_search(
     assert "untrusted evidence" in provider.requests[0].messages[0].content
     assert len(audit.records) == 1
     assert query not in audit.records[0].model_dump_json()
+
+
+def test_bridge_research_answer_preserves_results_when_local_model_is_unavailable(
+    tmp_path: Path,
+) -> None:
+    def unavailable(
+        endpoint: str | None,
+        model: str | None,
+    ) -> ResolvedInferenceTarget:
+        del endpoint, model
+        raise InferenceTargetError("no active validated profile")
+
+    app, adapter, audit, provider = _research_application(
+        tmp_path,
+        resolver=unavailable,
+    )
+    query = "synthetic public research query"
+
+    response = handle_request_json(
+        app,
+        _request(
+            "research.answer",
+            {
+                "query": query,
+                "count": 3,
+                "approved": True,
+            },
+        ),
+    )
+
+    assert response.ok
+    assert isinstance(response.result, dict)
+    search = response.result["search"]
+    assert isinstance(search, dict)
+    assert search["status"] == "succeeded"
+    assert len(search["results"]) == 1
+    assert response.result["synthesis_status"] == "unavailable"
+    assert response.result["synthesis"] is None
+    assert adapter.calls == [
+        (
+            WEB_SEARCH_OPERATION,
+            {"query": query, "count": 3},
+        )
+    ]
+    assert provider.requests == []
+    assert len(audit.records) == 1
+
+
+def test_bridge_research_answer_preserves_results_when_synthesis_fails(
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider(
+        [
+            json.dumps(
+                {
+                    "answer": "Unsupported source. [2]",
+                    "cited_result_indices": [2],
+                    "insufficient_evidence": False,
+                }
+            )
+        ]
+    )
+    app, adapter, _, provider = _research_application(
+        tmp_path,
+        provider=provider,
+    )
+
+    response = handle_request_json(
+        app,
+        _request(
+            "research.answer",
+            {
+                "query": "synthetic public research query",
+                "count": 3,
+                "approved": True,
+            },
+        ),
+    )
+
+    assert response.ok
+    assert isinstance(response.result, dict)
+    search = response.result["search"]
+    assert isinstance(search, dict)
+    assert search["status"] == "succeeded"
+    assert len(search["results"]) == 1
+    assert response.result["synthesis_status"] == "failed"
+    assert response.result["synthesis"] is None
+    assert response.result["synthesis_error_class"] == "ResearchSynthesisError"
+    assert len(adapter.calls) == 1
+    assert len(provider.requests) == 1
 
 
 @pytest.mark.parametrize(
