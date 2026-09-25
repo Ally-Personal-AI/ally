@@ -45,10 +45,12 @@ The release manifest is part of the signed outer application bundle and records:
 - manifest schema version;
 - stable bundle identifier;
 - exact Ally package version;
+- positive monotonically comparable build number;
 - exact desktop bridge protocol version;
+- supported Ally database schema version;
 - fixed relative helper path;
 - SHA-256 of the **signed helper bytes**; and
-- optional source revision.
+- optional full Git source revision.
 
 The signing order is deliberate:
 
@@ -168,6 +170,16 @@ Installing or updating the app must replace code, not personal data.
 
 No automatic updater is enabled yet.
 
+The hardware-independent **candidate trust boundary is implemented** in
+`scripts/macos_update_trust.py`. It compares already-staged full app bundles,
+rejects rollback/same-build candidates, rejects bridge/database-schema
+regression, requires release-grade source provenance, and can require the exact
+Developer ID TeamIdentifier, hardened runtime, signing timestamp, notarization
+staple, and Gatekeeper acceptance on macOS.
+
+It deliberately performs no fetch and no replacement. See
+[macOS Update Candidate Trust](macos-update-trust.md).
+
 Before any updater may fetch or execute code, it must enforce all of the
 following:
 
@@ -199,9 +211,12 @@ A previous app version may be reinstalled safely only when it understands the
 current database schema. If an update performs a forward-only schema migration,
 rolling back code alone may be unsafe.
 
-Therefore a future updater must:
+The candidate verifier already rejects code rollback by default and reports
+whether a forward candidate raises the database schema contract. Therefore a
+future updater must:
 
-- inspect schema compatibility before allowing code rollback;
+- preserve the default no-rollback rule;
+- inspect schema compatibility before any explicit recovery rollback;
 - create/validate the existing Ally backup artifact before a migration that may
   break backward compatibility;
 - restore data only through Ally's existing integrity-checked restore boundary;
@@ -213,8 +228,9 @@ The updater itself must not become a second migration engine.
 
 ## Release acceptance still requiring the dedicated Mac
 
-CI can validate structure, hashing, protocol binding, Swift release compilation,
-and ad-hoc signature mechanics.
+CI can validate structure, hashing, protocol/database-schema binding, Swift
+release compilation, forward-only candidate comparison, ad-hoc signature
+mechanics, and rejection of ad-hoc builds by the production update-trust path.
 
 The dedicated Mac is still required to validate:
 
