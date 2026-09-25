@@ -15,7 +15,7 @@ private func makeBridgeHelper(
     let script = """
     #!/bin/sh
     set -eu
-    (body)
+    \(body)
     """
     try Data(script.utf8).write(to: helper)
     try FileManager.default.setAttributes(
@@ -31,11 +31,11 @@ private func expectBridgeError<T>(
 ) {
     do {
         _ = try operation()
-        Issue.record("Expected bridge error (expected)")
+        Issue.record("Expected bridge error \(expected)")
     } catch let error as DesktopBridgeError {
         #expect(error == expected)
     } catch {
-        Issue.record("Unexpected error type: (error)")
+        Issue.record("Unexpected error type: \(error)")
     }
 }
 
