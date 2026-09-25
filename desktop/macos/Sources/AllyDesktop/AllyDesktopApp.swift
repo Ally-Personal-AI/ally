@@ -9,6 +9,7 @@ private enum SidebarSelection: Hashable {
     case research
     case tasks
     case attention
+    case settings
     case system
 }
 
@@ -63,6 +64,8 @@ private struct RootView: View {
                         .tag(SidebarSelection.tasks)
                     Label("Attention", systemImage: "bell.badge")
                         .tag(SidebarSelection.attention)
+                    Label("Settings", systemImage: "slider.horizontal.3")
+                        .tag(SidebarSelection.settings)
                     Label("System", systemImage: "gauge.with.dots.needle.67percent")
                         .tag(SidebarSelection.system)
                 }
@@ -83,6 +86,8 @@ private struct RootView: View {
                     TasksScreen(model: model)
                 case .attention:
                     AttentionScreen(model: model)
+                case .settings:
+                    SettingsScreen(model: model)
                 case .system, .none:
                     SystemScreen(model: model)
                 }
@@ -1149,6 +1154,345 @@ private struct AttentionDetailScreen: View {
         }
     }
 }
+
+private struct SettingsScreen: View {
+    @ObservedObject var model: AppModel
+
+    @State private var globalDraft = ""
+    @State private var globalEnabled = true
+    @State private var editingProfile: UserInstructionsSummary?
+    @State private var showingEditor = false
+    @State private var pendingClear: UserInstructionsSummary?
+    @State private var showingClearConfirmation = false
+    @State private var previewProject = ""
+    @State private var previewConversation = ""
+    @State private var previewTask = ""
+    @State private var previewSession = ""
+
+    private var globalProfile: UserInstructionsSummary? {
+        model.instructionProfiles.first { $0.scope == "global" }
+    }
+
+    private var scopedProfiles: [UserInstructionsSummary] {
+        model.instructionProfiles.filter { $0.scope != "global" }
+    }
+
+    var body: some View {
+        Form {
+            Section("Global instructions") {
+                Text(
+                    "These private instructions shape Ally's normal behavior. They do not grant tool, network, model-selection, or security authority."
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+                TextEditor(text: $globalDraft)
+                    .frame(minHeight: 150)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(.quaternary)
+                    }
+
+                Toggle("Enabled", isOn: $globalEnabled)
+
+                HStack {
+                    Button("Save Global Instructions") {
+                        Task {
+                            await model.setInstructions(
+                                scope: "global",
+                                scopeKey: nil,
+                                content: globalDraft,
+                                enabled: globalEnabled
+                            )
+                        }
+                    }
+                    .disabled(
+                        model.isBusy ||
+                        globalDraft.trimmingCharacters(
+                            in: .whitespacesAndNewlines
+                        ).isEmpty
+                    )
+
+                    if let globalProfile {
+                        Button("Clear Global Instructions", role: .destructive) {
+                            pendingClear = globalProfile
+                            showingClearConfirmation = true
+                        }
+                        .disabled(model.isBusy)
+                    }
+                }
+
+                if let globalProfile {
+                    Text("Updated \(globalProfile.updatedAt)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("No global profile is configured yet.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("Scoped instructions") {
+                if scopedProfiles.isEmpty {
+                    Text(
+                        "No project, conversation, or task-specific profiles are configured."
+                    )
+                    .foregroundStyle(.secondary)
+                } else {
+                    ForEach(scopedProfiles) { profile in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(profile.displayScope)
+                                    .font(.headline)
+                                Spacer()
+                                Text(profile.enabled ? "Enabled" : "Disabled")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Text(profile.content)
+                                .lineLimit(4)
+                                .textSelection(.enabled)
+
+                            Text("Updated \(profile.updatedAt)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            HStack {
+                                Button("Edit") {
+                                    editingProfile = profile
+                                    showingEditor = true
+                                }
+                                Button(profile.enabled ? "Disable" : "Enable") {
+                                    Task {
+                                        await model.setInstructionsEnabled(
+                                            profile,
+                                            enabled: !profile.enabled
+                                        )
+                                    }
+                                }
+                                Button("Clear", role: .destructive) {
+                                    pendingClear = profile
+                                    showingClearConfirmation = true
+                                }
+                            }
+                            .disabled(model.isBusy)
+                        }
+                        .padding(.vertical, 5)
+                    }
+                }
+
+                Button {
+                    editingProfile = nil
+                    showingEditor = true
+                } label: {
+                    Label("Add Scoped Profile", systemImage: "plus")
+                }
+                .disabled(model.isBusy)
+            }
+
+            Section("Resolution preview") {
+                Text(
+                    "Preview the enabled profiles Ally would compose for an explicit local context. Session instructions are preview-only and are not persisted here."
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+                TextField("Project key (optional)", text: $previewProject)
+                    .textFieldStyle(.roundedBorder)
+                TextField(
+                    "Conversation ID/key (optional)",
+                    text: $previewConversation
+                )
+                .textFieldStyle(.roundedBorder)
+                TextField("Task ID/key (optional)", text: $previewTask)
+                    .textFieldStyle(.roundedBorder)
+                TextField(
+                    "Session instructions (optional)",
+                    text: $previewSession,
+                    axis: .vertical
+                )
+                .lineLimit(2...5)
+                .textFieldStyle(.roundedBorder)
+
+                Button("Preview Resolution") {
+                    Task {
+                        await model.resolveInstructions(
+                            projectKey: previewProject,
+                            conversationKey: previewConversation,
+                            taskKey: previewTask,
+                            sessionInstructions: previewSession
+                        )
+                    }
+                }
+                .disabled(model.isBusy)
+
+                if let resolution = model.instructionResolution {
+                    if resolution.contributions.isEmpty {
+                        Text("No enabled instructions resolve for this context.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(resolution.contributions) { contribution in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(contribution.displayScope)
+                                    .font(.headline)
+                                Text(contribution.content)
+                                    .textSelection(.enabled)
+                            }
+                            .padding(.vertical, 4)
+                        }
+
+                        if let rendered = resolution.rendered {
+                            DisclosureGroup("Rendered local instruction prompt") {
+                                Text(rendered)
+                                    .font(.caption.monospaced())
+                                    .textSelection(.enabled)
+                                    .padding(.top, 4)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .navigationTitle("Settings")
+        .task {
+            await model.refreshInstructions()
+            syncGlobalDraft()
+        }
+        .onChange(of: model.instructionProfiles) { _, _ in
+            syncGlobalDraft()
+        }
+        .sheet(isPresented: $showingEditor) {
+            InstructionEditorSheet(
+                profile: editingProfile,
+                isBusy: model.isBusy,
+                cancel: { showingEditor = false },
+                save: { scope, key, content, enabled in
+                    showingEditor = false
+                    Task {
+                        await model.setInstructions(
+                            scope: scope,
+                            scopeKey: key,
+                            content: content,
+                            enabled: enabled
+                        )
+                    }
+                }
+            )
+        }
+        .alert(
+            "Clear this instruction profile?",
+            isPresented: $showingClearConfirmation,
+            presenting: pendingClear
+        ) { profile in
+            Button("Cancel", role: .cancel) {}
+            Button("Clear", role: .destructive) {
+                Task { await model.clearInstructions(profile) }
+            }
+        } message: { profile in
+            Text(
+                "This permanently removes \(profile.displayScope). Other instruction scopes are unchanged."
+            )
+        }
+    }
+
+    private func syncGlobalDraft() {
+        if let profile = globalProfile {
+            globalDraft = profile.content
+            globalEnabled = profile.enabled
+        } else {
+            globalDraft = ""
+            globalEnabled = true
+        }
+    }
+}
+
+private struct InstructionEditorSheet: View {
+    let profile: UserInstructionsSummary?
+    let isBusy: Bool
+    let cancel: () -> Void
+    let save: (String, String, String, Bool) -> Void
+
+    @State private var scope: String
+    @State private var scopeKey: String
+    @State private var content: String
+    @State private var enabled: Bool
+
+    init(
+        profile: UserInstructionsSummary?,
+        isBusy: Bool,
+        cancel: @escaping () -> Void,
+        save: @escaping (String, String, String, Bool) -> Void
+    ) {
+        self.profile = profile
+        self.isBusy = isBusy
+        self.cancel = cancel
+        self.save = save
+        _scope = State(initialValue: profile?.scope ?? "project")
+        _scopeKey = State(initialValue: profile?.scopeKey ?? "")
+        _content = State(initialValue: profile?.content ?? "")
+        _enabled = State(initialValue: profile?.enabled ?? true)
+    }
+
+    private var canSave: Bool {
+        !scopeKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(profile == nil ? "Add Scoped Instructions" : "Edit Scoped Instructions")
+                .font(.title2)
+
+            Picker("Scope", selection: $scope) {
+                Text("Project").tag("project")
+                Text("Conversation").tag("conversation")
+                Text("Task").tag("task")
+            }
+            .pickerStyle(.segmented)
+            .disabled(profile != nil)
+
+            TextField("Exact scope key", text: $scopeKey)
+                .textFieldStyle(.roundedBorder)
+                .disabled(profile != nil)
+
+            TextEditor(text: $content)
+                .frame(minHeight: 220)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(.quaternary)
+                }
+
+            Toggle("Enabled", isOn: $enabled)
+
+            Text(
+                "Instruction text changes Ally's behavior only. It cannot grant permissions, approve external disclosure, or select a runtime."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            HStack {
+                Spacer()
+                Button("Cancel", action: cancel)
+                Button("Save") {
+                    save(
+                        scope,
+                        scopeKey.trimmingCharacters(in: .whitespacesAndNewlines),
+                        content,
+                        enabled
+                    )
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(isBusy || !canSave)
+            }
+        }
+        .padding()
+        .frame(minWidth: 620, minHeight: 430)
+    }
+}
+
 
 private struct SystemScreen: View {
     @ObservedObject var model: AppModel
