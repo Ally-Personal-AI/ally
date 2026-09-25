@@ -18,6 +18,7 @@ final class AppModel: ObservableObject {
     @Published var researchInspection: EgressInspection?
     @Published var researchResults: [WebSearchResult] = []
     @Published var researchSynthesis: WebResearchSynthesis?
+    @Published var researchSynthesisStatus: String?
     @Published var researchStatus: String?
     @Published var researchMoreResultsAvailable = false
     @Published var selectedConversationID: String?
@@ -481,6 +482,7 @@ final class AppModel: ObservableObject {
             researchInspection = nil
             researchResults = []
             researchSynthesis = nil
+            researchSynthesisStatus = nil
             researchStatus = nil
             researchMoreResultsAvailable = false
             return
@@ -522,12 +524,14 @@ final class AppModel: ObservableObject {
             researchStatus = execution.search.status
             researchMoreResultsAvailable = execution.search.moreResultsAvailable
             researchSynthesis = execution.synthesis
+            researchSynthesisStatus = execution.synthesisStatus
             if execution.search.status == "succeeded" {
                 researchResults = execution.search.results
                 errorMessage = nil
             } else {
                 researchResults = []
                 researchSynthesis = nil
+                researchSynthesisStatus = nil
                 if execution.search.status == "failed" {
                     errorMessage = "Web research failed safely: \(execution.search.errorClass ?? "ExternalResearchError")"
                 }
@@ -535,6 +539,7 @@ final class AppModel: ObservableObject {
         } catch {
             researchResults = []
             researchSynthesis = nil
+            researchSynthesisStatus = nil
             researchStatus = nil
             researchMoreResultsAvailable = false
             errorMessage = error.localizedDescription
@@ -545,6 +550,7 @@ final class AppModel: ObservableObject {
         researchInspection = nil
         researchResults = []
         researchSynthesis = nil
+        researchSynthesisStatus = nil
         researchStatus = nil
         researchMoreResultsAvailable = false
     }
