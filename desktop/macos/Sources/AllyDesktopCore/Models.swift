@@ -251,6 +251,46 @@ public struct KnowledgeIngestResult: Decodable, Sendable, Equatable {
 }
 
 
+public struct EgressFieldManifest: Decodable, Sendable, Equatable, Identifiable {
+    public let name: String
+    public let classification: String
+
+    public var id: String {
+        name
+    }
+}
+
+public struct EgressInspection: Decodable, Sendable, Equatable {
+    public let requestId: String
+    public let service: String
+    public let operation: String
+    public let decision: String
+    public let fields: [EgressFieldManifest]
+    public let errorClass: String?
+}
+
+public struct WebSearchResult: Decodable, Sendable, Equatable, Identifiable {
+    public let title: String
+    public let url: String
+    public let description: String
+
+    public var id: String {
+        url
+    }
+}
+
+public struct WebResearchExecution: Decodable, Sendable, Equatable {
+    public let requestId: String
+    public let service: String
+    public let operation: String
+    public let decision: String
+    public let status: String
+    public let results: [WebSearchResult]
+    public let moreResultsAvailable: Bool
+    public let errorClass: String?
+}
+
+
 public struct RuntimeProfileSummary: Decodable, Sendable, Equatable, Identifiable {
     public let profileId: String
     public let generatedAt: String
