@@ -1529,12 +1529,11 @@ def _run_command(argv: Sequence[str] | None) -> int:
             session_instructions=cast(str | None, args.session_instructions),
         )
 
-    if args.command == "voice":
-        if args.voice_command == "inspect-wav":
-            return run_inspect_voice_wav(
-                path=cast(str, args.path),
-                json_output=cast(bool, args.json_output),
-            )
+    if args.command == "voice" and args.voice_command == "inspect-wav":
+        return run_inspect_voice_wav(
+            path=cast(str, args.path),
+            json_output=cast(bool, args.json_output),
+        )
 
     if args.command == "config":
         if args.config_command == "path":
