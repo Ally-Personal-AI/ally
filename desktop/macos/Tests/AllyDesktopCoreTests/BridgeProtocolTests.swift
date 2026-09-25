@@ -5,17 +5,19 @@ import UserNotifications
 @testable import AllyDesktopCore
 
 @Test func decodesBridgeInfoEnvelope() throws {
-    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":14,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap","conversation.search","conversation.delete","knowledge.delete","instructions.list","instructions.resolve","memory.remember","memory.propose","memory.accept_proposals","research.inspect","research.search","research.answer","task.propose","task.create"]}}"#.utf8)
+    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":15,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap","data.backup","data.validate_backup","conversation.search","conversation.delete","knowledge.delete","instructions.list","instructions.resolve","memory.remember","memory.propose","memory.accept_proposals","research.inspect","research.search","research.answer","task.propose","task.create"]}}"#.utf8)
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let envelope = try decoder.decode(BridgeEnvelope<BridgeInfo>.self, from: data)
 
     #expect(envelope.ok)
-    #expect(envelope.result?.protocolVersion == 14)
+    #expect(envelope.result?.protocolVersion == 15)
     #expect(envelope.result?.transport == "stdio")
     #expect(
         envelope.result?.capabilities == [
             "bootstrap",
+            "data.backup",
+            "data.validate_backup",
             "conversation.search",
             "conversation.delete",
             "knowledge.delete",
@@ -31,6 +33,50 @@ import UserNotifications
             "task.create",
         ]
     )
+}
+
+@Test func decodesPortableBackupManifestMetadata() throws {
+    let data = Data(#"{"id":"backup","ok":true,"result":{"format":"ally-backup","schema_version":1,"created_at":"2026-09-25T22:00:00Z","ally_version":"0.1.0.dev0","database":{"filename":"ally.sqlite3","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size_bytes":4096,"schema_versions":[1,2,3,14]}}}"#.utf8)
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    let envelope = try decoder.decode(
+        BridgeEnvelope<BackupManifestSummary>.self,
+        from: data
+    )
+
+    #expect(envelope.result?.format == "ally-backup")
+    #expect(envelope.result?.schemaVersion == 1)
+    #expect(envelope.result?.database.filename == "ally.sqlite3")
+    #expect(envelope.result?.database.sizeBytes == 4096)
+    #expect(envelope.result?.database.schemaVersions == [1, 2, 3, 14])
+    #expect(
+        envelope.result?.database.sha256
+            == String(repeating: "a", count: 64)
+    )
+}
+
+@Test func encodesExactPortableBackupPathWithoutRestoreAuthority() throws {
+    let request = BridgeRequest(
+        id: "synthetic-backup",
+        method: "data.backup",
+        params: [
+            "path": .string("/Users/synthetic/Ally Backup.ally-backup"),
+        ]
+    )
+    let encoded = try JSONEncoder().encode(request)
+    let object = try #require(
+        JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+    )
+    let params = try #require(object["params"] as? [String: Any])
+
+    #expect(object["method"] as? String == "data.backup")
+    #expect(
+        params["path"] as? String
+            == "/Users/synthetic/Ally Backup.ally-backup"
+    )
+    #expect(params["overwrite"] == nil)
+    #expect(params["destination"] == nil)
+    #expect(String(decoding: encoded, as: UTF8.self).contains("restore") == false)
 }
 
 @Test func knowledgeUpdatePayloadReusesExistingSourceIdentity() throws {
