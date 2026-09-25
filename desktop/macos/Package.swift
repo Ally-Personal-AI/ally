@@ -20,5 +20,9 @@ let package = Package(
             name: "AllyDesktopCoreTests",
             dependencies: ["AllyDesktopCore"]
         ),
+        .testTarget(
+            name: "AllyDesktopAppTests",
+            dependencies: ["AllyDesktop", "AllyDesktopCore"]
+        ),
     ]
 )
