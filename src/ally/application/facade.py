@@ -45,6 +45,7 @@ from ally.application.models import (
     SetUserInstructionsRequest,
     SupersedeMemoryRequest,
     TaskBootstrapSection,
+    TaskProposalRequest,
     TaskView,
 )
 from ally.application.operations import ApplicationOperations
@@ -78,6 +79,7 @@ from ally.memory import (
 )
 from ally.memory.retrieval import LexicalMemoryRetriever, MemoryContextProvider
 from ally.models import ModelProvider
+from ally.planning import ModelTaskPlanner
 from ally.research import (
     ResearchService,
     WebResearchExecution,
@@ -650,6 +652,20 @@ class AllyApplication:
 
         research = self._require_research()
         return research.search(request, approved=approved)
+
+    def propose_task(self, request: TaskProposalRequest) -> TaskPlan:
+        """Return an untrusted plan proposal without persisting or executing it."""
+
+        operations = self._require_operations()
+        if not operations.planning_tools:
+            raise ApplicationUnavailableError("task planning tools are not available")
+
+        target = self.resolve_inference_target()
+        with self._provider_factory(target) as provider:
+            return ModelTaskPlanner(provider).propose(
+                goal=request.goal,
+                tools=operations.planning_tools,
+            )
 
     def create_task(self, plan: TaskPlan) -> TaskView:
         operations = self._require_operations()
