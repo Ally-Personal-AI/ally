@@ -16,7 +16,7 @@ from typing import cast
 _REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 _ENTRYPOINT = _REPOSITORY_ROOT / "scripts/ally_desktop_bridge_entry.py"
 _HELPER_NAME = "ally-desktop-bridge"
-_EXPECTED_PROTOCOL_VERSION = 6
+_EXPECTED_PROTOCOL_VERSION = 7
 _MAXIMUM_SMOKE_RESPONSE_BYTES = 2 * 1024 * 1024
 
 
