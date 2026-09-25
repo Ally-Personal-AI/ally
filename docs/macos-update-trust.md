@@ -81,6 +81,38 @@ The verifier invokes fixed absolute Apple tool paths and does not use a shell.
 Raw subprocess output and local application paths are not returned in the
 accepted JSON result.
 
+## Pre-install preparation
+
+A verified forward candidate can be prepared without replacing application code:
+
+```bash
+uv run python scripts/macos_update_prepare.py \
+  --current /Applications/Ally.app \
+  --candidate /private/staging/Ally.app \
+  --team-id <APPLE-DEVELOPER-TEAM-ID>
+```
+
+If the candidate raises the supported database schema, preparation fails closed
+unless a fresh backup destination is supplied:
+
+```bash
+uv run python scripts/macos_update_prepare.py \
+  --current /Applications/Ally.app \
+  --candidate /private/staging/Ally.app \
+  --team-id <APPLE-DEVELOPER-TEAM-ID> \
+  --backup-output /absolute/private/path/before-update.ally-backup
+```
+
+Preparation always authenticates the installed and candidate applications first.
+When a backup is requested, Ally creates it through the existing atomic
+backup boundary, re-opens it through the normal validation path, verifies that
+its schema tail matches the installed release contract, and SHA-256 binds both
+the archive and contained database into a path-free preparation record.
+
+The preparation boundary does not fetch an update, replace `Ally.app`, or run
+the candidate's database migrations. A backup may also be requested for a
+non-schema-raising update as an additional operator safety measure.
+
 ## Deliberate non-capabilities
 
 This boundary does not:
