@@ -81,6 +81,27 @@ uv run ally research search \
 The initial interface requires approval per execution. There is no global
 "trust all future search queries" switch.
 
+## Native desktop flow
+
+The macOS app exposes a dedicated Research surface over desktop bridge protocol
+v8.
+
+The app first calls `research.inspect`. That response contains only the
+destination, operation, decision, and field names/classifications. It never
+echoes the query.
+
+When inspection requires approval, the app displays the exact locally entered
+query in a confirmation alert. Only the explicit **Approve Search** action sends
+`approved=true` with that exact query to `research.search`. Cancelling the
+alert performs no external request.
+
+The bridge schema accepts only `query`, `count`, and `approved` for search.
+Attempts to attach conversation history, memory, knowledge, instructions, or
+other hidden context fail validation before egress.
+
+Returned results are shown as bounded title/URL/snippet records. Ally does not
+automatically fetch additional pages or follow result links.
+
 ## Result boundary
 
 The Brave adapter normalizes only bounded public result fields:
