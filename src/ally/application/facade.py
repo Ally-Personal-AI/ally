@@ -73,6 +73,7 @@ from ally.memory import (
 from ally.memory.retrieval import LexicalMemoryRetriever, MemoryContextProvider
 from ally.models import ModelProvider
 from ally.research import (
+    ResearchService,
     WebResearchExecution,
     WebSearchRequest,
 )
