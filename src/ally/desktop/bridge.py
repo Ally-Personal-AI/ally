@@ -570,8 +570,8 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
 
     if request.method == "knowledge.delete":
         params = cast(
-            _KnowledgeSourceParams,
-            _validate_params(_KnowledgeSourceParams, request.params),
+            _KnowledgeParams,
+            _validate_params(_KnowledgeParams, request.params),
         )
         return _json_value(app.delete_knowledge_source(params.source_id))
 
