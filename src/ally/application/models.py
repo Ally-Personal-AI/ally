@@ -22,7 +22,7 @@ from ally.memory import (
     MemoryPrivacy,
     MemorySourceType,
 )
-from ally.models import ChatResponse
+from ally.models import ChatResponse, ChatRole
 from ally.runtime_profiles import ResolvedInferenceTarget
 from ally.service import ServiceCycleRunRecord, ServiceHealthReport
 from ally.tasks import TaskRecord, TaskStepRecord
@@ -75,6 +75,38 @@ class ConversationView(BaseModel):
 
     conversation: Conversation
     messages: tuple[ConversationMessage, ...]
+
+
+class ConversationSearchResult(BaseModel):
+    """One bounded local conversation-history search result."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    conversation: Conversation
+    score: float = Field(ge=0.0)
+    match_kind: Literal["title", "message"]
+    message_id: UUID | None = None
+    message_position: int | None = Field(default=None, ge=0)
+    message_role: ChatRole | None = None
+    snippet: str | None = Field(default=None, min_length=1, max_length=360)
+
+    @model_validator(mode="after")
+    def validate_match_shape(self) -> ConversationSearchResult:
+        message_fields = (
+            self.message_id,
+            self.message_position,
+            self.message_role,
+            self.snippet,
+        )
+        if self.match_kind == "title" and any(
+            value is not None for value in message_fields
+        ):
+            raise ValueError("title conversation hits cannot include message fields")
+        if self.match_kind == "message" and any(
+            value is None for value in message_fields
+        ):
+            raise ValueError("message conversation hits require message fields")
+        return self
 
 
 class RuntimeInferenceStatus(BaseModel):
