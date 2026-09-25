@@ -1298,7 +1298,7 @@ def test_bridge_task_proposal_rejects_undeclared_model_tool_before_persistence(
 
     assert not response.ok
     assert response.error is not None
-    assert response.error.code == "operation_failed"
+    assert response.error.code == "invalid_request"
     assert app.list_tasks() == ()
     assert tool.calls == 0
 
