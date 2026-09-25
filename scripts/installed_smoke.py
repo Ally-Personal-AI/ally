@@ -28,6 +28,7 @@ from zipfile import ZipFile
 import ally
 from ally.cli import main as ally_main
 from ally.composition import build_default_application
+from ally.desktop.bridge import BRIDGE_PROTOCOL_VERSION
 from ally.desktop.bridge import main as desktop_bridge_main
 from ally.diagnostics import load_validation_report
 from ally.storage.sqlite import SQLiteConversationStore, SQLiteDatabase, SQLiteMemoryStore
@@ -134,8 +135,10 @@ def run_workflows(root: Path) -> None:
     ))
     require(
         bridge_info["ok"] is True
-        and bridge_info["result"]["protocol_version"] == 7
-        and bridge_info["result"]["transport"] == "stdio",
+        and bridge_info["result"]["protocol_version"] == BRIDGE_PROTOCOL_VERSION
+        and bridge_info["result"]["transport"] == "stdio"
+        and "research.inspect" in bridge_info["result"]["capabilities"]
+        and "research.search" in bridge_info["result"]["capabilities"],
         "installed desktop bridge protocol",
     )
     core = json.loads(output([*console, "eval", "run", "--json"]))

@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -16,12 +17,23 @@ from typing import cast
 _REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 _ENTRYPOINT = _REPOSITORY_ROOT / "scripts/ally_desktop_bridge_entry.py"
 _HELPER_NAME = "ally-desktop-bridge"
-_EXPECTED_PROTOCOL_VERSION = 7
+_BRIDGE_CLIENT_SWIFT = (
+    _REPOSITORY_ROOT
+    / "desktop/macos/Sources/AllyDesktopCore/BridgeClient.swift"
+)
 _MAXIMUM_SMOKE_RESPONSE_BYTES = 2 * 1024 * 1024
 
 
 class HelperBuildError(RuntimeError):
     """Raised when the standalone helper cannot be built or verified safely."""
+
+
+def _desktop_protocol_version() -> int:
+    content = _BRIDGE_CLIENT_SWIFT.read_text(encoding="utf-8")
+    match = re.search(r"\bsupportedProtocolVersion\s*=\s*(\d+)", content)
+    if match is None:
+        raise HelperBuildError("desktop protocol version could not be determined")
+    return int(match.group(1))
 
 
 def _require_macos() -> None:
@@ -170,7 +182,7 @@ def verify(helper: Path) -> None:
     if not isinstance(result_value, dict):
         raise HelperBuildError("frozen helper bridge.info result is invalid")
     result = cast(dict[str, object], result_value)
-    if result.get("protocol_version") != _EXPECTED_PROTOCOL_VERSION:
+    if result.get("protocol_version") != _desktop_protocol_version():
         raise HelperBuildError("frozen helper protocol version does not match desktop")
 
     bootstrap = _bridge_call(resolved, "bootstrap")

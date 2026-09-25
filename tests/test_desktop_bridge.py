@@ -25,8 +25,16 @@ from ally.diagnostics import (
     PerformanceObservations,
     RuntimeProfile,
 )
+from ally.egress import (
+    DefaultEgressPolicy,
+    EgressAuditRecord,
+    EgressExecutor,
+    EgressFieldSpec,
+    EgressOperationSpec,
+)
 from ally.events import EventRuntime, NewEvent
 from ally.models import ChatRequest, ChatResponse, ModelProvider
+from ally.research import WEB_SEARCH_OPERATION, ResearchService
 from ally.runtime_profiles import (
     EvidenceReference,
     InferenceTargetError,
@@ -64,6 +72,61 @@ from ally.storage.sqlite import (
 from ally.tasks import NewTaskStep, TaskPlan, TaskRunner
 from ally.tools import ToolRegistry, ToolSpec
 from ally.tools.executor import ToolExecutor
+
+
+class InMemoryEgressAuditStore:
+    def __init__(self) -> None:
+        self.records: list[EgressAuditRecord] = []
+
+    def append(self, record: EgressAuditRecord) -> None:
+        self.records.append(record)
+
+    def list(self, *, limit: int = 100) -> tuple[EgressAuditRecord, ...]:
+        return tuple(reversed(self.records[-limit:]))
+
+
+class RecordingResearchAdapter:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict[str, JsonValue]]] = []
+
+    @property
+    def service(self) -> str:
+        return "synthetic.search"
+
+    @property
+    def operations(self) -> tuple[EgressOperationSpec, ...]:
+        return (
+            EgressOperationSpec(
+                operation=WEB_SEARCH_OPERATION,
+                fields=(
+                    EgressFieldSpec(
+                        name="query",
+                        classification="explicit_outbound",
+                    ),
+                    EgressFieldSpec(
+                        name="count",
+                        classification="public",
+                    ),
+                ),
+            ),
+        )
+
+    def send(
+        self,
+        operation: str,
+        payload: dict[str, JsonValue],
+    ) -> JsonValue:
+        self.calls.append((operation, payload))
+        return {
+            "results": [
+                {
+                    "title": "Synthetic public result",
+                    "url": "https://example.test/research",
+                    "description": "Synthetic public snippet.",
+                }
+            ],
+            "more_results_available": False,
+        }
 
 
 class ReversibleTool:
@@ -273,6 +336,49 @@ def _task_application(
         ),
     )
     return app, tool
+
+
+def _research_application(
+    tmp_path: Path,
+) -> tuple[AllyApplication, RecordingResearchAdapter, InMemoryEgressAuditStore]:
+    database = SQLiteDatabase(tmp_path / "research.sqlite3")
+    tasks = SQLiteTaskStore(database)
+    registry = ToolRegistry()
+    adapter = RecordingResearchAdapter()
+    audit = InMemoryEgressAuditStore()
+    app = AllyApplication(
+        conversations=SQLiteConversationStore(database),
+        memories=SQLiteMemoryStore(database),
+        knowledge=SQLiteKnowledgeStore(database),
+        instructions=SQLiteUserInstructionsStore(database),
+        target_resolver=_target,
+        provider_factory=lambda target: CapturingProvider([]),
+        operations=ApplicationOperations(
+            tasks=tasks,
+            task_runner=TaskRunner(
+                tasks,
+                ToolExecutor(
+                    registry,
+                    DefaultToolPolicy(),
+                    SQLiteToolAuditStore(database),
+                ),
+            ),
+            events=SQLiteEventStore(database),
+            attention_deliveries=SQLiteAttentionDeliveryStore(database),
+            service_runs=SQLiteServiceCycleRunStore(database),
+            service_health=lambda: ServiceHealthReport(
+                status="healthy",
+                database_exists=True,
+                database_integrity_ok=True,
+                schema_current=True,
+            ),
+            research=ResearchService(
+                executor=EgressExecutor(DefaultEgressPolicy(), audit),
+                adapter=adapter,
+            ),
+        ),
+    )
+    return app, adapter, audit
 
 
 def _attention_application(
@@ -629,6 +735,93 @@ def test_bridge_knowledge_text_ingest_detail_and_search_are_local_contracts(
     assert not path_attempt.ok
     assert path_attempt.error is not None
     assert path_attempt.error.code == "invalid_request"
+
+
+def test_bridge_research_requires_exact_query_approval(
+    tmp_path: Path,
+) -> None:
+    app, adapter, audit = _research_application(tmp_path)
+    query = "synthetic public research query"
+
+    inspection = handle_request_json(
+        app,
+        _request(
+            "research.inspect",
+            {"query": query, "count": 3},
+        ),
+    )
+
+    assert inspection.ok
+    assert isinstance(inspection.result, dict)
+    assert inspection.result["decision"] == "require_approval"
+    assert query not in json.dumps(inspection.result)
+    assert adapter.calls == []
+    assert audit.records == []
+
+    blocked = handle_request_json(
+        app,
+        _request(
+            "research.search",
+            {"query": query, "count": 3},
+        ),
+    )
+
+    assert blocked.ok
+    assert isinstance(blocked.result, dict)
+    assert blocked.result["status"] == "approval_required"
+    assert adapter.calls == []
+    assert len(audit.records) == 1
+    assert query not in audit.records[0].model_dump_json()
+
+    approved = handle_request_json(
+        app,
+        _request(
+            "research.search",
+            {"query": query, "count": 3, "approved": True},
+        ),
+    )
+
+    assert approved.ok
+    assert isinstance(approved.result, dict)
+    assert approved.result["status"] == "succeeded"
+    results = approved.result["results"]
+    assert isinstance(results, list)
+    assert len(results) == 1
+    first = results[0]
+    assert isinstance(first, dict)
+    assert first["title"] == "Synthetic public result"
+    assert adapter.calls == [
+        (
+            WEB_SEARCH_OPERATION,
+            {"query": query, "count": 3},
+        )
+    ]
+    assert len(audit.records) == 2
+    assert query not in audit.records[-1].model_dump_json()
+
+
+def test_bridge_research_rejects_hidden_context_fields(
+    tmp_path: Path,
+) -> None:
+    app, adapter, _ = _research_application(tmp_path)
+
+    response = handle_request_json(
+        app,
+        _request(
+            "research.search",
+            {
+                "query": "synthetic public research query",
+                "count": 3,
+                "approved": True,
+                "conversation_history": "must never cross",
+            },
+        ),
+    )
+
+    assert not response.ok
+    assert response.error is not None
+    assert response.error.code == "invalid_request"
+    assert adapter.calls == []
 
 
 def test_bridge_runtime_profile_selection_accepts_only_installed_ids(
