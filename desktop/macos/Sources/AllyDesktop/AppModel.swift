@@ -265,17 +265,33 @@ final class AppModel: ObservableObject {
 
     func createConversation() async {
         guard let client else { return }
+        let selectionTokenAtStart = conversationSelectionToken
+        let selectedIDAtStart = selectedConversationID
         beginBusy()
         defer { endBusy() }
         do {
-            let created: ConversationSummary = try await client.call("conversation.create")
-            selectedConversationID = created.id
-            conversation = try await client.call(
-                "conversation.get",
-                params: ["conversation_id": .string(created.id)]
+            let created: ConversationSummary = try await client.call(
+                "conversation.create"
             )
-            let refreshed: BootstrapSnapshot = try await client.call("bootstrap")
-            snapshot = refreshed
+            let shouldSelectCreated =
+                conversationSelectionToken == selectionTokenAtStart
+                && selectedConversationID == selectedIDAtStart
+            if shouldSelectCreated {
+                let token = UUID()
+                conversationSelectionToken = token
+                selectedConversationID = created.id
+                let loaded: ConversationView = try await client.call(
+                    "conversation.get",
+                    params: ["conversation_id": .string(created.id)]
+                )
+                if
+                    conversationSelectionToken == token,
+                    selectedConversationID == created.id
+                {
+                    conversation = loaded
+                }
+            }
+            snapshot = try await client.call("bootstrap")
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -320,9 +336,12 @@ final class AppModel: ObservableObject {
                 params: ["conversation_id": .string(id)]
             )
             guard deleted else { return false }
-            selectedConversationID = nil
-            conversation = nil
-            composer = ""
+            if selectedConversationID == id {
+                conversationSelectionToken = nil
+                selectedConversationID = nil
+                conversation = nil
+                composer = ""
+            }
             conversationSearchResults = []
             snapshot = try await client.call("bootstrap")
             errorMessage = nil
@@ -488,6 +507,7 @@ final class AppModel: ObservableObject {
         guard let client else { return }
         let compact = content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !compact.isEmpty else { return }
+        let selectionToken = memorySelectionToken
         beginBusy()
         defer { endBusy() }
         do {
@@ -498,16 +518,25 @@ final class AppModel: ObservableObject {
                     "content": .string(compact),
                 ]
             )
-            async let refreshedMemories: [MemorySummary] = client.call(
+            memories = try await client.call(
                 "memory.list",
                 params: ["limit": .number(100)]
             )
-            async let original: MemorySummary = client.call(
-                "memory.get",
-                params: ["memory_id": .string(memoryID)]
-            )
-            memories = try await refreshedMemories
-            memoryDetail = try await original
+            if
+                memorySelectionToken == selectionToken,
+                selectedMemoryID == memoryID
+            {
+                let original: MemorySummary = try await client.call(
+                    "memory.get",
+                    params: ["memory_id": .string(memoryID)]
+                )
+                if
+                    memorySelectionToken == selectionToken,
+                    selectedMemoryID == memoryID
+                {
+                    memoryDetail = original
+                }
+            }
             memorySearchResults = []
             errorMessage = nil
         } catch {
@@ -517,6 +546,7 @@ final class AppModel: ObservableObject {
 
     func retractMemory(_ memoryID: String) async {
         guard let client else { return }
+        let selectionToken = memorySelectionToken
         beginBusy()
         defer { endBusy() }
         do {
@@ -524,7 +554,12 @@ final class AppModel: ObservableObject {
                 "memory.retract",
                 params: ["memory_id": .string(memoryID)]
             )
-            memoryDetail = updated
+            if
+                memorySelectionToken == selectionToken,
+                selectedMemoryID == memoryID
+            {
+                memoryDetail = updated
+            }
             memories = try await client.call(
                 "memory.list",
                 params: ["limit": .number(100)]
@@ -600,7 +635,11 @@ final class AppModel: ObservableObject {
                 params: ["source_id": .string(id)]
             )
             guard deleted else { return false }
-            knowledgeDetail = nil
+            if selectedKnowledgeSourceID == id {
+                knowledgeSelectionToken = nil
+                selectedKnowledgeSourceID = nil
+                knowledgeDetail = nil
+            }
             knowledgeSearchResults = []
             knowledge = try await client.call(
                 "knowledge.list",
@@ -625,6 +664,7 @@ final class AppModel: ObservableObject {
             source: source,
             text: compact
         )
+        let selectionToken = knowledgeSelectionToken
 
         beginBusy()
         defer { endBusy() }
@@ -633,16 +673,25 @@ final class AppModel: ObservableObject {
                 "knowledge.ingest_text",
                 params: payload.bridgeParams
             )
-            async let refreshedKnowledge: [KnowledgeSourceSummary] = client.call(
+            knowledge = try await client.call(
                 "knowledge.list",
                 params: ["limit": .number(100)]
             )
-            async let detail: KnowledgeSourceView = client.call(
-                "knowledge.get",
-                params: ["source_id": .string(result.source.id)]
-            )
-            knowledge = try await refreshedKnowledge
-            knowledgeDetail = try await detail
+            if
+                knowledgeSelectionToken == selectionToken,
+                selectedKnowledgeSourceID == result.source.id
+            {
+                let detail: KnowledgeSourceView = try await client.call(
+                    "knowledge.get",
+                    params: ["source_id": .string(result.source.id)]
+                )
+                if
+                    knowledgeSelectionToken == selectionToken,
+                    selectedKnowledgeSourceID == result.source.id
+                {
+                    knowledgeDetail = detail
+                }
+            }
             knowledgeSearchResults = []
             errorMessage = nil
             return true
@@ -990,6 +1039,7 @@ final class AppModel: ObservableObject {
 
     func markAttentionHandled(_ id: String) async {
         guard let client else { return }
+        let selectionToken = attentionSelectionToken
         beginBusy()
         defer { endBusy() }
         do {
@@ -997,7 +1047,12 @@ final class AppModel: ObservableObject {
                 "attention.mark_handled",
                 params: ["event_id": .string(id)]
             )
-            attentionDetail = updated
+            if
+                attentionSelectionToken == selectionToken,
+                selectedAttentionID == id
+            {
+                attentionDetail = updated
+            }
             async let events: [EventSummary] = client.call(
                 "attention.events",
                 params: ["limit": .number(100)]
@@ -1258,6 +1313,7 @@ final class AppModel: ObservableObject {
 
     func runTask(_ id: String) async {
         guard let client else { return }
+        let selectionToken = taskSelectionToken
         beginBusy()
         defer { endBusy() }
         do {
@@ -1265,7 +1321,12 @@ final class AppModel: ObservableObject {
                 "task.run",
                 params: ["task_id": .string(id)]
             )
-            taskDetail = updated
+            if
+                taskSelectionToken == selectionToken,
+                selectedTaskID == id
+            {
+                taskDetail = updated
+            }
             snapshot = try await client.call("bootstrap")
             errorMessage = nil
         } catch {
@@ -1275,6 +1336,7 @@ final class AppModel: ObservableObject {
 
     func approveTaskStep(taskID: String, stepID: String) async {
         guard let client else { return }
+        let selectionToken = taskSelectionToken
         beginBusy()
         defer { endBusy() }
         do {
@@ -1285,18 +1347,29 @@ final class AppModel: ObservableObject {
                     "step_id": .string(stepID),
                 ]
             )
-            taskDetail = updated
+            if
+                taskSelectionToken == selectionToken,
+                selectedTaskID == taskID
+            {
+                taskDetail = updated
+            }
             snapshot = try await client.call("bootstrap")
             errorMessage = nil
         } catch {
             let message = error.localizedDescription
-            await selectTask(taskID)
+            if
+                taskSelectionToken == selectionToken,
+                selectedTaskID == taskID
+            {
+                await selectTask(taskID)
+            }
             errorMessage = message
         }
     }
 
     func retryTaskStep(taskID: String, stepID: String) async {
         guard let client else { return }
+        let selectionToken = taskSelectionToken
         beginBusy()
         defer { endBusy() }
         do {
@@ -1307,12 +1380,22 @@ final class AppModel: ObservableObject {
                     "step_id": .string(stepID),
                 ]
             )
-            taskDetail = updated
+            if
+                taskSelectionToken == selectionToken,
+                selectedTaskID == taskID
+            {
+                taskDetail = updated
+            }
             snapshot = try await client.call("bootstrap")
             errorMessage = nil
         } catch {
             let message = error.localizedDescription
-            await selectTask(taskID)
+            if
+                taskSelectionToken == selectionToken,
+                selectedTaskID == taskID
+            {
+                await selectTask(taskID)
+            }
             errorMessage = message
         }
     }
@@ -1321,6 +1404,7 @@ final class AppModel: ObservableObject {
         guard let client, let id = selectedConversationID else { return }
         let text = composer.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+        let selectionToken = conversationSelectionToken
         composer = ""
         beginBusy()
         defer { endBusy() }
@@ -1332,10 +1416,16 @@ final class AppModel: ObservableObject {
                     "message": .string(text),
                 ]
             )
-            conversation = try await client.call(
+            let loaded: ConversationView = try await client.call(
                 "conversation.get",
                 params: ["conversation_id": .string(id)]
             )
+            if
+                conversationSelectionToken == selectionToken,
+                selectedConversationID == id
+            {
+                conversation = loaded
+            }
             snapshot = try await client.call("bootstrap")
             errorMessage = nil
         } catch {
