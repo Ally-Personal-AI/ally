@@ -22,7 +22,7 @@ from ally.diagnostics import (
     PerformanceObservations,
     RuntimeProfile,
 )
-from ally.events import NewEvent
+from ally.events import EventRuntime, NewEvent
 from ally.models import ChatRequest, ChatResponse, ModelProvider
 from ally.runtime_profiles import (
     EvidenceReference,
@@ -33,8 +33,13 @@ from ally.runtime_profiles import (
     resolve_inference_target,
     runtime_profile_id,
 )
+from ally.scheduler import SchedulerRuntime
 from ally.security.tool_policy import DefaultToolPolicy
-from ally.service import ServiceHealthReport
+from ally.service import (
+    DesktopProactiveCoordinator,
+    ServiceHealthReport,
+    SQLiteServiceLeaseStore,
+)
 from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
     SQLiteConversationStore,
@@ -42,6 +47,7 @@ from ally.storage.sqlite import (
     SQLiteEventStore,
     SQLiteKnowledgeStore,
     SQLiteMemoryStore,
+    SQLiteScheduleStore,
     SQLiteServiceCycleRunStore,
     SQLiteTaskStore,
     SQLiteToolAuditStore,
@@ -265,6 +271,7 @@ def _attention_application(
             SQLiteToolAuditStore(database),
         ),
     )
+    runs = SQLiteServiceCycleRunStore(database)
     app = AllyApplication(
         conversations=SQLiteConversationStore(database),
         memories=SQLiteMemoryStore(database),
@@ -277,12 +284,24 @@ def _attention_application(
             task_runner=runner,
             events=events,
             attention_deliveries=deliveries,
-            service_runs=SQLiteServiceCycleRunStore(database),
+            service_runs=runs,
             service_health=lambda: ServiceHealthReport(
                 status="healthy",
                 database_exists=True,
                 database_integrity_ok=True,
                 schema_current=True,
+            ),
+            desktop_proactive=DesktopProactiveCoordinator(
+                scheduler=SchedulerRuntime(
+                    SQLiteScheduleStore(database),
+                    EventRuntime(events),
+                ),
+                events=events,
+                deliveries=deliveries,
+                runs=runs,
+                leases=SQLiteServiceLeaseStore(
+                    tmp_path / "attention-runtime.sqlite3"
+                ),
             ),
         ),
     )
@@ -738,6 +757,103 @@ def test_bridge_attention_center_detail_history_and_handled_state(
     )
     assert pending.ok
     assert pending.result == []
+
+
+def test_bridge_prepares_minimized_notification_and_requires_exact_result(
+    tmp_path: Path,
+) -> None:
+    app, events, deliveries = _attention_application(tmp_path)
+    event = events.create(
+        NewEvent(
+            type="synthetic.app-owned-notification",
+            source="bridge-test",
+            importance="urgent",
+            payload={
+                "summary": "Synthetic visible reminder.",
+                "private_detail": "must stay out of notification candidate",
+            },
+        ),
+        attention="notify",
+    )
+
+    prepared = handle_request_json(
+        app,
+        _request("service.prepare_proactive"),
+    )
+    assert prepared.ok
+    assert isinstance(prepared.result, dict)
+    run = prepared.result["run"]
+    assert isinstance(run, dict)
+    run_id = run["id"]
+    assert isinstance(run_id, str)
+    assert run["status"] == "running"
+
+    candidates = prepared.result["candidates"]
+    assert isinstance(candidates, list)
+    assert len(candidates) == 1
+    candidate = candidates[0]
+    assert isinstance(candidate, dict)
+    assert candidate["event_id"] == str(event.id)
+    assert candidate["title"] == "Ally"
+    assert candidate["body"] == "Synthetic visible reminder."
+    rendered = json.dumps(candidate, sort_keys=True)
+    assert "private_detail" not in rendered
+
+    delivery_key = candidate["delivery_key"]
+    assert isinstance(delivery_key, str)
+
+    rejected = handle_request_json(
+        app,
+        _request(
+            "attention.notification_result",
+            {
+                "run_id": run_id,
+                "event_id": str(event.id),
+                "delivery_key": delivery_key,
+                "succeeded": True,
+                "title": "must not be accepted",
+            },
+        ),
+    )
+    assert not rejected.ok
+    assert rejected.error is not None
+    assert rejected.error.code == "invalid_request"
+    assert deliveries.get(event.id, "macos.notification") is None
+
+    accepted = handle_request_json(
+        app,
+        _request(
+            "attention.notification_result",
+            {
+                "run_id": run_id,
+                "event_id": str(event.id),
+                "delivery_key": delivery_key,
+                "succeeded": True,
+            },
+        ),
+    )
+    assert accepted.ok
+    assert isinstance(accepted.result, dict)
+    assert accepted.result["status"] == "succeeded"
+    assert accepted.result["sink_id"] == "macos.notification"
+
+    completed = handle_request_json(
+        app,
+        _request("service.complete_proactive", {"run_id": run_id}),
+    )
+    assert completed.ok
+    assert isinstance(completed.result, dict)
+    assert completed.result["status"] == "succeeded"
+    assert completed.result["delivery_attempts"] == 1
+    assert completed.result["delivery_failures"] == 0
+
+    prepared_again = handle_request_json(
+        app,
+        _request("service.prepare_proactive"),
+    )
+    assert prepared_again.ok
+    assert isinstance(prepared_again.result, dict)
+    assert prepared_again.result["candidates"] == []
 
 
 def test_bridge_task_approval_is_exactly_one_paused_step(

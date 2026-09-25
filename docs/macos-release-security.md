@@ -133,6 +133,27 @@ a substitute for signing its embedded binary payload correctly.
 The helper SHA-256 is still refreshed after final top-level helper signing and
 bound into the outer signed release manifest.
 
+## Notification and background-service identity
+
+The same stable signed bundle identity `ai.ally.personal` owns modern desktop
+notification authorization and delivery.
+
+The release desktop uses `UNUserNotificationCenter`; the deprecated Python
+`NSUserNotificationCenter` adapter is legacy CLI compatibility and is not a
+release dependency.
+
+Continuous proactivity is currently an explicit
+`SMAppService.mainApp` launch-at-login registration. This avoids installing a
+second notification-owning process before dedicated-machine identity behavior
+can be validated.
+
+Notification permission and launch-at-login registration are independent.
+Neither is silently enabled by installation or first launch.
+
+A future separate launch agent is acceptable only if its cross-process
+responsible-code, notification, signing, and user-control semantics are
+validated without weakening the stable main-app identity.
+
 ## User-owned data boundary
 
 Application state must remain outside `Ally.app`.

@@ -69,7 +69,7 @@ def test_assemble_creates_release_contract_and_manifest(tmp_path: Path) -> None:
     assert manifest["schema_version"] == 1
     assert manifest["bundle_identifier"] == "ai.ally.personal"
     assert manifest["ally_version"] == "0.1.0.dev0"
-    assert manifest["bridge_protocol_version"] == 5
+    assert manifest["bridge_protocol_version"] == 6
     assert (
         manifest["helper_relative_path"]
         == "Contents/Helpers/ally-desktop-bridge"

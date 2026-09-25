@@ -1,6 +1,6 @@
 # Ally macOS Desktop
 
-This Swift package is the first native Ally desktop presentation surface. It includes conversation/chat, searchable provenance-aware memory management, local knowledge detail/search/text ingestion, persisted task detail with exact one-step approval and failed-step retry, selection among already-installed validated runtime profiles, a durable Attention Center, and modern macOS notification authorization.
+This Swift package is Ally's native desktop presentation surface. It includes conversation/chat, searchable provenance-aware memory management, local knowledge detail/search/text ingestion, persisted task detail with exact one-step approval and failed-step retry, validated runtime-profile selection, the durable Attention Center, modern app-owned notification delivery, and explicit launch-at-login control.
 
 It depends on the local `ally-desktop-bridge` helper and never reimplements Ally
 Core policy, persistence, grounding, or model-selection logic.
@@ -21,6 +21,24 @@ swift test --package-path desktop/macos
 
 See `docs/desktop-shell.md` for the architecture, privacy boundary, current
 scope, and release-packaging direction.
+
+## App-owned proactivity
+
+The signed app uses bridge protocol v6 for a narrow prepare/ack/complete flow:
+
+- `service.prepare_proactive` returns rendered notification candidates only;
+- Swift delivers through `UNUserNotificationCenter` using the deterministic
+  delivery key;
+- `attention.notification_result` acknowledges only an exact run/event/key
+  tuple plus success/failure; and
+- `service.complete_proactive` lets Ally compute the terminal lifecycle state
+  from durable counters.
+
+Background proactivity is separately opt-in through `SMAppService.mainApp`.
+Registration and notification authorization are independent user choices.
+
+The deprecated Python `NSUserNotificationCenter` adapter is not part of the
+signed desktop delivery path.
 
 
 ## Release bundle foundation

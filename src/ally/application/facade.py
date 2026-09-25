@@ -19,8 +19,10 @@ from ally.application.models import (
     BootstrapLimits,
     ChatTurnRequest,
     ChatTurnResult,
+    CompleteDesktopProactiveRequest,
     ConversationBootstrapSection,
     ConversationView,
+    DesktopNotificationResultRequest,
     KnowledgeIngestResult,
     KnowledgeSearchResult,
     KnowledgeSourceView,
@@ -76,7 +78,13 @@ from ally.runtime_profiles import (
     RuntimeProfileCatalogError,
     ValidatedRuntimeProfile,
 )
-from ally.service import ServiceCycleRunRecord, ServiceHealthReport
+from ally.service import (
+    DesktopProactivePreparation,
+    ServiceCycleRunRecord,
+    ServiceHealthReport,
+    ServiceLeaseUnavailableError,
+    ServiceRunConflictError,
+)
 from ally.tasks import TaskPlan, TaskRecord, TaskStepRecord
 
 InferenceTargetResolver = Callable[
@@ -667,6 +675,81 @@ class AllyApplication:
             limit=limit,
             status=status,
         )
+
+    def prepare_desktop_proactive(
+        self,
+        *,
+        schedule_limit: int = 100,
+        delivery_limit: int = 50,
+    ) -> DesktopProactivePreparation:
+        """Prepare one bounded proactive cycle for app-owned notification delivery."""
+
+        operations = self._require_operations()
+        coordinator = operations.desktop_proactive
+        if coordinator is None:
+            raise ApplicationUnavailableError(
+                "desktop proactive coordinator is not available"
+            )
+        try:
+            return coordinator.prepare(
+                schedule_limit=schedule_limit,
+                delivery_limit=delivery_limit,
+            )
+        except (ServiceLeaseUnavailableError, ServiceRunConflictError) as exc:
+            raise ApplicationStateError(
+                "desktop proactive cycle is already active or stale"
+            ) from exc
+
+    def record_desktop_notification_result(
+        self,
+        request: DesktopNotificationResultRequest,
+    ) -> AttentionDeliveryRecord:
+        """Record one exact app-owned notification result without accepting payload."""
+
+        operations = self._require_operations()
+        coordinator = operations.desktop_proactive
+        if coordinator is None:
+            raise ApplicationUnavailableError(
+                "desktop proactive coordinator is not available"
+            )
+        try:
+            return coordinator.record_delivery_result(
+                run_id=request.run_id,
+                event_id=request.event_id,
+                delivery_key_value=request.delivery_key,
+                succeeded=request.succeeded,
+            )
+        except KeyError as exc:
+            raise ApplicationNotFoundError(
+                "Attention event or proactive run was not found"
+            ) from exc
+        except (ServiceLeaseUnavailableError, ServiceRunConflictError) as exc:
+            raise ApplicationStateError(
+                "desktop notification acknowledgement is stale"
+            ) from exc
+
+    def complete_desktop_proactive(
+        self,
+        request: CompleteDesktopProactiveRequest,
+    ) -> ServiceCycleRunRecord:
+        """Finish one prepared desktop proactive run using durable counters."""
+
+        operations = self._require_operations()
+        coordinator = operations.desktop_proactive
+        if coordinator is None:
+            raise ApplicationUnavailableError(
+                "desktop proactive coordinator is not available"
+            )
+        try:
+            return coordinator.complete(request.run_id)
+        except KeyError as exc:
+            raise ApplicationNotFoundError(
+                f"Service run not found: {request.run_id}"
+            ) from exc
+        except (ServiceLeaseUnavailableError, ServiceRunConflictError) as exc:
+            raise ApplicationStateError(
+                "desktop proactive completion is stale"
+            ) from exc
 
     def service_history(
         self,

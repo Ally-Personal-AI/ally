@@ -27,6 +27,17 @@ class ServiceCycleRunStore(Protocol):
         *,
         observed_at: datetime,
         started_at: datetime,
+        run_id: UUID | None = None,
+    ) -> ServiceCycleRunRecord:
+        ...
+
+    def update_running_progress(
+        self,
+        run_id: UUID,
+        *,
+        scheduled_events: int | None = None,
+        delivery_attempts_delta: int = 0,
+        delivery_failures_delta: int = 0,
     ) -> ServiceCycleRunRecord:
         ...
 

@@ -1132,6 +1132,52 @@ private struct SystemScreen: View {
                 ForEach(model.snapshot?.serviceHealth.report?.checks ?? []) { check in
                     LabeledContent(check.summary, value: check.severity)
                 }
+                LabeledContent(
+                    "Background activity",
+                    value: backgroundServiceStatus(model.backgroundServiceState)
+                )
+                if let lastCycle = model.lastProactiveCycleAt {
+                    LabeledContent(
+                        "Last local cycle",
+                        value: lastCycle.formatted(
+                            date: .abbreviated,
+                            time: .standard
+                        )
+                    )
+                }
+                if let cycleError = model.proactiveCycleError {
+                    Text(cycleError)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+
+                switch model.backgroundServiceState {
+                case .enabled:
+                    Button("Disable Background Proactivity") {
+                        model.disableBackgroundService()
+                    }
+                    Text("Ally is registered as the main app login item. While the app process is running, the signed app owns proactive cycles and modern notification delivery.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                case .requiresApproval:
+                    Button("Open Login Items Settings") {
+                        model.openBackgroundServiceSettings()
+                    }
+                    Text("macOS requires your approval before Ally may run at login.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                case .notRegistered, .notFound:
+                    Button("Enable Background Proactivity") {
+                        Task { await model.enableBackgroundService() }
+                    }
+                    Text("This explicitly registers the signed Ally app to launch at login. It does not install a separate desktop launch agent.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                case .unknown:
+                    Button("Refresh Background Status") {
+                        model.refreshBackgroundServiceState()
+                    }
+                }
             }
 
             Section("Attention") {
@@ -1147,6 +1193,9 @@ private struct SystemScreen: View {
         }
         .formStyle(.grouped)
         .navigationTitle("System")
+        .task {
+            model.refreshBackgroundServiceState()
+        }
         .alert(
             "Use this validated profile?",
             isPresented: $showingProfileSelection,
@@ -1175,6 +1224,23 @@ private struct SystemScreen: View {
 
     private func shortHash(_ value: String) -> String {
         String(value.prefix(12))
+    }
+
+    private func backgroundServiceStatus(
+        _ state: DesktopBackgroundServiceState
+    ) -> String {
+        switch state {
+        case .enabled:
+            return "Enabled"
+        case .notRegistered:
+            return "Not Registered"
+        case .requiresApproval:
+            return "Requires Approval"
+        case .notFound:
+            return "Not Registered"
+        case .unknown:
+            return "Unknown"
+        }
     }
 }
 #else

@@ -147,11 +147,19 @@ exactly one task/step pair, requires that durable step to currently be
 `approval_required`, and then forwards only that one step ID to the existing
 runner. It cannot approve a future step or a batch of steps.
 
-Notification delivery and proactive service-cycle execution remain intentionally
-outside the application-facade desktop mutation surface. The facade can mark an
-existing event handled, but that does not trigger delivery or alter durable
-delivery history. Native macOS notification authorization is owned by the
-Swift app and likewise does not grant delivery authority to the bridge.
+The application facade still does not directly call macOS notification APIs.
+Instead, the optional desktop proactive coordinator exposes a deliberately
+narrow handshake:
+
+- prepare one lease-protected scheduler cycle and return rendered candidates;
+- record one exact native delivery result bound to run/event/delivery IDs; and
+- complete that run using server-owned durable counters.
+
+The facade cannot accept caller-supplied notification content, sink selection,
+delivery metrics, or arbitrary OS-notification commands. Native macOS
+authorization and `UNUserNotificationCenter` delivery remain owned by the
+signed Swift app. Marking an event handled remains a separate explicit action
+and never follows automatically from delivery.
 
 ## Presentation rule
 

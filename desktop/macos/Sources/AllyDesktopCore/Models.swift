@@ -286,3 +286,20 @@ public struct RuntimeProfileCatalogView: Decodable, Sendable, Equatable {
     public let items: [RuntimeProfileSummary]
     public let activeProfileId: String?
 }
+
+
+public struct DesktopNotificationCandidate: Decodable, Sendable, Equatable, Identifiable {
+    public let eventId: String
+    public let deliveryKey: String
+    public let title: String
+    public let body: String
+    public let attention: String
+    public let createdAt: String
+
+    public var id: String { eventId }
+}
+
+public struct DesktopProactivePreparation: Decodable, Sendable, Equatable {
+    public let run: ServiceCycleSummary
+    public let candidates: [DesktopNotificationCandidate]
+}

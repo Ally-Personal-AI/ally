@@ -217,6 +217,25 @@ class AttentionEventView(BaseModel):
     deliveries: tuple[AttentionDeliveryRecord, ...]
 
 
+class DesktopNotificationResultRequest(BaseModel):
+    """Record only the result for one exact app-owned notification candidate."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    run_id: UUID
+    event_id: UUID
+    delivery_key: str = Field(min_length=1, max_length=512)
+    succeeded: bool
+
+
+class CompleteDesktopProactiveRequest(BaseModel):
+    """Finish one prepared proactive run without caller-supplied counters."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    run_id: UUID
+
+
 class TaskView(BaseModel):
     """Persisted task plus ordered step state for presentation surfaces."""
 
