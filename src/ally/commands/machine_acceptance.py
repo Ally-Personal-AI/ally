@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from ally.diagnostics import collect_hardware_profile
+from ally import __version__
+from ally.diagnostics import HardwareProfile, collect_hardware_profile
 from ally.diagnostics.machine_acceptance import (
     MachineAcceptanceChecks,
     MachineAcceptanceEvidenceError,
@@ -19,7 +20,7 @@ from ally.diagnostics.machine_acceptance import (
 from ally.runtime_profiles import RuntimeProfileCatalogError, default_runtime_profile_catalog
 
 
-def _active_profile_binding() -> tuple[str, str]:
+def _active_profile_binding(hardware: HardwareProfile) -> tuple[str, str]:
     catalog = default_runtime_profile_catalog()
     selection = catalog.selection()
     if selection is None:
@@ -28,6 +29,14 @@ def _active_profile_binding() -> tuple[str, str]:
     if profile.profile_id != selection.profile_id:
         raise RuntimeProfileCatalogError(
             "active runtime profile selection is inconsistent"
+        )
+    if profile.ally_version != __version__:
+        raise RuntimeProfileCatalogError(
+            "active runtime profile Ally version does not match the current Ally version"
+        )
+    if profile.hardware != hardware:
+        raise RuntimeProfileCatalogError(
+            "active runtime profile hardware does not match the current machine"
         )
     return selection.profile_id, selection.profile_sha256
 
@@ -61,10 +70,11 @@ def run_create_machine_acceptance(
     """Create immutable payload-free evidence from explicit machine observations."""
 
     try:
-        profile_id, profile_sha256 = _active_profile_binding()
+        hardware = collect_hardware_profile()
+        profile_id, profile_sha256 = _active_profile_binding(hardware)
         report = build_machine_acceptance_report(
             source_revision=source_revision,
-            hardware=collect_hardware_profile(),
+            hardware=hardware,
             active_profile_id=profile_id,
             active_profile_sha256=profile_sha256,
             checks=MachineAcceptanceChecks(
@@ -132,11 +142,12 @@ def run_verify_machine_acceptance(
 
     try:
         report = load_machine_acceptance_report(Path(report_path))
-        profile_id, profile_sha256 = _active_profile_binding()
+        hardware = collect_hardware_profile()
+        profile_id, profile_sha256 = _active_profile_binding(hardware)
         verify_machine_acceptance_binding(
             report,
             source_revision=source_revision,
-            hardware=collect_hardware_profile(),
+            hardware=hardware,
             active_profile_id=profile_id,
             active_profile_sha256=profile_sha256,
         )
