@@ -114,6 +114,7 @@ class BraveSearchAdapter:
         return value
 
     def _request(self, request: WebSearchRequest, token: str) -> object:
+        chunks: list[bytes] = []
         try:
             with httpx.Client(
                 trust_env=False,
@@ -136,7 +137,6 @@ class BraveSearchAdapter:
                         raise BraveSearchResponseError(
                             "Brave Search returned a non-success status"
                         )
-                    chunks: list[bytes] = []
                     size = 0
                     for chunk in response.iter_bytes():
                         size += len(chunk)
