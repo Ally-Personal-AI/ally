@@ -328,7 +328,7 @@ private func makeSyntheticReleaseBundle(
 }
 
 @Test func decodesPathFreeLegacyManagedServiceState() throws {
-    let data = Data(#"{\"id\":\"1\",\"ok\":true,\"result\":{\"supported\":true,\"configured\":true,\"definition_state\":\"recognized_legacy\",\"loaded\":true,\"running\":false,\"label\":\"ai.ally.proactive-service\",\"can_retire\":true}}"#.utf8)
+    let data = Data(#"{"id":"1","ok":true,"result":{"supported":true,"configured":true,"definition_state":"recognized_legacy","loaded":true,"running":false,"label":"ai.ally.proactive-service","can_retire":true}}"#.utf8)
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let envelope = try decoder.decode(
