@@ -10,7 +10,7 @@ import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Literal, Protocol, cast
 
 from ally.config import default_paths
 
@@ -326,19 +326,35 @@ class MacOSLaunchdService:
     def _is_recognized_legacy_definition(self, installed: object) -> bool:
         if not isinstance(installed, dict):
             return False
-        expected = self.definition()
-        arguments = installed.get("ProgramArguments")
-        expected_arguments = expected["ProgramArguments"]
-        if not isinstance(arguments, list) or len(arguments) != len(expected_arguments):
+        normalized: dict[str, object] = {}
+        for key, value in installed.items():
+            if not isinstance(key, str):
+                return False
+            normalized[key] = value
+
+        arguments_value = normalized.get("ProgramArguments")
+        if not isinstance(arguments_value, list) or not all(
+            isinstance(item, str) for item in arguments_value
+        ):
             return False
-        executable = arguments[0]
-        if not isinstance(executable, str) or not Path(executable).is_absolute():
+        arguments = cast(list[str], arguments_value)
+        expected_arguments = [
+            str(self.executable),
+            "-m",
+            "ally.cli",
+            "service",
+            "cycle",
+            "--json",
+        ]
+        if len(arguments) != len(expected_arguments):
+            return False
+        if not Path(arguments[0]).is_absolute():
             return False
         if arguments[1:] != expected_arguments[1:]:
             return False
-        normalized = dict(installed)
+
         normalized["ProgramArguments"] = [expected_arguments[0], *arguments[1:]]
-        return normalized == expected
+        return normalized == self.definition()
 
     def _require_recognized_definition_identity(self) -> tuple[int, int]:
         if self._definition_state() not in {"current", "recognized_legacy"}:
