@@ -757,6 +757,35 @@ def test_bridge_delete_rejects_extra_authority_fields(
     assert provider.requests == []
 
 
+@pytest.mark.parametrize(
+    ("method", "params"),
+    (
+        (
+            "conversation.delete",
+            {"conversation_id": "00000000-0000-0000-0000-000000000099"},
+        ),
+        (
+            "knowledge.delete",
+            {"source_id": "00000000-0000-0000-0000-000000000098"},
+        ),
+    ),
+)
+def test_bridge_delete_unknown_exact_id_is_not_found(
+    tmp_path: Path,
+    method: str,
+    params: dict[str, object],
+) -> None:
+    provider = CapturingProvider([])
+    app = _application(tmp_path, provider=provider)
+
+    response = handle_request_json(app, _request(method, params))
+
+    assert not response.ok
+    assert response.error is not None
+    assert response.error.code == "not_found"
+    assert provider.requests == []
+
+
 def test_bridge_rejects_raw_runtime_coordinates(tmp_path: Path) -> None:
     provider = CapturingProvider([])
     app = _application(tmp_path, provider=provider)
