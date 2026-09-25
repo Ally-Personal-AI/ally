@@ -113,6 +113,8 @@ final class AppModel: ObservableObject {
             errorMessage = "Portable backups require an absolute .ally-backup file path."
             return
         }
+        portableBackupManifest = nil
+        portableBackupStatus = nil
         isBusy = true
         defer { isBusy = false }
         do {
@@ -133,6 +135,8 @@ final class AppModel: ObservableObject {
             errorMessage = "Portable backups require an absolute .ally-backup file path."
             return
         }
+        portableBackupManifest = nil
+        portableBackupStatus = nil
         isBusy = true
         defer { isBusy = false }
         do {
