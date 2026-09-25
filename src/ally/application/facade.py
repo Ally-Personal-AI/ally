@@ -27,6 +27,8 @@ from ally.application.models import (
     KnowledgeSearchResult,
     KnowledgeSourceView,
     KnowledgeTextIngestRequest,
+    InstructionResolutionView,
+    InstructionSelectorRequest,
     LegacyManagedServiceView,
     MemoryProposalRequest,
     PendingAttentionBootstrapSection,
@@ -36,9 +38,12 @@ from ally.application.models import (
     RuntimeProfileCatalogView,
     RuntimeProfileSummary,
     SelectRuntimeProfileRequest,
+    SetUserInstructionsEnabledRequest,
+    SetUserInstructionsRequest,
     ServiceHealthBootstrapSection,
     ServiceHistoryBootstrapSection,
     SupersedeMemoryRequest,
+    ResolveUserInstructionsRequest,
     TaskBootstrapSection,
     TaskView,
 )
@@ -54,6 +59,7 @@ from ally.egress import EgressInspection
 from ally.events import AttentionClass, EventRecord
 from ally.instructions import (
     InstructionContext,
+    UserInstructions,
     UserInstructionsStore,
     instruction_contributions,
     render_instruction_contributions,
@@ -372,6 +378,95 @@ class AllyApplication:
             conversation=refreshed,
             response=response,
             target=target,
+        )
+
+    def list_user_instructions(
+        self,
+        *,
+        include_disabled: bool = True,
+    ) -> tuple[UserInstructions, ...]:
+        """List private user-owned instruction profiles in deterministic scope order."""
+
+        return self._instructions.list(include_disabled=include_disabled)
+
+    def user_instructions(
+        self,
+        request: InstructionSelectorRequest,
+    ) -> UserInstructions:
+        """Return one exact instruction profile or a presentation-safe not-found error."""
+
+        profile = self._instructions.get(
+            scope=request.scope,
+            scope_key=request.scope_key,
+        )
+        if profile is None:
+            raise ApplicationNotFoundError(
+                f"instruction profile not found: {request.scope}"
+            )
+        return profile
+
+    def set_user_instructions(
+        self,
+        request: SetUserInstructionsRequest,
+    ) -> UserInstructions:
+        """Create or replace one private instruction profile."""
+
+        return self._instructions.set(
+            request.content,
+            scope=request.scope,
+            scope_key=request.scope_key,
+            enabled=request.enabled,
+        )
+
+    def set_user_instructions_enabled(
+        self,
+        request: SetUserInstructionsEnabledRequest,
+    ) -> UserInstructions:
+        """Toggle one exact existing instruction profile without deleting content."""
+
+        try:
+            return self._instructions.set_enabled(
+                request.enabled,
+                scope=request.scope,
+                scope_key=request.scope_key,
+            )
+        except KeyError as exc:
+            raise ApplicationNotFoundError(
+                f"instruction profile not found: {request.scope}"
+            ) from exc
+
+    def clear_user_instructions(
+        self,
+        request: InstructionSelectorRequest,
+    ) -> bool:
+        """Delete one exact instruction profile while leaving unrelated scopes intact."""
+
+        return self._instructions.clear(
+            scope=request.scope,
+            scope_key=request.scope_key,
+        )
+
+    def resolve_user_instructions(
+        self,
+        request: ResolveUserInstructionsRequest,
+    ) -> InstructionResolutionView:
+        """Preview the exact enabled instruction contributions for a local context."""
+
+        context = InstructionContext(
+            project_key=request.project_key,
+            conversation_key=request.conversation_key,
+            task_key=request.task_key,
+            session_instructions=request.session_instructions,
+        )
+        profiles = self._instructions.resolve(context)
+        contributions = instruction_contributions(
+            profiles,
+            session_instructions=context.session_instructions,
+        )
+        return InstructionResolutionView(
+            profiles=profiles,
+            contributions=contributions,
+            rendered=render_instruction_contributions(contributions) or None,
         )
 
     def propose_memories(
