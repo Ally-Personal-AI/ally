@@ -236,8 +236,9 @@ Release-mode helper resolution now has a fail-closed bundle contract:
 - release builds ignore that override and never search `PATH`;
 - the only release helper path is
   `Contents/Helpers/ally-desktop-bridge`;
-- `Contents/Resources/release-manifest.json` binds the exact Ally version,
-  bridge protocol, helper path, and SHA-256 of the signed helper bytes; and
+- `Contents/Resources/release-manifest.json` v2 binds the exact Ally version,
+  build number, bridge protocol, supported database schema, helper path,
+  SHA-256 of the signed helper bytes, and optional source revision; and
 - Swift verifies the manifest and helper digest before launch.
 
 The deterministic assembler is `scripts/macos_app_bundle.py`. It builds the
@@ -266,7 +267,10 @@ inside the one-file helper receives the correct signing identity before the
 outer app is signed.
 
 The full signing, notarization, updater, and rollback threat model is documented
-in [macos-release-security.md](macos-release-security.md).
+in [macos-release-security.md](macos-release-security.md). The implemented
+offline forward-only candidate verifier is documented in
+[macos-update-trust.md](macos-update-trust.md); it does not fetch or replace
+applications.
 
 Hardware is still required for final Developer ID/notarization, runtime,
 Keychain, launchd, native notification, restart, app-replacement, and daily-use
