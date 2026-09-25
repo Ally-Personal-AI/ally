@@ -473,6 +473,17 @@ uv run python scripts/macos_update_trust.py verify-update \
   --team-id <APPLE-DEVELOPER-TEAM-ID>
 ```
 
+Then exercise the pre-install preparation boundary. For a schema-raising
+candidate, provide a fresh private backup destination:
+
+```bash
+uv run python scripts/macos_update_prepare.py \
+  --current /Applications/Ally.app \
+  --candidate /private/staging/Ally.app \
+  --team-id <APPLE-DEVELOPER-TEAM-ID> \
+  --backup-output /absolute/private/path/before-update.ally-backup
+```
+
 Verify:
 
 - both installed and candidate identities resolve to `ai.ally.personal`;
