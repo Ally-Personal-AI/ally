@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import json
-import os
+from collections.abc import Generator
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from pathlib import Path
 from threading import Thread
 from urllib.parse import parse_qs, urlsplit
 
@@ -56,7 +55,7 @@ class SearchHandler(BaseHTTPRequestHandler):
 
 
 @pytest.fixture
-def search_server() -> tuple[str, type[SearchHandler]]:
+def search_server() -> Generator[tuple[str, type[SearchHandler]], None, None]:
     SearchHandler.requests = []
     SearchHandler.status_code = 200
     SearchHandler.response_payload = {
@@ -127,7 +126,10 @@ def test_brave_adapter_uses_keychain_boundary_and_ignores_proxy_environment(
     assert isinstance(output, dict)
     results = output["results"]
     assert isinstance(results, list)
-    assert results[0]["title"] == "Synthetic public result"
+    assert results
+    first = results[0]
+    assert isinstance(first, dict)
+    assert first["title"] == "Synthetic public result"
     assert output["more_results_available"] is True
 
 
