@@ -189,6 +189,9 @@ public struct DesktopBridgeClient: Sendable {
         )
         var payload = try encoder.encode(request)
         payload.append(0x0A)
+        let requestPayload = payload
+        let maximumResponseBytes = Self.maximumResponseBytes
+        let responseReadChunkBytes = Self.responseReadChunkBytes
 
         do {
             try process.run()
@@ -208,7 +211,7 @@ public struct DesktopBridgeClient: Sendable {
                 ioGroup.leave()
             }
             do {
-                try inputHandle.write(contentsOf: payload)
+                try inputHandle.write(contentsOf: requestPayload)
             } catch {
                 ioState.markRequestWriteFailed()
             }
@@ -282,6 +285,9 @@ public struct DesktopBridgeClient: Sendable {
 
         if let terminalError {
             throw terminalError
+        }
+        if currentTaskIsCancelled {
+            throw DesktopBridgeError.cancelled
         }
 
         let status = ioState.status()
