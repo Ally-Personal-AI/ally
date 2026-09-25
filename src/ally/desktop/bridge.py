@@ -30,10 +30,10 @@ from ally.application import (
     ResolveUserInstructionsRequest,
     RunTaskRequest,
     SelectRuntimeProfileRequest,
-    TaskProposalRequest,
     SetUserInstructionsEnabledRequest,
     SetUserInstructionsRequest,
     SupersedeMemoryRequest,
+    TaskProposalRequest,
 )
 from ally.composition import build_default_application
 from ally.research import WebSearchRequest
