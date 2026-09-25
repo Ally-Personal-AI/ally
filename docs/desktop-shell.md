@@ -288,6 +288,14 @@ one-file `ally-desktop-bridge`, executes the frozen helper's `bridge.info` and
 `bootstrap` operations outside the repository checkout, assembles the real
 `Ally.app`, and ad-hoc signs/verifies the nested helper and outer application.
 
+After that exact release artifact is assembled, the native Swift test suite also
+opens the packaged frozen helper through the production `DesktopBridgeClient`
+inside an isolated synthetic HOME. Separate short-lived helper processes create
+and reload a conversation, persist/list explicit synthetic memory, ingest/list
+synthetic knowledge, and create/revalidate a portable backup. This verifies the
+packaged Swift-to-frozen-helper-to-SQLite path without requiring model inference,
+network access, Keychain state, or personal data.
+
 The helper build currently pins PyInstaller 6.22.3 and
 `pyinstaller-hooks-contrib` 2026.7 in the release CI command. The resulting
 helper does not depend on the repository checkout, a developer virtual
