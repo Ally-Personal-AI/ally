@@ -6,6 +6,7 @@ private enum SidebarSelection: Hashable {
     case conversation(String)
     case memory
     case knowledge
+    case research
     case tasks
     case attention
     case system
@@ -56,6 +57,8 @@ private struct RootView: View {
                         .tag(SidebarSelection.memory)
                     Label("Knowledge", systemImage: "books.vertical")
                         .tag(SidebarSelection.knowledge)
+                    Label("Research", systemImage: "globe")
+                        .tag(SidebarSelection.research)
                     Label("Tasks", systemImage: "checklist")
                         .tag(SidebarSelection.tasks)
                     Label("Attention", systemImage: "bell.badge")
@@ -74,6 +77,8 @@ private struct RootView: View {
                     MemoryScreen(model: model)
                 case .knowledge:
                     KnowledgeScreen(model: model)
+                case .research:
+                    ResearchScreen(model: model)
                 case .tasks:
                     TasksScreen(model: model)
                 case .attention:
@@ -360,6 +365,135 @@ private struct MemoryCorrectionSheet: View {
         }
         .padding()
         .frame(minWidth: 520, minHeight: 320)
+    }
+}
+
+private struct ResearchScreen: View {
+    @ObservedObject var model: AppModel
+    @State private var query = ""
+    @State private var pendingQuery = ""
+    @State private var showingDisclosureApproval = false
+
+    private var compactQuery: String {
+        query.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Public Web Research")
+                    .font(.title2)
+                Text(
+                    "Ally does not send conversation history, memory, knowledge, or hidden model context with this search. The exact query below must be approved before it leaves this Mac."
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            }
+
+            HStack(alignment: .bottom, spacing: 10) {
+                TextField("Search the public web", text: $query)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit {
+                        inspectCurrentQuery()
+                    }
+                Button("Review Search") {
+                    inspectCurrentQuery()
+                }
+                .disabled(model.isBusy || compactQuery.isEmpty)
+            }
+
+            if let inspection = model.researchInspection {
+                GroupBox("Disclosure") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        LabeledContent("Service", value: inspection.service)
+                        LabeledContent("Decision", value: inspection.decision)
+                        ForEach(inspection.fields) { field in
+                            LabeledContent(field.name, value: field.classification)
+                        }
+                        Text("The inspection response contains field names and classifications only; the query value remains local until you approve it.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(4)
+                }
+            }
+
+            Divider()
+
+            if model.researchResults.isEmpty {
+                ContentUnavailableView(
+                    "No Research Results",
+                    systemImage: "globe",
+                    description: Text(
+                        model.researchStatus == "succeeded"
+                            ? "The approved search returned no results."
+                            : "Review a query, approve its disclosure, and public results will appear here."
+                    )
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List(model.researchResults) { result in
+                    VStack(alignment: .leading, spacing: 6) {
+                        if let destination = URL(string: result.url) {
+                            Link(result.title, destination: destination)
+                                .font(.headline)
+                        } else {
+                            Text(result.title)
+                                .font(.headline)
+                        }
+                        Text(result.url)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                        if !result.description.isEmpty {
+                            Text(result.description)
+                                .textSelection(.enabled)
+                        }
+                    }
+                    .padding(.vertical, 5)
+                }
+                if model.researchMoreResultsAvailable {
+                    Text("More public results are available. Ally does not fetch them automatically.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding()
+        .navigationTitle("Research")
+        .onChange(of: query) { _, _ in
+            model.clearResearch()
+        }
+        .alert(
+            "Approve this external search?",
+            isPresented: $showingDisclosureApproval
+        ) {
+            Button("Cancel", role: .cancel) {}
+            Button("Approve Search") {
+                let approvedQuery = pendingQuery
+                Task { await model.runApprovedResearch(approvedQuery) }
+            }
+        } message: {
+            Text(
+                "Ally will disclose exactly this query to \(model.researchInspection?.service ?? "the search provider"):\n\n\(pendingQuery)\n\nNo conversation history, memory, or hidden context is added."
+            )
+        }
+    }
+
+    private func inspectCurrentQuery() {
+        let exactQuery = compactQuery
+        guard !exactQuery.isEmpty else { return }
+        Task {
+            await model.inspectResearch(exactQuery)
+            guard let inspection = model.researchInspection else { return }
+            if inspection.decision == "require_approval" {
+                pendingQuery = exactQuery
+                showingDisclosureApproval = true
+            } else if inspection.decision == "allow" {
+                await model.runApprovedResearch(exactQuery)
+            }
+        }
     }
 }
 
