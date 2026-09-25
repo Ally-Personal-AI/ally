@@ -371,7 +371,9 @@ public struct WebResearchSynthesis: Decodable, Sendable, Equatable {
 
 public struct WebResearchAnswerExecution: Decodable, Sendable, Equatable {
     public let search: WebResearchExecution
+    public let synthesisStatus: String
     public let synthesis: WebResearchSynthesis?
+    public let synthesisErrorClass: String?
 }
 
 
