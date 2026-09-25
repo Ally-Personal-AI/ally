@@ -30,8 +30,8 @@ from ally.application import (
     SelectRuntimeProfileRequest,
     SupersedeMemoryRequest,
 )
-from ally.research import WebSearchRequest
 from ally.composition import build_default_application
+from ally.research import WebSearchRequest
 from ally.runtime_profiles import InferenceTargetError
 
 BRIDGE_PROTOCOL_VERSION = 8
