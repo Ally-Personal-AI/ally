@@ -80,6 +80,14 @@ class SQLiteConversationStore:
             )
         return tuple(self._conversation_from_row(row) for row in rows)
 
+    def delete(self, conversation_id: UUID) -> bool:
+        with self._database.connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM conversations WHERE id = ?",
+                (str(conversation_id),),
+            )
+        return cursor.rowcount == 1
+
     def list_messages(self, conversation_id: UUID) -> tuple[ConversationMessage, ...]:
         with self._database.connect() as connection:
             rows = cast(
