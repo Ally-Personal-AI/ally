@@ -113,6 +113,8 @@ public enum DesktopBridgeError: Error, LocalizedError, Sendable, Equatable {
     case helperIntegrityFailed
     case launchFailed
     case writeFailed
+    case timedOut
+    case cancelled
     case responseTooLarge
     case invalidResponse
     case requestFailed(code: String, message: String)
@@ -133,6 +135,10 @@ public enum DesktopBridgeError: Error, LocalizedError, Sendable, Equatable {
             return "The Ally desktop bridge helper could not be launched."
         case .writeFailed:
             return "The Ally desktop bridge request could not be written."
+        case .timedOut:
+            return "The Ally desktop bridge helper did not respond before the request deadline."
+        case .cancelled:
+            return "The Ally desktop bridge request was cancelled."
         case .responseTooLarge:
             return "The Ally desktop bridge returned an oversized response."
         case .invalidResponse:
