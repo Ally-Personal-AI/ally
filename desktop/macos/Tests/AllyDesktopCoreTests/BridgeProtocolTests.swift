@@ -5,13 +5,13 @@ import UserNotifications
 @testable import AllyDesktopCore
 
 @Test func decodesBridgeInfoEnvelope() throws {
-    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":6,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap"]}}"#.utf8)
+    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":7,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap"]}}"#.utf8)
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let envelope = try decoder.decode(BridgeEnvelope<BridgeInfo>.self, from: data)
 
     #expect(envelope.ok)
-    #expect(envelope.result?.protocolVersion == 6)
+    #expect(envelope.result?.protocolVersion == 7)
     #expect(envelope.result?.transport == "stdio")
     #expect(envelope.result?.capabilities == ["bootstrap"])
 }
@@ -325,6 +325,20 @@ private func makeSyntheticReleaseBundle(
     )
 
     #expect(identifiers.contains("attention:macos.notification:synthetic"))
+}
+
+@Test func decodesPathFreeLegacyManagedServiceState() throws {
+    let data = Data(#"{\"id\":\"1\",\"ok\":true,\"result\":{\"supported\":true,\"configured\":true,\"definition_state\":\"recognized_legacy\",\"loaded\":true,\"running\":false,\"label\":\"ai.ally.proactive-service\",\"can_retire\":true}}"#.utf8)
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    let envelope = try decoder.decode(
+        BridgeEnvelope<LegacyManagedServiceView>.self,
+        from: data
+    )
+
+    #expect(envelope.result?.definitionState == "recognized_legacy")
+    #expect(envelope.result?.canRetire == true)
+    #expect(envelope.result?.label == "ai.ally.proactive-service")
 }
 
 @Test func mapsSMAppServiceStatesWithoutRegistering() {
