@@ -366,6 +366,13 @@ class AllyApplication:
             for hit in hits
         )
 
+    def delete_conversation(self, conversation_id: UUID) -> bool:
+        if not self._conversations.delete(conversation_id):
+            raise ApplicationNotFoundError(
+                f"Conversation not found: {conversation_id}"
+            )
+        return True
+
     def conversation(self, conversation_id: UUID) -> ConversationView:
         conversation = self._conversations.get(conversation_id)
         if conversation is None:
@@ -630,6 +637,13 @@ class AllyApplication:
         limit: int = 100,
     ) -> tuple[KnowledgeSource, ...]:
         return self._knowledge.list_sources(limit=limit)
+
+    def delete_knowledge_source(self, source_id: UUID) -> bool:
+        if not self._knowledge.delete_source(source_id):
+            raise ApplicationNotFoundError(
+                f"Knowledge source not found: {source_id}"
+            )
+        return True
 
     def knowledge_source(self, source_id: UUID) -> KnowledgeSourceView:
         source = self._knowledge.get_source(source_id)
