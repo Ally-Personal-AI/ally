@@ -590,6 +590,44 @@ test only serialization/verification mechanics and are never machine evidence.
 Detailed contract:
 [Dedicated-Machine Acceptance Evidence](../machine-acceptance.md).
 
+---
+
+## 15. Bind final release readiness
+
+After machine acceptance verifies successfully, bind it to the exact candidate
+qualification chain and active validated profile:
+
+```bash
+uv run ally release-readiness create \
+  validation/candidate-a/session.json \
+  validation/machine-acceptance.json \
+  --source-revision "$SOURCE_REVISION" \
+  --output validation/release-readiness.json \
+  --json
+
+uv run ally release-readiness verify \
+  validation/release-readiness.json \
+  validation/candidate-a/session.json \
+  validation/machine-acceptance.json \
+  --source-revision "$SOURCE_REVISION" \
+  --json
+```
+
+Verification re-derives current machine readiness, re-verifies capability,
+workflow, privacy, validated-profile, and machine-acceptance sources, and
+requires every recorded SHA-256 binding to match.
+
+### Stop condition
+
+Do not tag or distribute Ally 0.1 unless final release-readiness verification
+exits successfully with `qualified_for_release=true`.
+
+This command has no tagging, signing, publishing, download, updater, or
+application-replacement authority.
+
+Detailed contract:
+[Final Release Readiness Evidence](../release-readiness.md).
+
 ## Handoff to desktop shell (#66)
 
 The native desktop shell may begin after:
@@ -619,7 +657,8 @@ Keep, outside the repository as appropriate:
 - recovery drill result;
 - managed-service login/restart/failure observations;
 - notification permission/visibility/restart observations;
-- immutable dedicated-machine acceptance evidence.
+- immutable dedicated-machine acceptance evidence;
+- final release-readiness evidence binding the exact candidate and machine chains.
 
 Do not store private prompts, credentials, personal documents, raw packet
 captures containing private payloads, or secret-bearing logs in validation

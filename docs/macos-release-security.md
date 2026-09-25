@@ -256,3 +256,21 @@ payloads.
 
 Synthetic CI may test this artifact's lifecycle, but cannot satisfy the real
 machine gates. See [Dedicated-Machine Acceptance Evidence](machine-acceptance.md).
+
+## Final release-readiness binding
+
+Machine acceptance alone does not prove that the accepted machine is using the
+same exact runtime candidate that passed Ally's capability, privacy, and
+functional workflow qualification.
+
+The final `ally release-readiness` evidence layer binds the validation-session
+manifest and exact capability/privacy/workflow/profile digests to the exact
+machine-acceptance artifact and current hash-bound active profile.
+
+This coordinator lives outside the narrow update-trust package. It has no
+signing credential, Git tag, publishing, network-fetch, update, or replacement
+authority.
+
+A future release workflow should require a currently verified
+`qualified_for_release=true` artifact before tagging or distribution. See
+[Final Release Readiness Evidence](release-readiness.md).
