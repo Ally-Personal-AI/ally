@@ -64,6 +64,7 @@ from ally.commands.memory_proposals import (
     run_propose_memories,
 )
 from ally.commands.planning import run_propose_plan
+from ally.commands.release import run_release_readiness
 from ally.commands.runtime_profiles import (
     run_active_runtime_profile,
     run_create_runtime_profile,
@@ -1163,6 +1164,26 @@ def build_parser() -> argparse.ArgumentParser:
         dest="json_output",
     )
 
+    release = subcommands.add_parser(
+        "release",
+        help="Inspect fail-closed release readiness from exact local evidence.",
+    )
+    release_commands = release.add_subparsers(dest="release_command")
+    release_readiness = release_commands.add_parser(
+        "readiness",
+        help="Verify active candidate evidence and dedicated-machine acceptance.",
+    )
+    release_readiness.add_argument("validation_report")
+    release_readiness.add_argument("privacy_report")
+    release_readiness.add_argument("workflow_report")
+    release_readiness.add_argument("machine_acceptance_report")
+    release_readiness.add_argument("--source-revision", required=True)
+    release_readiness.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
     validate = subcommands.add_parser(
         "validate",
         help="Run reproducible machine and local-model validation.",
@@ -1925,6 +1946,20 @@ def _run_command(argv: Sequence[str] | None) -> int:
             return run_verify_machine_acceptance(
                 report_path=cast(str, args.report),
                 source_revision=cast(str, args.source_revision),
+                json_output=cast(bool, args.json_output),
+            )
+
+    if args.command == "release":
+        if args.release_command == "readiness":
+            return run_release_readiness(
+                source_revision=cast(str, args.source_revision),
+                validation_report=cast(str, args.validation_report),
+                privacy_report=cast(str, args.privacy_report),
+                workflow_report=cast(str, args.workflow_report),
+                machine_acceptance_report=cast(
+                    str,
+                    args.machine_acceptance_report,
+                ),
                 json_output=cast(bool, args.json_output),
             )
 
