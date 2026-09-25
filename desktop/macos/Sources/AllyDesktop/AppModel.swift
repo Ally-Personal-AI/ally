@@ -398,20 +398,44 @@ final class AppModel: ObservableObject {
     }
 
     func ingestKnowledge(title: String, text: String) async {
-        guard let client else { return }
         let compactTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let compactText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !compactTitle.isEmpty, !compactText.isEmpty else { return }
+        await ingestKnowledgePayload(
+            title: compactTitle,
+            text: compactText,
+            sourceKind: "note"
+        )
+    }
+
+    func ingestImportedKnowledge(_ imported: KnowledgeFileImport) async {
+        let compactTitle = imported.title.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        guard !compactTitle.isEmpty else { return }
+        await ingestKnowledgePayload(
+            title: compactTitle,
+            text: imported.text,
+            sourceKind: "import"
+        )
+    }
+
+    private func ingestKnowledgePayload(
+        title: String,
+        text: String,
+        sourceKind: String
+    ) async {
+        guard let client else { return }
         isBusy = true
         defer { isBusy = false }
         do {
-            let uri = "ally-desktop://note/\(UUID().uuidString.lowercased())"
+            let uri = "ally-desktop://\(sourceKind)/\(UUID().uuidString.lowercased())"
             let result: KnowledgeIngestResult = try await client.call(
                 "knowledge.ingest_text",
                 params: [
                     "uri": .string(uri),
-                    "title": .string(compactTitle),
-                    "text": .string(compactText),
+                    "title": .string(title),
+                    "text": .string(text),
                     "media_type": .string("text/plain"),
                 ]
             )
