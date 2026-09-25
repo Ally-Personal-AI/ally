@@ -156,3 +156,18 @@ def test_machine_acceptance_rejects_malformed_evidence(tmp_path: Path) -> None:
 
     with pytest.raises(MachineAcceptanceEvidenceError, match="invalid"):
         load_machine_acceptance_report(path)
+
+
+def test_machine_acceptance_rejects_symlink_artifact(tmp_path: Path) -> None:
+    target = tmp_path / "target.json"
+    write_machine_acceptance_report(_report(), target)
+    link = tmp_path / "linked.json"
+    link.symlink_to(target)
+
+    with pytest.raises(MachineAcceptanceEvidenceError, match="symlink"):
+        load_machine_acceptance_report(link)
+
+    occupied = tmp_path / "occupied.json"
+    occupied.symlink_to(tmp_path / "missing.json")
+    with pytest.raises(FileExistsError, match="overwrite"):
+        write_machine_acceptance_report(_report(), occupied)
