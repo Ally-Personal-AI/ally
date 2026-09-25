@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from ally.attention import AttentionDeliveryStore
 from ally.events import EventStore
+from ally.research import ResearchService
 from ally.service import (
     DesktopProactiveCoordinator,
     ServiceCycleRunStore,
@@ -30,3 +31,4 @@ class ApplicationOperations:
     service_health: ServiceHealthProvider
     desktop_proactive: DesktopProactiveCoordinator | None = None
     legacy_managed_service: MacOSLaunchdService | None = None
+    research: ResearchService | None = None

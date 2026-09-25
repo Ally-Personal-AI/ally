@@ -108,14 +108,17 @@ evaluation provider described in the private-intelligence boundary.
 
 ### Public lookup
 
-A reviewed search adapter may declare:
+Search text is not assumed public merely because it targets a public search
+engine. The initial web-research adapter declares:
 
 ```text
-query -> public
+query -> explicit_outbound
+count -> public
 ```
 
-A locally derived public search phrase can leave Ally. Returned public results
-come back to the local model for private personalization.
+The exact query therefore requires disclosure approval before network access.
+Returned public results come back to Ally for local reasoning. See
+[Privacy-Gated Public Web Research](research.md).
 
 ### Email
 

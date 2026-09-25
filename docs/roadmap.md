@@ -9,7 +9,7 @@ implementation of an earlier one.
 | Data portability | Implemented V1 | versioned integrity-checked SQLite backup/restore archives |
 | Configuration / secrets | Adapter implemented; machine acceptance pending | strict non-secret config, direct macOS Security-framework adapter, reference-only CLI, fail-closed tests |
 | Local conversation | Implemented | provider-neutral private chat with active validated-profile resolution by default, loopback-only development override, and no remote escape hatch |
-| Application facade | Implemented V1 + desktop proactive handshake | typed UI-neutral runtime/chat/conversation/memory/knowledge services plus task approval/execution, pending attention/history, read-only service health/history, bounded bootstrap, and an exact-ID prepare/ack/complete handshake for signed-app notification delivery; the facade still never calls OS notification APIs or accepts caller-supplied notification payloads |
+| Application facade | Implemented V1 + desktop proactive/research services | typed UI-neutral runtime/chat/conversation/memory/knowledge services plus privacy-gated public web research, task approval/execution, pending attention/history, read-only service health/history, bounded bootstrap, and an exact-ID prepare/ack/complete handshake for signed-app notification delivery; the facade still never calls OS notification APIs or accepts caller-supplied notification payloads |
 | Native desktop shell | Daily-use + release foundation advancing; machine acceptance pending | SwiftUI shell over a bounded local stdio bridge to `AllyApplication`; full daily-use state surfaces plus app-owned `UNUserNotificationCenter` delivery, duplicate reconciliation, explicit notification permission, opt-in `SMAppService.mainApp` launch-at-login, stable-ID bundle/signing, self-contained frozen bridge, offline forward-only update trust, schema-aware update preparation, and a CI-exercised local release orchestrator; real Developer ID/notarization and installed-machine replacement behavior remain |
 | User instructions | Implemented V2 | global/project/conversation/task profiles, enable/disable, provenance-aware composition, and ephemeral session instructions |
 | Behavioral model qualification | Implemented V1 | separate refusal, instruction-following, calibration, moralizing, and paired viewpoint-symmetry evidence integrated into local-model validation |
@@ -21,7 +21,8 @@ implementation of an earlier one.
 | Model plan proposals | Implemented boundary | strict TaskPlan proposals; no persistence or execution authority |
 | Model memory proposals | Implemented boundary | reviewable extraction bundles; explicit selected acceptance only |
 | Private intelligence boundary | Core implemented; runtime evidence contract implemented; machine acceptance pending | private chat/planning/memory/grounding loopback-only; remote access limited to bundled synthetic/public evals; separate fail-closed runtime privacy artifact ties no-egress evidence to exact capability validation |
-| Controlled external egress | Implemented foundation | trusted adapter-owned field classifications, explicit outbound approval, private/secret denial, payload-free audit, and network-import guard; concrete integrations deferred |
+| Controlled external egress | Implemented foundation + first concrete lookup | trusted adapter-owned field classifications, explicit outbound approval, private/secret denial, payload-free audit, network-import guard, and a Brave Search adapter whose exact query is approval-gated |
+| Public web research | Implemented V1 | provider-neutral exact-query research service, approval-gated Brave Search adapter, Keychain credential reference, bounded normalized results, payload-free audit; autonomous multi-query research and page crawling remain future |
 | Dedicated-hardware validation | Ready to run | resumable evidence-derived validation sessions, read-only first-machine readiness preflight, source-bound capability/privacy/workflow evidence, immutable validated runtime profiles, hash-bound active selection, machine acceptance evidence, and a final release-readiness artifact cryptographically binding both evidence chains to the exact current version/source/hardware/profile state |
 | Proactivity | Implemented substrate + app-owned macOS delivery path; machine acceptance pending | persisted events, deterministic scheduling/attention, payload-minimized rendering, exact stable delivery IDs, retry/interruption lifecycle accounting, modern signed-app `UNUserNotificationCenter` delivery, explicit `SMAppService` launch-at-login, and fail-closed migration from the historical LaunchAgent; deprecated Python Notification Center/LaunchAgent paths remain legacy CLI compatibility only |
 | Voice | Local substrate implemented; engines/UI pending | bounded PCM16/WAV handling, local-only ASR/TTS provider contracts, and a UI-neutral ASR -> existing private chat -> TTS turn coordinator; concrete speech engines and desktop microphone/playback await dedicated-machine evaluation |
@@ -39,6 +40,7 @@ personal AI with:
 - persistent conversations;
 - inspectable long-term memory;
 - personal document knowledge;
+- optional privacy-gated public web research;
 - explicit privacy boundaries;
 - permissioned tool execution;
 - restart-safe task execution;
@@ -128,12 +130,13 @@ After hardware/runtime validation:
 3. calibrate planning and memory proposal quality thresholds;
 4. upgrade retrieval/embeddings only where measured need justifies it;
 5. validate signed-app Login Items, legacy-service migration, and native notifications, then add calendar/email/weather source adapters on the persisted proactivity substrate;
-6. qualify local ASR/TTS engines, then add desktop microphone/playback on the existing voice substrate;
-7. add multi-user household boundaries;
-8. add skill signing and remote registry on top of the local installation boundary;
-9. add computer control;
-10. add physical-world integration;
-11. add distributed Ally.
+6. use measured daily needs to extend V1 web lookup into approval-preserving multi-query research/page retrieval;
+7. qualify local ASR/TTS engines, then add desktop microphone/playback on the existing voice substrate;
+8. add multi-user household boundaries;
+9. add skill signing and remote registry on top of the local installation boundary;
+10. add computer control;
+11. add physical-world integration;
+12. add distributed Ally.
 
 The first engineering priority remains reliability and compounding usefulness,
 not autonomy for its own sake.

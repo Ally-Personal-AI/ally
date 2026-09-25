@@ -101,6 +101,14 @@ state, field names/classifications, timestamps, and safe error classes.
 Common network transport imports are statically confined to model-provider and
 egress packages. See [Controlled External Egress](controlled-egress.md).
 
+Public web research is the first concrete egress integration. Its exact query is
+classified `explicit_outbound`, so it cannot leave Ally until explicitly
+approved. The research request schema contains no conversation history, memory,
+personal knowledge, instructions, runtime profile state, or hidden model
+context. The search credential is resolved from Keychain only inside the
+network adapter after approval, and egress audit stores neither the query nor
+returned results. See [Privacy-Gated Public Web Research](research.md).
+
 ## Action classes
 
 Future actions will be classified at minimum as:
