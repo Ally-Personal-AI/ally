@@ -28,7 +28,8 @@ from zipfile import ZipFile
 import ally
 from ally.cli import main as ally_main
 from ally.composition import build_default_application
-from ally.desktop.bridge import BRIDGE_PROTOCOL_VERSION, main as desktop_bridge_main
+from ally.desktop.bridge import BRIDGE_PROTOCOL_VERSION
+from ally.desktop.bridge import main as desktop_bridge_main
 from ally.diagnostics import load_validation_report
 from ally.storage.sqlite import SQLiteConversationStore, SQLiteDatabase, SQLiteMemoryStore
 
