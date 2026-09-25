@@ -72,7 +72,7 @@ def _bundle(tmp_path: Path, name: str, *, build: int, revision: str | None) -> P
 
 def test_database_schema_release_constant_tracks_migration_tail() -> None:
     assert MIGRATIONS
-    assert CURRENT_SCHEMA_VERSION == MIGRATIONS[-1].version
+    assert MIGRATIONS[-1].version == CURRENT_SCHEMA_VERSION
 
 
 def test_forward_update_is_accepted_and_schema_bump_requires_backup() -> None:
