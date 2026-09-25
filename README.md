@@ -300,6 +300,14 @@ uv run ally tasks create ./task.json
 uv run ally tasks run <task-uuid>
 ```
 
+The native macOS Tasks screen also has a **New Task** flow. Ally's active
+validated local model proposes a strict plan using only reviewed tool metadata.
+The app displays the exact goal, tool names, and arguments before **Create Task**
+persists that exact plan. Creation does not execute tools or approve any step;
+**Run Task** remains a separate action and existing exact-step approval remains
+authoritative.
+
+
 Inspect persisted state:
 
 ```bash
