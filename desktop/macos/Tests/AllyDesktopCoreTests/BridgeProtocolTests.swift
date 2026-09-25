@@ -5,13 +5,13 @@ import UserNotifications
 @testable import AllyDesktopCore
 
 @Test func decodesBridgeInfoEnvelope() throws {
-    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":10,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap","instructions.list","instructions.resolve","research.inspect","research.search","task.propose","task.create"]}}"#.utf8)
+    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":11,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap","instructions.list","instructions.resolve","research.inspect","research.search","research.answer","task.propose","task.create"]}}"#.utf8)
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let envelope = try decoder.decode(BridgeEnvelope<BridgeInfo>.self, from: data)
 
     #expect(envelope.ok)
-    #expect(envelope.result?.protocolVersion == 10)
+    #expect(envelope.result?.protocolVersion == 11)
     #expect(envelope.result?.transport == "stdio")
     #expect(
         envelope.result?.capabilities == [
@@ -20,6 +20,7 @@ import UserNotifications
             "instructions.resolve",
             "research.inspect",
             "research.search",
+            "research.answer",
             "task.propose",
             "task.create",
         ]
@@ -133,6 +134,23 @@ import UserNotifications
     #expect(envelope.result?.results[0].title == "Synthetic public result")
     #expect(envelope.result?.results[0].url == "https://example.test/research")
     #expect(envelope.result?.moreResultsAvailable == false)
+}
+
+@Test func decodesSourcedResearchAnswerExecution() throws {
+    let data = Data(#"{"id":"1","ok":true,"result":{"search":{"request_id":"00000000-0000-0000-0000-000000000060","service":"synthetic.search","operation":"web.search","decision":"allow","status":"succeeded","results":[{"title":"Synthetic source","url":"https://example.test/source","description":"Synthetic snippet."}],"more_results_available":false,"error_class":null},"synthesis_status":"succeeded","synthesis":{"answer":"Synthetic answer. [1]","cited_result_indices":[1],"insufficient_evidence":false},"synthesis_error_class":null}}"#.utf8)
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    let envelope = try decoder.decode(
+        BridgeEnvelope<WebResearchAnswerExecution>.self,
+        from: data
+    )
+
+    #expect(envelope.result?.search.status == "succeeded")
+    #expect(envelope.result?.search.results.count == 1)
+    #expect(envelope.result?.synthesisStatus == "succeeded")
+    #expect(envelope.result?.synthesis?.answer == "Synthetic answer. [1]")
+    #expect(envelope.result?.synthesis?.citedResultIndices == [1])
+    #expect(envelope.result?.synthesis?.insufficientEvidence == false)
 }
 
 @Test func helperEnvironmentDropsUnrelatedShellState() {

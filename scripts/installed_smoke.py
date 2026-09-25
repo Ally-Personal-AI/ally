@@ -142,6 +142,7 @@ def run_workflows(root: Path) -> None:
         and "instructions.resolve" in bridge_info["result"]["capabilities"]
         and "research.inspect" in bridge_info["result"]["capabilities"]
         and "research.search" in bridge_info["result"]["capabilities"]
+        and "research.answer" in bridge_info["result"]["capabilities"]
         and "task.propose" in bridge_info["result"]["capabilities"]
         and "task.create" in bridge_info["result"]["capabilities"],
         "installed desktop bridge protocol",

@@ -17,6 +17,8 @@ final class AppModel: ObservableObject {
     @Published var instructionResolution: InstructionResolutionView?
     @Published var researchInspection: EgressInspection?
     @Published var researchResults: [WebSearchResult] = []
+    @Published var researchSynthesis: WebResearchSynthesis?
+    @Published var researchSynthesisStatus: String?
     @Published var researchStatus: String?
     @Published var researchMoreResultsAvailable = false
     @Published var selectedConversationID: String?
@@ -479,10 +481,16 @@ final class AppModel: ObservableObject {
         guard !compact.isEmpty else {
             researchInspection = nil
             researchResults = []
+            researchSynthesis = nil
+            researchSynthesisStatus = nil
             researchStatus = nil
             researchMoreResultsAvailable = false
             return
         }
+        researchResults = []
+        researchSynthesis = nil
+        researchSynthesisStatus = nil
+        researchMoreResultsAvailable = false
         isBusy = true
         defer { isBusy = false }
         do {
@@ -509,27 +517,33 @@ final class AppModel: ObservableObject {
         isBusy = true
         defer { isBusy = false }
         do {
-            let execution: WebResearchExecution = try await client.call(
-                "research.search",
+            let execution: WebResearchAnswerExecution = try await client.call(
+                "research.answer",
                 params: [
                     "query": .string(compact),
                     "count": .number(Double(count)),
                     "approved": .bool(true),
                 ]
             )
-            researchStatus = execution.status
-            researchMoreResultsAvailable = execution.moreResultsAvailable
-            if execution.status == "succeeded" {
-                researchResults = execution.results
+            researchStatus = execution.search.status
+            researchMoreResultsAvailable = execution.search.moreResultsAvailable
+            researchSynthesis = execution.synthesis
+            researchSynthesisStatus = execution.synthesisStatus
+            if execution.search.status == "succeeded" {
+                researchResults = execution.search.results
                 errorMessage = nil
             } else {
                 researchResults = []
-                if execution.status == "failed" {
-                    errorMessage = "Web research failed safely: \(execution.errorClass ?? "ExternalResearchError")"
+                researchSynthesis = nil
+                researchSynthesisStatus = nil
+                if execution.search.status == "failed" {
+                    errorMessage = "Web research failed safely: \(execution.search.errorClass ?? "ExternalResearchError")"
                 }
             }
         } catch {
             researchResults = []
+            researchSynthesis = nil
+            researchSynthesisStatus = nil
             researchStatus = nil
             researchMoreResultsAvailable = false
             errorMessage = error.localizedDescription
@@ -539,6 +553,8 @@ final class AppModel: ObservableObject {
     func clearResearch() {
         researchInspection = nil
         researchResults = []
+        researchSynthesis = nil
+        researchSynthesisStatus = nil
         researchStatus = nil
         researchMoreResultsAvailable = false
     }

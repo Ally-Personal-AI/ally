@@ -345,19 +345,31 @@ def _task_application(
 
 def _research_application(
     tmp_path: Path,
-) -> tuple[AllyApplication, RecordingResearchAdapter, InMemoryEgressAuditStore]:
+    *,
+    provider: CapturingProvider | None = None,
+    resolver: Callable[
+        [str | None, str | None],
+        ResolvedInferenceTarget,
+    ] = _target,
+) -> tuple[
+    AllyApplication,
+    RecordingResearchAdapter,
+    InMemoryEgressAuditStore,
+    CapturingProvider,
+]:
     database = SQLiteDatabase(tmp_path / "research.sqlite3")
     tasks = SQLiteTaskStore(database)
     registry = ToolRegistry()
     adapter = RecordingResearchAdapter()
     audit = InMemoryEgressAuditStore()
+    synthesis_provider = provider or CapturingProvider([])
     app = AllyApplication(
         conversations=SQLiteConversationStore(database),
         memories=SQLiteMemoryStore(database),
         knowledge=SQLiteKnowledgeStore(database),
         instructions=SQLiteUserInstructionsStore(database),
-        target_resolver=_target,
-        provider_factory=lambda target: CapturingProvider([]),
+        target_resolver=resolver,
+        provider_factory=lambda target: synthesis_provider,
         operations=ApplicationOperations(
             tasks=tasks,
             task_runner=TaskRunner(
@@ -383,7 +395,7 @@ def _research_application(
             ),
         ),
     )
-    return app, adapter, audit
+    return app, adapter, audit, synthesis_provider
 
 
 def _attention_application(
@@ -865,10 +877,225 @@ def test_bridge_manages_scoped_instructions_without_authority_fields(
     assert cleared.result is True
 
 
+def test_bridge_research_answer_stops_before_search_and_model_without_approval(
+    tmp_path: Path,
+) -> None:
+    app, adapter, audit, provider = _research_application(tmp_path)
+
+    response = handle_request_json(
+        app,
+        _request(
+            "research.answer",
+            {
+                "query": "synthetic public research query",
+                "count": 3,
+                "approved": False,
+            },
+        ),
+    )
+
+    assert response.ok
+    assert isinstance(response.result, dict)
+    search = response.result["search"]
+    assert isinstance(search, dict)
+    assert search["status"] == "approval_required"
+    assert response.result["synthesis_status"] == "not_run"
+    assert response.result["synthesis"] is None
+    assert adapter.calls == []
+    assert provider.requests == []
+    assert len(audit.records) == 1
+    assert "synthetic public research query" not in audit.records[0].model_dump_json()
+
+
+def test_bridge_research_answer_uses_local_model_after_approved_search(
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider(
+        [
+            json.dumps(
+                {
+                    "answer": "The synthetic public result is supported. [1]",
+                    "cited_result_indices": [1],
+                    "insufficient_evidence": False,
+                }
+            )
+        ]
+    )
+    app, adapter, audit, provider = _research_application(
+        tmp_path,
+        provider=provider,
+    )
+    query = "synthetic public research query"
+
+    response = handle_request_json(
+        app,
+        _request(
+            "research.answer",
+            {
+                "query": query,
+                "count": 3,
+                "approved": True,
+            },
+        ),
+    )
+
+    assert response.ok
+    assert isinstance(response.result, dict)
+    search = response.result["search"]
+    synthesis = response.result["synthesis"]
+    assert isinstance(search, dict)
+    assert isinstance(synthesis, dict)
+    assert search["status"] == "succeeded"
+    assert response.result["synthesis_status"] == "succeeded"
+    answer = synthesis["answer"]
+    assert isinstance(answer, str)
+    assert answer.endswith("[1]")
+    assert synthesis["cited_result_indices"] == [1]
+    assert adapter.calls == [
+        (
+            WEB_SEARCH_OPERATION,
+            {"query": query, "count": 3},
+        )
+    ]
+    assert len(provider.requests) == 1
+    assert provider.requests[0].messages[0].role == "system"
+    assert "untrusted evidence" in provider.requests[0].messages[0].content
+    assert len(audit.records) == 1
+    assert query not in audit.records[0].model_dump_json()
+
+
+def test_bridge_research_answer_preserves_results_when_local_model_is_unavailable(
+    tmp_path: Path,
+) -> None:
+    def unavailable(
+        endpoint: str | None,
+        model: str | None,
+    ) -> ResolvedInferenceTarget:
+        del endpoint, model
+        raise InferenceTargetError("no active validated profile")
+
+    app, adapter, audit, provider = _research_application(
+        tmp_path,
+        resolver=unavailable,
+    )
+    query = "synthetic public research query"
+
+    response = handle_request_json(
+        app,
+        _request(
+            "research.answer",
+            {
+                "query": query,
+                "count": 3,
+                "approved": True,
+            },
+        ),
+    )
+
+    assert response.ok
+    assert isinstance(response.result, dict)
+    search = response.result["search"]
+    assert isinstance(search, dict)
+    assert search["status"] == "succeeded"
+    results = search["results"]
+    assert isinstance(results, list)
+    assert len(results) == 1
+    assert response.result["synthesis_status"] == "unavailable"
+    assert response.result["synthesis"] is None
+    assert adapter.calls == [
+        (
+            WEB_SEARCH_OPERATION,
+            {"query": query, "count": 3},
+        )
+    ]
+    assert provider.requests == []
+    assert len(audit.records) == 1
+
+
+def test_bridge_research_answer_preserves_results_when_synthesis_fails(
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider(
+        [
+            json.dumps(
+                {
+                    "answer": "Unsupported source. [2]",
+                    "cited_result_indices": [2],
+                    "insufficient_evidence": False,
+                }
+            )
+        ]
+    )
+    app, adapter, _, provider = _research_application(
+        tmp_path,
+        provider=provider,
+    )
+
+    response = handle_request_json(
+        app,
+        _request(
+            "research.answer",
+            {
+                "query": "synthetic public research query",
+                "count": 3,
+                "approved": True,
+            },
+        ),
+    )
+
+    assert response.ok
+    assert isinstance(response.result, dict)
+    search = response.result["search"]
+    assert isinstance(search, dict)
+    assert search["status"] == "succeeded"
+    results = search["results"]
+    assert isinstance(results, list)
+    assert len(results) == 1
+    assert response.result["synthesis_status"] == "failed"
+    assert response.result["synthesis"] is None
+    assert response.result["synthesis_error_class"] == "ResearchSynthesisError"
+    assert len(adapter.calls) == 1
+    assert len(provider.requests) == 1
+
+
+@pytest.mark.parametrize(
+    "forbidden",
+    (
+        {"development_endpoint": "http://127.0.0.1:9999/v1"},
+        {"development_model": "remote-model"},
+        {"conversation_history": "private history"},
+        {"memory": "private memory"},
+        {"instructions": "private instructions"},
+    ),
+)
+def test_bridge_research_answer_rejects_hidden_context_fields(
+    tmp_path: Path,
+    forbidden: dict[str, object],
+) -> None:
+    app, adapter, _, provider = _research_application(tmp_path)
+    params: dict[str, object] = {
+        "query": "synthetic public research query",
+        "count": 3,
+        "approved": True,
+    }
+    params.update(forbidden)
+
+    response = handle_request_json(
+        app,
+        _request("research.answer", params),
+    )
+
+    assert not response.ok
+    assert response.error is not None
+    assert response.error.code == "invalid_request"
+    assert adapter.calls == []
+    assert provider.requests == []
+
+
 def test_bridge_research_requires_exact_query_approval(
     tmp_path: Path,
 ) -> None:
-    app, adapter, audit = _research_application(tmp_path)
+    app, adapter, audit, _ = _research_application(tmp_path)
     query = "synthetic public research query"
 
     inspection = handle_request_json(
@@ -931,7 +1158,7 @@ def test_bridge_research_requires_exact_query_approval(
 def test_bridge_research_rejects_hidden_context_fields(
     tmp_path: Path,
 ) -> None:
-    app, adapter, _ = _research_application(tmp_path)
+    app, adapter, _, _ = _research_application(tmp_path)
 
     response = handle_request_json(
         app,

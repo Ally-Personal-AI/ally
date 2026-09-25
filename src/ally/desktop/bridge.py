@@ -40,7 +40,7 @@ from ally.research import WebSearchRequest
 from ally.runtime_profiles import InferenceTargetError
 from ally.tasks import NewTaskStep, TaskPlan
 
-BRIDGE_PROTOCOL_VERSION = 10
+BRIDGE_PROTOCOL_VERSION = 11
 MAX_REQUEST_BYTES = 1024 * 1024
 
 BridgeMethod = Literal[
@@ -66,6 +66,7 @@ BridgeMethod = Literal[
     "instructions.resolve",
     "research.inspect",
     "research.search",
+    "research.answer",
     "runtime.profiles",
     "runtime.select_profile",
     "runtime.deselect_profile",
@@ -329,6 +330,7 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                 "instructions.resolve",
                 "research.inspect",
                 "research.search",
+                "research.answer",
                 "runtime.profiles",
                 "runtime.select_profile",
                 "runtime.deselect_profile",
@@ -545,6 +547,18 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
         )
         return _json_value(
             app.search_web(
+                WebSearchRequest(query=params.query, count=params.count),
+                approved=params.approved,
+            ).model_dump(mode="json")
+        )
+
+    if request.method == "research.answer":
+        params = cast(
+            _ResearchSearchParams,
+            _validate_params(_ResearchSearchParams, request.params),
+        )
+        return _json_value(
+            app.answer_web_research(
                 WebSearchRequest(query=params.query, count=params.count),
                 approved=params.approved,
             ).model_dump(mode="json")

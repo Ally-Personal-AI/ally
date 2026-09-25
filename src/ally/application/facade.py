@@ -79,10 +79,15 @@ from ally.memory import (
 )
 from ally.memory.retrieval import LexicalMemoryRetriever, MemoryContextProvider
 from ally.models import ModelProvider
+from ally.models.errors import ModelProviderError
 from ally.planning import ModelTaskPlanner
 from ally.research import (
     ResearchService,
+    ResearchSynthesisError,
+    WebResearchAnswerExecution,
     WebResearchExecution,
+    WebResearchSynthesis,
+    WebResearchSynthesizer,
     WebSearchRequest,
 )
 from ally.runtime import PersistentConversationRuntime
@@ -652,6 +657,55 @@ class AllyApplication:
 
         research = self._require_research()
         return research.search(request, approved=approved)
+
+    def answer_web_research(
+        self,
+        request: WebSearchRequest,
+        *,
+        approved: bool = False,
+    ) -> WebResearchAnswerExecution:
+        """Run approved search, then synthesize only through the validated local model."""
+
+        search = self.search_web(request, approved=approved)
+        if search.status != "succeeded":
+            return WebResearchAnswerExecution(search=search)
+
+        if not search.results:
+            return WebResearchAnswerExecution(
+                search=search,
+                synthesis_status="succeeded",
+                synthesis=WebResearchSynthesis(
+                    answer="No public search results were returned for this query.",
+                    insufficient_evidence=True,
+                ),
+            )
+
+        try:
+            target = self.resolve_inference_target()
+        except InferenceTargetError:
+            return WebResearchAnswerExecution(
+                search=search,
+                synthesis_status="unavailable",
+            )
+
+        try:
+            with self._provider_factory(target) as provider:
+                synthesis = WebResearchSynthesizer(provider).synthesize(
+                    query=request.query,
+                    results=search.results,
+                )
+        except (ModelProviderError, ResearchSynthesisError) as exc:
+            return WebResearchAnswerExecution(
+                search=search,
+                synthesis_status="failed",
+                synthesis_error_class=type(exc).__name__,
+            )
+
+        return WebResearchAnswerExecution(
+            search=search,
+            synthesis_status="succeeded",
+            synthesis=synthesis,
+        )
 
     def propose_task(self, request: TaskProposalRequest) -> TaskPlan:
         """Return an untrusted plan proposal without persisting or executing it."""

@@ -220,9 +220,12 @@ trusted egress edge from the opaque Keychain reference
 uv run ally secrets set research.brave.api-key
 ```
 
-Returned title/URL/snippet data stays local for subsequent reasoning by Ally's
-validated local model. Egress audit stores only disclosure metadata, never the
-query or returned results.
+Returned title/URL/snippet data stays local. After an approved search, Ally can
+also synthesize a sourced answer through the active validated local model.
+Search-result content is treated as untrusted evidence, inline source markers
+are checked against the actual bounded result set, and malformed provenance
+fails closed. Egress audit stores only disclosure metadata, never the query,
+results, or local answer.
 
 The native macOS app also exposes Research as a first-class daily-use surface.
 It inspects the disclosure first, shows the exact locally entered query in a
