@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pydantic import JsonValue, ValidationError
 import pytest
+from pydantic import JsonValue, ValidationError
 
 from ally.egress import (
     DefaultEgressPolicy,
