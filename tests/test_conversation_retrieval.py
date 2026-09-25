@@ -119,6 +119,40 @@ def test_conversation_retrieval_honors_recent_message_bound(tmp_path: Path) -> N
     assert hits == ()
 
 
+def test_conversation_retrieval_honors_global_message_candidate_bound(
+    tmp_path: Path,
+) -> None:
+    store = build_store(tmp_path / "ally.sqlite3")
+    older = store.create(title="Older synthetic thread")
+    store.append_messages(
+        older.id,
+        (
+            NewConversationMessage(
+                role="user",
+                content="BOUND-881 appears in the older thread.",
+            ),
+        ),
+    )
+    newer = store.create(title="Newer synthetic thread")
+    store.append_messages(
+        newer.id,
+        (
+            NewConversationMessage(
+                role="user",
+                content="BOUND-881 appears in the newer thread.",
+            ),
+        ),
+    )
+
+    hits = LexicalConversationRetriever(
+        store,
+        message_candidate_limit=1,
+    ).retrieve("BOUND-881")
+
+    assert len(hits) == 1
+    assert hits[0].conversation.id == newer.id
+
+
 def test_conversation_retrieval_honors_message_character_bound(
     tmp_path: Path,
 ) -> None:
