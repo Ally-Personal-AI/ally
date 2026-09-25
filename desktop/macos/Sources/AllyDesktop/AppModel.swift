@@ -22,6 +22,7 @@ final class AppModel: ObservableObject {
     @Published var selectedConversationID: String?
     @Published var conversation: ConversationView?
     @Published var taskDetail: TaskView?
+    @Published var taskProposal: TaskPlanProposal?
     @Published var attentionEvents: [EventSummary] = []
     @Published var attentionDetail: AttentionEventView?
     @Published var attentionDeliveryHistory: [AttentionDeliverySummary] = []
@@ -768,6 +769,51 @@ final class AppModel: ObservableObject {
         } catch {
             proactiveCycleError = "The proactive cycle failed."
         }
+    }
+
+    func proposeTask(_ goal: String) async {
+        guard let client else { return }
+        let compact = goal.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !compact.isEmpty else {
+            taskProposal = nil
+            return
+        }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            taskProposal = try await client.call(
+                "task.propose",
+                params: ["goal": .string(compact)]
+            )
+            errorMessage = nil
+        } catch {
+            taskProposal = nil
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func createProposedTask() async -> String? {
+        guard let client, let proposal = taskProposal else { return nil }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let created: TaskView = try await client.call(
+                "task.create",
+                params: ["plan": proposal.bridgeValue]
+            )
+            taskDetail = created
+            snapshot = try await client.call("bootstrap")
+            taskProposal = nil
+            errorMessage = nil
+            return created.task.id
+        } catch {
+            errorMessage = error.localizedDescription
+            return nil
+        }
+    }
+
+    func clearTaskProposal() {
+        taskProposal = nil
     }
 
     func selectTask(_ id: String) async {
