@@ -10,6 +10,7 @@ from ally.diagnostics.hardware import HardwareProfile
 from ally.diagnostics.machine_acceptance import (
     MachineAcceptanceChecks,
     MachineAcceptanceEvidenceError,
+    MachineAcceptanceStatus,
     build_machine_acceptance_report,
     load_machine_acceptance_report,
     verify_machine_acceptance_binding,
@@ -31,12 +32,12 @@ def _hardware(*, release: str = "26.0") -> HardwareProfile:
     )
 
 
-def _checks(*, notification_status: str = "pass") -> MachineAcceptanceChecks:
+def _checks(*, notification_status: MachineAcceptanceStatus = "pass") -> MachineAcceptanceChecks:
     return MachineAcceptanceChecks(
         keychain="pass",
         recovery="pass",
         background_service="pass",
-        notifications=notification_status,  # type: ignore[arg-type]
+        notifications=notification_status,
         signed_release="pass",
         update_preparation="pass",
         app_replacement="pass",
@@ -48,7 +49,7 @@ def _report(
     *,
     checks: MachineAcceptanceChecks | None = None,
     hardware: HardwareProfile | None = None,
-):
+) -> acceptance.MachineAcceptanceReport:
     return build_machine_acceptance_report(
         source_revision="a" * 40,
         hardware=hardware or _hardware(),
