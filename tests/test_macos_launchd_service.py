@@ -6,6 +6,7 @@ import plistlib
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -253,7 +254,9 @@ def test_cli_status_has_stable_json_shape(capsys: pytest.CaptureFixture[str]) ->
 def test_migration_recognizes_historical_executable_path(tmp_path: Path) -> None:
     service, runner = build_service(tmp_path)
     definition = service.definition()
-    arguments = list(definition["ProgramArguments"])
+    arguments_value = definition["ProgramArguments"]
+    assert isinstance(arguments_value, list)
+    arguments = cast(list[str], arguments_value.copy())
     arguments[0] = "/Applications/SyntheticOldAlly/bin/python"
     definition["ProgramArguments"] = arguments
     service.paths.plist.parent.mkdir(parents=True)
@@ -306,7 +309,9 @@ def test_retire_legacy_unloads_then_removes_recognized_definition(
 ) -> None:
     service, runner = build_service(tmp_path)
     definition = service.definition()
-    arguments = list(definition["ProgramArguments"])
+    arguments_value = definition["ProgramArguments"]
+    assert isinstance(arguments_value, list)
+    arguments = cast(list[str], arguments_value.copy())
     arguments[0] = "/Applications/SyntheticOldAlly/bin/python"
     definition["ProgramArguments"] = arguments
     service.paths.plist.parent.mkdir(parents=True)
