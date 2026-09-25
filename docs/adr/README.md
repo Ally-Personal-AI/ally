@@ -54,6 +54,7 @@ supersede previous ADRs rather than silently rewriting project history.
 45. [Final release readiness derives from exact evidence chains](0045-release-readiness-derives-from-evidence.md)
 46. [macOS release building is local and fail-closed](0046-macos-release-build-is-local-fail-closed.md)
 47. [Lexical retrieval uses deterministic BM25 relevance](0047-lexical-retrieval-uses-bm25.md)
+48. [Voice is local-only and audio is ephemeral by default](0048-voice-is-local-and-ephemeral.md)
 
 ## Adding an ADR
 

@@ -24,7 +24,7 @@ implementation of an earlier one.
 | Controlled external egress | Implemented foundation | trusted adapter-owned field classifications, explicit outbound approval, private/secret denial, payload-free audit, and network-import guard; concrete integrations deferred |
 | Dedicated-hardware validation | Ready to run | resumable evidence-derived validation sessions, read-only first-machine readiness preflight, source-bound capability/privacy/workflow evidence, immutable validated runtime profiles, hash-bound active selection, machine acceptance evidence, and a final release-readiness artifact cryptographically binding both evidence chains to the exact current version/source/hardware/profile state |
 | Proactivity | Implemented substrate + app-owned macOS delivery path; machine acceptance pending | persisted events, deterministic scheduling/attention, payload-minimized rendering, exact stable delivery IDs, retry/interruption lifecycle accounting, modern signed-app `UNUserNotificationCenter` delivery, explicit `SMAppService` launch-at-login, and fail-closed migration from the historical LaunchAgent; deprecated Python Notification Center/LaunchAgent paths remain legacy CLI compatibility only |
-| Voice | Not started | local ASR/TTS and conversational voice |
+| Voice | Local substrate implemented; engines/UI pending | bounded PCM16/WAV handling, local-only ASR/TTS provider contracts, and a UI-neutral ASR -> existing private chat -> TTS turn coordinator; concrete speech engines and desktop microphone/playback await dedicated-machine evaluation |
 | Multi-user households | Not started | identities, shared/private state, permissions |
 | Extension ecosystem | Implemented local foundation | local lifecycle + isolated execution; signing, mediated tool requests, and registry deferred |
 | Computer control | Not started | GUI perception/action behind tool policy |
@@ -128,7 +128,7 @@ After hardware/runtime validation:
 3. calibrate planning and memory proposal quality thresholds;
 4. upgrade retrieval/embeddings only where measured need justifies it;
 5. validate signed-app Login Items, legacy-service migration, and native notifications, then add calendar/email/weather source adapters on the persisted proactivity substrate;
-6. add voice;
+6. qualify local ASR/TTS engines, then add desktop microphone/playback on the existing voice substrate;
 7. add multi-user household boundaries;
 8. add skill signing and remote registry on top of the local installation boundary;
 9. add computer control;
