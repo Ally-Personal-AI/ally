@@ -13,6 +13,7 @@ import plistlib
 import re
 import subprocess
 import sys
+import wave
 from collections import deque
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from importlib.metadata import entry_points, version
@@ -78,6 +79,21 @@ def run_workflows(root: Path) -> None:
     console = [sys.executable, "-I", str(entry)]
     require(version("ally-personal-ai") in output([*console, "--version"]), "version")
     require("Ally" in output([*console, "doctor"]), "doctor")
+
+    voice_wav = root / "synthetic-voice.wav"
+    with wave.open(str(voice_wav), "wb") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(16_000)
+        handle.writeframes(b"\x00\x00" * 1_600)
+    voice_metadata = json.loads(cli("voice", "inspect-wav", str(voice_wav), "--json"))
+    require(
+        voice_metadata["sample_rate_hz"] == 16_000
+        and voice_metadata["channels"] == 1
+        and voice_metadata["frame_count"] == 1_600
+        and "path" not in voice_metadata,
+        "bounded local voice WAV inspection",
+    )
     console_scripts = {
         item.name: item.value
         for item in entry_points(group="console_scripts")
