@@ -1058,6 +1058,16 @@ private struct KnowledgeDetailScreen: View {
     @State private var updateSource: KnowledgeSourceSummary?
     @State private var showingReplacementFileImporter = false
 
+    private var currentSource: KnowledgeSourceSummary? {
+        guard
+            let source = model.knowledgeDetail?.source,
+            source.id == sourceID
+        else {
+            return nil
+        }
+        return source
+    }
+
     var body: some View {
         ScrollView {
             if let view = model.knowledgeDetail, view.source.id == sourceID {
@@ -1124,7 +1134,7 @@ private struct KnowledgeDetailScreen: View {
             ToolbarItem {
                 Menu {
                     Button {
-                        updateSource = model.knowledgeDetail?.source
+                        updateSource = currentSource
                     } label: {
                         Label("Replace with Text", systemImage: "text.badge.plus")
                     }
@@ -1139,7 +1149,7 @@ private struct KnowledgeDetailScreen: View {
                 } label: {
                     Label("Update Source", systemImage: "arrow.triangle.2.circlepath")
                 }
-                .disabled(model.isBusy || model.knowledgeDetail == nil)
+                .disabled(model.isBusy || currentSource == nil)
             }
             ToolbarItem {
                 Button(role: .destructive) {
@@ -1166,7 +1176,7 @@ private struct KnowledgeDetailScreen: View {
             case .success(let urls):
                 guard
                     let url = urls.first,
-                    let source = model.knowledgeDetail?.source
+                    let source = currentSource
                 else {
                     return
                 }
