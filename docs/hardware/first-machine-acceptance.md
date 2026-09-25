@@ -539,6 +539,53 @@ Do not introduce real personal data until the operator is satisfied that the
 runtime, privacy, recovery, secrets, service, and notification paths behave as
 documented.
 
+---
+
+## 14. Create machine-readable acceptance evidence
+
+After the active validated runtime profile is selected and every empirical gate
+above has actually been exercised, record the results in one immutable,
+payload-free artifact:
+
+```bash
+SOURCE_REVISION="$(git rev-parse HEAD)"
+
+uv run ally machine-acceptance create \
+  --source-revision "$SOURCE_REVISION" \
+  --keychain pass \
+  --recovery pass \
+  --background-service pass \
+  --notifications pass \
+  --signed-release pass \
+  --update-preparation pass \
+  --app-replacement pass \
+  --integrated-daily-use pass \
+  --output validation/machine-acceptance.json \
+  --json
+
+uv run ally machine-acceptance verify \
+  validation/machine-acceptance.json \
+  --source-revision "$SOURCE_REVISION" \
+  --json
+```
+
+The report binds the observations to the exact Ally version, Git source
+revision, hardware/OS profile, active validated runtime profile ID, and the
+profile SHA-256 recorded by Ally's active selection.
+
+A failed or unfinished gate may be recorded as `fail` or `not_run`, but the
+report is not release-qualified. Do not rewrite prior evidence after a failure;
+create a new artifact after the issue is corrected.
+
+### Stop condition
+
+Do not treat the machine as Ally 0.1 release-accepted unless verification exits
+successfully with every gate passed. Synthetic hosted-CI acceptance artifacts
+test only serialization/verification mechanics and are never machine evidence.
+
+Detailed contract:
+[Dedicated-Machine Acceptance Evidence](../machine-acceptance.md).
+
 ## Handoff to desktop shell (#66)
 
 The native desktop shell may begin after:
@@ -567,7 +614,8 @@ Keep, outside the repository as appropriate:
 - Keychain prompt/locked-state observations;
 - recovery drill result;
 - managed-service login/restart/failure observations;
-- notification permission/visibility/restart observations.
+- notification permission/visibility/restart observations;
+- immutable dedicated-machine acceptance evidence.
 
 Do not store private prompts, credentials, personal documents, raw packet
 captures containing private payloads, or secret-bearing logs in validation
