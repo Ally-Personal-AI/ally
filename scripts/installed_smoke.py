@@ -406,6 +406,38 @@ def run_workflows(root: Path) -> None:
             "daily memory proposal resolves active validated profile",
         )
 
+        source_revision = "a" * 40
+        machine_acceptance_path = root / "machine-acceptance.json"
+        machine_acceptance = json.loads(cli(
+            "machine-acceptance", "create",
+            "--source-revision", source_revision,
+            "--output", str(machine_acceptance_path),
+            "--keychain", "pass",
+            "--recovery", "pass",
+            "--background-service", "pass",
+            "--notifications", "pass",
+            "--signed-release", "pass",
+            "--update-preparation", "pass",
+            "--app-replacement", "pass",
+            "--integrated-daily-use", "pass",
+            "--json",
+        ))
+        require(
+            machine_acceptance["qualified_for_release_acceptance"] is True,
+            "machine acceptance evidence creation",
+        )
+        verified_acceptance = json.loads(cli(
+            "machine-acceptance", "verify",
+            str(machine_acceptance_path),
+            "--source-revision", source_revision,
+            "--json",
+        ))
+        require(
+            verified_acceptance["verified"] is True
+            and verified_acceptance["qualified_for_release_acceptance"] is True,
+            "machine acceptance evidence verification",
+        )
+
         cli("profiles", "deselect")
         cli("profiles", "remove", profile_id)
     finally:
