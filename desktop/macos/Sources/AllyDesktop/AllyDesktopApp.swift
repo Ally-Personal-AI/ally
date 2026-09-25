@@ -32,16 +32,62 @@ struct AllyDesktopApp: App {
 private struct RootView: View {
     @ObservedObject var model: AppModel
     @State private var selection: SidebarSelection? = .system
+    @State private var conversationSearchText = ""
+    @State private var submittedConversationSearch = ""
+
+    private var conversationSearchActive: Bool {
+        !submittedConversationSearch.isEmpty
+    }
 
     var body: some View {
         NavigationSplitView {
             List(selection: $selection) {
                 Section("Conversations") {
-                    ForEach(model.snapshot?.conversations.items ?? []) { conversation in
-                        Text(conversation.title ?? "Conversation")
-                            .tag(SidebarSelection.conversation(conversation.id))
+                    if conversationSearchActive {
+                        if model.conversationSearchResults.isEmpty && !model.isBusy {
+                            Text("No matching conversations")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        ForEach(model.conversationSearchResults) { result in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(result.conversation.title ?? "Conversation")
+                                    .lineLimit(1)
+                                if let snippet = result.snippet {
+                                    Text(snippet)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(3)
+                                } else {
+                                    Text("Title match")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 2)
+                            .tag(
+                                SidebarSelection.conversation(
+                                    result.conversation.id
+                                )
+                            )
+                        }
+                    } else {
+                        ForEach(
+                            model.snapshot?.conversations.items ?? []
+                        ) { conversation in
+                            Text(conversation.title ?? "Conversation")
+                                .tag(
+                                    SidebarSelection.conversation(
+                                        conversation.id
+                                    )
+                                )
+                        }
                     }
+
                     Button {
+                        conversationSearchText = ""
+                        submittedConversationSearch = ""
+                        model.clearConversationSearch()
                         Task {
                             await model.createConversation()
                             if let id = model.selectedConversationID {
@@ -49,7 +95,10 @@ private struct RootView: View {
                             }
                         }
                     } label: {
-                        Label("New Conversation", systemImage: "square.and.pencil")
+                        Label(
+                            "New Conversation",
+                            systemImage: "square.and.pencil"
+                        )
                     }
                     .buttonStyle(.plain)
                 }
@@ -67,11 +116,35 @@ private struct RootView: View {
                         .tag(SidebarSelection.attention)
                     Label("Settings", systemImage: "slider.horizontal.3")
                         .tag(SidebarSelection.settings)
-                    Label("System", systemImage: "gauge.with.dots.needle.67percent")
-                        .tag(SidebarSelection.system)
+                    Label(
+                        "System",
+                        systemImage: "gauge.with.dots.needle.67percent"
+                    )
+                    .tag(SidebarSelection.system)
                 }
             }
             .navigationTitle("Ally")
+            .searchable(
+                text: $conversationSearchText,
+                prompt: "Search conversations"
+            )
+            .onSubmit(of: .search) {
+                let compact = conversationSearchText.trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                )
+                guard !compact.isEmpty else { return }
+                submittedConversationSearch = compact
+                Task { await model.searchConversations(compact) }
+            }
+            .onChange(of: conversationSearchText) { _, value in
+                let compact = value.trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                )
+                if compact.isEmpty || compact != submittedConversationSearch {
+                    submittedConversationSearch = ""
+                    model.clearConversationSearch()
+                }
+            }
         } detail: {
             Group {
                 switch selection {
@@ -109,7 +182,10 @@ private struct RootView: View {
                 Text(error)
                     .font(.callout)
                     .padding(10)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+                    .background(
+                        .regularMaterial,
+                        in: RoundedRectangle(cornerRadius: 10)
+                    )
                     .padding()
             }
         }

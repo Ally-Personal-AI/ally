@@ -115,6 +115,14 @@ uv run ally conversations list
 uv run ally conversations show <conversation-uuid>
 ```
 
+The native macOS sidebar also supports submitted local history search across
+recent conversation titles and message text. Search uses the same deterministic
+offline BM25 scorer as Memory and Knowledge, returns at most one best hit per
+conversation with a bounded matching snippet, and never invokes a model or
+network service. V1 deliberately bounds candidate conversations/messages and
+searchable characters; indexed or semantic history search remains evidence-led
+future work.
+
 SQLite is behind an Ally-owned storage interface and versioned migrations; higher-level code does not depend directly on SQLite.
 
 ## Long-term memory

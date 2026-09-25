@@ -24,6 +24,7 @@ final class AppModel: ObservableObject {
     @Published var researchMoreResultsAvailable = false
     @Published var selectedConversationID: String?
     @Published var conversation: ConversationView?
+    @Published var conversationSearchResults: [ConversationSearchResult] = []
     @Published var taskDetail: TaskView?
     @Published var taskProposal: TaskPlanProposal?
     @Published var attentionEvents: [EventSummary] = []
@@ -170,6 +171,34 @@ final class AppModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func searchConversations(_ query: String) async {
+        guard let client else { return }
+        let compact = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !compact.isEmpty else {
+            conversationSearchResults = []
+            return
+        }
+        conversationSearchResults = []
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            conversationSearchResults = try await client.call(
+                "conversation.search",
+                params: [
+                    "query": .string(compact),
+                    "limit": .number(50),
+                ]
+            )
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func clearConversationSearch() {
+        conversationSearchResults = []
     }
 
     func selectMemory(_ id: String) async {

@@ -5,17 +5,18 @@ import UserNotifications
 @testable import AllyDesktopCore
 
 @Test func decodesBridgeInfoEnvelope() throws {
-    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":12,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap","instructions.list","instructions.resolve","memory.remember","memory.propose","memory.accept_proposals","research.inspect","research.search","research.answer","task.propose","task.create"]}}"#.utf8)
+    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":13,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap","conversation.search","instructions.list","instructions.resolve","memory.remember","memory.propose","memory.accept_proposals","research.inspect","research.search","research.answer","task.propose","task.create"]}}"#.utf8)
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let envelope = try decoder.decode(BridgeEnvelope<BridgeInfo>.self, from: data)
 
     #expect(envelope.ok)
-    #expect(envelope.result?.protocolVersion == 12)
+    #expect(envelope.result?.protocolVersion == 13)
     #expect(envelope.result?.transport == "stdio")
     #expect(
         envelope.result?.capabilities == [
             "bootstrap",
+            "conversation.search",
             "instructions.list",
             "instructions.resolve",
             "memory.remember",
@@ -28,6 +29,23 @@ import UserNotifications
             "task.create",
         ]
     )
+}
+
+@Test func decodesConversationHistorySearchResult() throws {
+    let data = Data(#"{"id":"1","ok":true,"result":[{"conversation":{"id":"00000000-0000-0000-0000-000000000010","title":"Synthetic orchard","created_at":"2026-09-25T00:00:00Z","updated_at":"2026-09-25T00:01:00Z"},"score":1.25,"match_kind":"message","message_id":"00000000-0000-0000-0000-000000000011","message_position":4,"message_role":"user","snippet":"The orchard marker is CEDAR-812."}]}"#.utf8)
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    let envelope = try decoder.decode(
+        BridgeEnvelope<[ConversationSearchResult]>.self,
+        from: data
+    )
+
+    #expect(envelope.result?.count == 1)
+    #expect(envelope.result?[0].conversation.title == "Synthetic orchard")
+    #expect(envelope.result?[0].matchKind == "message")
+    #expect(envelope.result?[0].messagePosition == 4)
+    #expect(envelope.result?[0].messageRole == "user")
+    #expect(envelope.result?[0].snippet?.contains("CEDAR-812") == true)
 }
 
 @Test func decodesBootstrapWithoutRequiringPrivatePayloadFields() throws {
