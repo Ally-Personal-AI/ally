@@ -470,6 +470,28 @@ uv run python scripts/macos_release_pipeline.py build \
 The builder does not tag, upload, publish, or replace an installed app. See
 [macOS Release Build Orchestration](docs/macos-release-build.md).
 
+## Local voice foundation
+
+Ally now has a provider-neutral local-only voice boundary without selecting a
+production speech engine prematurely.
+
+A voice turn is constrained to bounded PCM16 audio, a local ASR provider, the
+existing `AllyApplication.send_message` chat authority, and a local TTS
+provider. Both speech providers are checked before either is called, so private
+audio/text cannot silently fall back to an external speech service. Raw audio is
+ephemeral by default; ordinary conversation text uses the existing conversation
+store.
+
+Inspect a local PCM16 WAV without transcription or persistence:
+
+```bash
+uv run ally voice inspect-wav ./synthetic.wav --json
+```
+
+Concrete ASR/TTS engines, microphone capture, playback, wake-word behavior, and
+continuous listening remain intentionally deferred until local candidates can
+be measured on the dedicated machine. See [Local Voice Boundary](docs/voice.md).
+
 ## Proactive events
 
 Ally now has a deterministic event and attention substrate. Events are persisted before any handler runs, and explicit importance maps to conservative attention classes:
