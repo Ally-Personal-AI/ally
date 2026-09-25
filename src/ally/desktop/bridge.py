@@ -43,7 +43,7 @@ from ally.research import WebSearchRequest
 from ally.runtime_profiles import InferenceTargetError
 from ally.tasks import NewTaskStep, TaskPlan
 
-BRIDGE_PROTOCOL_VERSION = 12
+BRIDGE_PROTOCOL_VERSION = 13
 MAX_REQUEST_BYTES = 1024 * 1024
 
 BridgeMethod = Literal[
@@ -52,6 +52,7 @@ BridgeMethod = Literal[
     "conversation.create",
     "conversation.get",
     "conversation.send",
+    "conversation.search",
     "memory.list",
     "memory.get",
     "memory.remember",
@@ -148,6 +149,13 @@ class _ConversationParams(BaseModel):
 
 class _SendConversationParams(_ConversationParams):
     message: str = Field(min_length=1, max_length=1_000_000)
+
+
+class _ConversationSearchParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    query: str = Field(min_length=1, max_length=10_000)
+    limit: int = Field(default=20, ge=1, le=50)
 
 
 class _ListParams(BaseModel):
@@ -350,6 +358,7 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                 "conversation.create",
                 "conversation.get",
                 "conversation.send",
+                "conversation.search",
                 "memory.list",
                 "memory.get",
                 "memory.remember",
@@ -427,6 +436,18 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
             )
         )
         return _json_value(result.model_dump(mode="json"))
+
+    if request.method == "conversation.search":
+        params = cast(
+            _ConversationSearchParams,
+            _validate_params(_ConversationSearchParams, request.params),
+        )
+        return _models_json(
+            app.search_conversations(
+                params.query,
+                limit=params.limit,
+            )
+        )
 
     if request.method == "memory.list":
         params = cast(
