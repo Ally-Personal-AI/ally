@@ -109,12 +109,12 @@ final class AppModel: ObservableObject {
 
     func exportPortableBackup(to url: URL) async {
         guard let client else { return }
+        portableBackupManifest = nil
+        portableBackupStatus = nil
         guard let path = portableBackupPath(url) else {
             errorMessage = "Portable backups require an absolute .ally-backup file path."
             return
         }
-        portableBackupManifest = nil
-        portableBackupStatus = nil
         isBusy = true
         defer { isBusy = false }
         do {
@@ -122,7 +122,7 @@ final class AppModel: ObservableObject {
                 "data.backup",
                 params: ["path": .string(path)]
             )
-            portableBackupStatus = "Backup created and validated"
+            portableBackupStatus = "Backup created"
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -131,12 +131,12 @@ final class AppModel: ObservableObject {
 
     func validatePortableBackup(at url: URL) async {
         guard let client else { return }
+        portableBackupManifest = nil
+        portableBackupStatus = nil
         guard let path = portableBackupPath(url) else {
             errorMessage = "Portable backups require an absolute .ally-backup file path."
             return
         }
-        portableBackupManifest = nil
-        portableBackupStatus = nil
         isBusy = true
         defer { isBusy = false }
         do {
