@@ -13,6 +13,16 @@ public struct DesktopNotificationDeliveryOutcome: Sendable, Equatable {
     }
 }
 
+public struct DesktopNotificationDeliveryContext: Sendable, Equatable {
+    public let canDeliver: Bool
+    public let knownIdentifiers: Set<String>
+
+    public init(canDeliver: Bool, knownIdentifiers: Set<String>) {
+        self.canDeliver = canDeliver
+        self.knownIdentifiers = knownIdentifiers
+    }
+}
+
 public struct DesktopNotificationDeliveryClient {
     public init() {}
 
@@ -24,77 +34,71 @@ public struct DesktopNotificationDeliveryClient {
             .union(pending.map(\.identifier))
     }
 
-    public func deliver(
-        _ candidates: [DesktopNotificationCandidate]
-    ) async -> [DesktopNotificationDeliveryOutcome] {
-        guard !candidates.isEmpty else { return [] }
-
+    public func context() async -> DesktopNotificationDeliveryContext {
         let center = UNUserNotificationCenter.current()
         let settings = await center.notificationSettings()
-        guard settings.authorizationStatus == .authorized
-                || settings.authorizationStatus == .provisional
-        else {
-            return candidates.map {
-                DesktopNotificationDeliveryOutcome(
-                    eventId: $0.eventId,
-                    deliveryKey: $0.deliveryKey,
-                    succeeded: false
-                )
-            }
+        let canDeliver = settings.authorizationStatus == .authorized
+            || settings.authorizationStatus == .provisional
+        guard canDeliver else {
+            return DesktopNotificationDeliveryContext(
+                canDeliver: false,
+                knownIdentifiers: []
+            )
         }
 
-        let delivered = await center.deliveredNotifications()
-        let pending = await center.pendingNotificationRequests()
-        var known = Self.knownIdentifiers(
-            delivered: delivered,
-            pending: pending
+        async let delivered = center.deliveredNotifications()
+        async let pending = center.pendingNotificationRequests()
+        return await DesktopNotificationDeliveryContext(
+            canDeliver: true,
+            knownIdentifiers: Self.knownIdentifiers(
+                delivered: delivered,
+                pending: pending
+            )
+        )
+    }
+
+    public func deliver(
+        _ candidate: DesktopNotificationCandidate,
+        context: DesktopNotificationDeliveryContext
+    ) async -> DesktopNotificationDeliveryOutcome {
+        if context.knownIdentifiers.contains(candidate.deliveryKey) {
+            return DesktopNotificationDeliveryOutcome(
+                eventId: candidate.eventId,
+                deliveryKey: candidate.deliveryKey,
+                succeeded: true
+            )
+        }
+
+        guard context.canDeliver else {
+            return DesktopNotificationDeliveryOutcome(
+                eventId: candidate.eventId,
+                deliveryKey: candidate.deliveryKey,
+                succeeded: false
+            )
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = candidate.title
+        content.body = candidate.body
+        let request = UNNotificationRequest(
+            identifier: candidate.deliveryKey,
+            content: content,
+            trigger: nil
         )
 
-        var outcomes: [DesktopNotificationDeliveryOutcome] = []
-        outcomes.reserveCapacity(candidates.count)
-
-        for candidate in candidates {
-            if known.contains(candidate.deliveryKey) {
-                outcomes.append(
-                    DesktopNotificationDeliveryOutcome(
-                        eventId: candidate.eventId,
-                        deliveryKey: candidate.deliveryKey,
-                        succeeded: true
-                    )
-                )
-                continue
-            }
-
-            let content = UNMutableNotificationContent()
-            content.title = candidate.title
-            content.body = candidate.body
-
-            let request = UNNotificationRequest(
-                identifier: candidate.deliveryKey,
-                content: content,
-                trigger: nil
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+            return DesktopNotificationDeliveryOutcome(
+                eventId: candidate.eventId,
+                deliveryKey: candidate.deliveryKey,
+                succeeded: true
             )
-            do {
-                try await center.add(request)
-                known.insert(candidate.deliveryKey)
-                outcomes.append(
-                    DesktopNotificationDeliveryOutcome(
-                        eventId: candidate.eventId,
-                        deliveryKey: candidate.deliveryKey,
-                        succeeded: true
-                    )
-                )
-            } catch {
-                outcomes.append(
-                    DesktopNotificationDeliveryOutcome(
-                        eventId: candidate.eventId,
-                        deliveryKey: candidate.deliveryKey,
-                        succeeded: false
-                    )
-                )
-            }
+        } catch {
+            return DesktopNotificationDeliveryOutcome(
+                eventId: candidate.eventId,
+                deliveryKey: candidate.deliveryKey,
+                succeeded: false
+            )
         }
-
-        return outcomes
     }
 }
