@@ -34,7 +34,7 @@ import UserNotifications
 }
 
 @Test func knowledgeUpdatePayloadReusesExistingSourceIdentity() throws {
-    let data = Data(#"{\"id\":\"00000000-0000-0000-0000-000000000020\",\"uri\":\"ally-desktop://import/stable-source\",\"title\":\"Synthetic notes.txt\",\"media_type\":\"text/plain\",\"current_revision\":2,\"created_at\":\"2026-09-25T00:00:00Z\",\"updated_at\":\"2026-09-25T00:01:00Z\"}"#.utf8)
+    let data = Data(#"{"id":"00000000-0000-0000-0000-000000000020","uri":"ally-desktop://import/stable-source","title":"Synthetic notes.txt","media_type":"text/plain","current_revision":2,"created_at":"2026-09-25T00:00:00Z","updated_at":"2026-09-25T00:01:00Z"}"#.utf8)
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let source = try decoder.decode(KnowledgeSourceSummary.self, from: data)
