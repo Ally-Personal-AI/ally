@@ -138,6 +138,8 @@ def run_workflows(root: Path) -> None:
         and bridge_info["result"]["protocol_version"] == BRIDGE_PROTOCOL_VERSION
         and bridge_info["result"]["transport"] == "stdio"
         and "conversation.search" in bridge_info["result"]["capabilities"]
+        and "conversation.delete" in bridge_info["result"]["capabilities"]
+        and "knowledge.delete" in bridge_info["result"]["capabilities"]
         and "instructions.list" in bridge_info["result"]["capabilities"]
         and "instructions.set" in bridge_info["result"]["capabilities"]
         and "instructions.resolve" in bridge_info["result"]["capabilities"]
