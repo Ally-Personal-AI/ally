@@ -243,3 +243,16 @@ The dedicated Mac is still required to validate:
 - restart behavior;
 - app replacement while preserving state; and
 - final daily-use recovery behavior.
+
+## Machine acceptance evidence
+
+After the real dedicated-machine gates are exercised, Ally can record the
+results in a versioned, immutable, payload-free machine acceptance artifact.
+
+The artifact is bound to the exact Ally version, Git source revision,
+hardware/OS profile, and hash-bound active validated runtime profile. It records
+only fixed pass/fail/not-run gate statuses and contains no free-form private
+payloads.
+
+Synthetic CI may test this artifact's lifecycle, but cannot satisfy the real
+machine gates. See [Dedicated-Machine Acceptance Evidence](machine-acceptance.md).
