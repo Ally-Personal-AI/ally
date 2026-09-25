@@ -19,6 +19,7 @@ from ally.runtime_profiles import (
 from ally.scheduler import SchedulerRuntime
 from ally.security.tool_policy import DefaultToolPolicy
 from ally.service import DesktopProactiveCoordinator, SQLiteServiceLeaseStore
+from ally.service.macos_launchd import MacOSLaunchdService
 from ally.storage import default_database_path, default_runtime_database_path
 from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
@@ -87,6 +88,7 @@ def build_default_application() -> AllyApplication:
             database_path=database_path,
             runtime_database_path=default_runtime_database_path(),
         ),
+        legacy_managed_service=MacOSLaunchdService(),
         desktop_proactive=DesktopProactiveCoordinator(
             scheduler=SchedulerRuntime(
                 SQLiteScheduleStore(database),
