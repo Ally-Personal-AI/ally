@@ -391,6 +391,16 @@ def refresh_helper_hash(app: Path) -> str:
         != int(contract["bridge_protocol_version"])
         or manifest.get("database_schema_version")
         != int(contract["database_schema_version"])
+        or not isinstance(manifest.get("build_version"), int)
+        or isinstance(manifest.get("build_version"), bool)
+        or int(manifest["build_version"]) < 1
+        or (
+            manifest.get("source_revision") is not None
+            and (
+                not isinstance(manifest.get("source_revision"), str)
+                or re.fullmatch(r"[0-9a-f]{40}", str(manifest["source_revision"])) is None
+            )
+        )
         or manifest.get("helper_relative_path")
         != str(contract["helper_relative_path"])
     ):
