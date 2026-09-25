@@ -34,7 +34,7 @@ import UserNotifications
 }
 
 @Test func knowledgeUpdatePayloadReusesExistingSourceIdentity() throws {
-    let data = Data(#"{"id":"00000000-0000-0000-0000-000000000020","uri":"ally-desktop://import/stable-source","title":"Synthetic notes.txt","media_type":"text/plain","current_revision":2,"created_at":"2026-09-25T00:00:00Z","updated_at":"2026-09-25T00:01:00Z"}"#.utf8)
+    let data = Data(#"{\"id\":\"00000000-0000-0000-0000-000000000020\",\"uri\":\"ally-desktop://import/stable-source\",\"title\":\"Synthetic notes.txt\",\"media_type\":\"text/plain\",\"current_revision\":2,\"created_at\":\"2026-09-25T00:00:00Z\",\"updated_at\":\"2026-09-25T00:01:00Z\"}"#.utf8)
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let source = try decoder.decode(KnowledgeSourceSummary.self, from: data)
@@ -47,16 +47,18 @@ import UserNotifications
         method: "knowledge.ingest_text",
         params: payload.bridgeParams
     )
-    let rendered = String(
-        decoding: try JSONEncoder().encode(request),
-        as: UTF8.self
+    let encoded = try JSONEncoder().encode(request)
+    let object = try #require(
+        JSONSerialization.jsonObject(with: encoded) as? [String: Any]
     )
+    let params = try #require(object["params"] as? [String: Any])
 
-    #expect(rendered.contains("ally-desktop://import/stable-source"))
-    #expect(rendered.contains("Synthetic notes.txt"))
-    #expect(rendered.contains("Replacement synthetic knowledge."))
-    #expect(rendered.contains("file:///private") == false)
-    #expect(rendered.contains("path") == false)
+    #expect(object["method"] as? String == "knowledge.ingest_text")
+    #expect(params["uri"] as? String == "ally-desktop://import/stable-source")
+    #expect(params["title"] as? String == "Synthetic notes.txt")
+    #expect(params["media_type"] as? String == "text/plain")
+    #expect(params["text"] as? String == "Replacement synthetic knowledge.")
+    #expect(params["path"] == nil)
 }
 
 @Test func decodesExactDeletionBoolean() throws {
