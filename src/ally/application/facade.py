@@ -79,9 +79,11 @@ from ally.memory import (
 )
 from ally.memory.retrieval import LexicalMemoryRetriever, MemoryContextProvider
 from ally.models import ModelProvider
+from ally.models.errors import ModelProviderError
 from ally.planning import ModelTaskPlanner
 from ally.research import (
     ResearchService,
+    ResearchSynthesisError,
     WebResearchAnswerExecution,
     WebResearchExecution,
     WebResearchSynthesis,
@@ -671,20 +673,37 @@ class AllyApplication:
         if not search.results:
             return WebResearchAnswerExecution(
                 search=search,
+                synthesis_status="succeeded",
                 synthesis=WebResearchSynthesis(
                     answer="No public search results were returned for this query.",
                     insufficient_evidence=True,
                 ),
             )
 
-        target = self.resolve_inference_target()
-        with self._provider_factory(target) as provider:
-            synthesis = WebResearchSynthesizer(provider).synthesize(
-                query=request.query,
-                results=search.results,
+        try:
+            target = self.resolve_inference_target()
+        except InferenceTargetError:
+            return WebResearchAnswerExecution(
+                search=search,
+                synthesis_status="unavailable",
             )
+
+        try:
+            with self._provider_factory(target) as provider:
+                synthesis = WebResearchSynthesizer(provider).synthesize(
+                    query=request.query,
+                    results=search.results,
+                )
+        except (ModelProviderError, ResearchSynthesisError) as exc:
+            return WebResearchAnswerExecution(
+                search=search,
+                synthesis_status="failed",
+                synthesis_error_class=type(exc).__name__,
+            )
+
         return WebResearchAnswerExecution(
             search=search,
+            synthesis_status="succeeded",
             synthesis=synthesis,
         )
 
