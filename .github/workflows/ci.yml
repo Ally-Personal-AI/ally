@@ -72,7 +72,15 @@ jobs:
           python scripts/macos_app_bundle.py verify \
             "$RUNNER_TEMP/ally-release/Ally.app"
       - name: Test native macOS desktop package
-        run: swift test --package-path desktop/macos
+        env:
+          ALLY_PACKAGED_HELPER_TEST_PATH: ${{ runner.temp }}/ally-release/Ally.app/Contents/Helpers/ally-desktop-bridge
+          ALLY_PACKAGED_HELPER_TEST_ROOT: ${{ runner.temp }}/ally-swift-home
+        run: |
+          set -euo pipefail
+          mkdir -p "$ALLY_PACKAGED_HELPER_TEST_ROOT" "$RUNNER_TEMP/ally-swift-tmp"
+          HOME="$ALLY_PACKAGED_HELPER_TEST_ROOT" \
+          TMPDIR="$RUNNER_TEMP/ally-swift-tmp" \
+            swift test --package-path desktop/macos
       - name: Exercise update-candidate trust boundary
         run: |
           set -euo pipefail
