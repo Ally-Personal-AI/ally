@@ -10,13 +10,20 @@ import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 
 from ally.config import default_paths
 
 LAUNCHD_LABEL = "ai.ally.proactive-service"
 LAUNCHD_INTERVAL_SECONDS = 60
 LAUNCHCTL_PATH = Path("/bin/launchctl")
+
+ManagedServiceDefinitionState = Literal[
+    "absent",
+    "current",
+    "recognized_legacy",
+    "modified",
+]
 
 
 class ManagedServiceError(RuntimeError):
@@ -56,6 +63,17 @@ class ManagedServicePaths:
     plist: Path
     stdout_log: Path
     stderr_log: Path
+
+
+@dataclass(frozen=True)
+class ManagedServiceMigrationStatus:
+    supported: bool
+    configured: bool
+    definition_state: ManagedServiceDefinitionState
+    loaded: bool
+    running: bool
+    label: str
+    can_retire: bool
 
 
 @dataclass(frozen=True)
@@ -164,6 +182,56 @@ class MacOSLaunchdService:
             plist_path=self.paths.plist,
         )
 
+    def migration_status(self) -> ManagedServiceMigrationStatus:
+        """Inspect whether the historical launch agent can be retired safely."""
+
+        current = self.status()
+        definition_state = self._definition_state()
+        return ManagedServiceMigrationStatus(
+            supported=current.supported,
+            configured=current.configured,
+            definition_state=definition_state,
+            loaded=current.loaded,
+            running=current.running,
+            label=current.label,
+            can_retire=(
+                current.supported
+                and definition_state in {"current", "recognized_legacy"}
+            ),
+        )
+
+    def retire_legacy(self) -> ManagedServiceMigrationStatus:
+        """Remove only a recognized Ally-owned historical launch-agent definition."""
+
+        self._require_supported()
+        initial = self.migration_status()
+        if not initial.configured:
+            return initial
+        if not initial.can_retire:
+            raise ManagedServiceError(
+                "legacy managed-service definition is not recognized as Ally-owned"
+            )
+
+        identity = self._require_recognized_definition_identity()
+        if initial.loaded:
+            result = self.runner.run(("bootout", self.service_target))
+            if result.returncode != 0:
+                raise ManagedServiceError(
+                    "launchd could not unload Ally's legacy managed service"
+                )
+
+        confirmed_identity = self._require_recognized_definition_identity()
+        if confirmed_identity != identity:
+            raise ManagedServiceError(
+                "legacy managed-service definition changed during retirement"
+            )
+        self._unlink_if_identity(identity)
+        if self.paths.plist.exists() or self.paths.plist.is_symlink():
+            raise ManagedServiceError(
+                "legacy managed-service definition changed during retirement"
+            )
+        return self.migration_status()
+
     def install(self) -> ManagedServiceStatus:
         self._require_supported()
         self._require_executable()
@@ -235,6 +303,55 @@ class MacOSLaunchdService:
             raise ManagedServiceError("the Ally Python executable is unavailable")
         if not os.access(self.executable, os.X_OK):
             raise ManagedServiceError("the Ally Python executable is not executable")
+
+    def _definition_state(self) -> ManagedServiceDefinitionState:
+        if self.paths.plist.is_symlink():
+            return "modified"
+        if not self.paths.plist.is_file():
+            return "absent"
+        try:
+            payload = self.paths.plist.read_bytes()
+        except OSError:
+            return "modified"
+        if payload == self.definition_bytes():
+            return "current"
+        try:
+            installed = plistlib.loads(payload)
+        except (plistlib.InvalidFileException, ValueError, TypeError):
+            return "modified"
+        if self._is_recognized_legacy_definition(installed):
+            return "recognized_legacy"
+        return "modified"
+
+    def _is_recognized_legacy_definition(self, installed: object) -> bool:
+        if not isinstance(installed, dict):
+            return False
+        expected = self.definition()
+        arguments = installed.get("ProgramArguments")
+        expected_arguments = expected["ProgramArguments"]
+        if not isinstance(arguments, list) or len(arguments) != len(expected_arguments):
+            return False
+        executable = arguments[0]
+        if not isinstance(executable, str) or not Path(executable).is_absolute():
+            return False
+        if arguments[1:] != expected_arguments[1:]:
+            return False
+        normalized = dict(installed)
+        normalized["ProgramArguments"] = [expected_arguments[0], *arguments[1:]]
+        return normalized == expected
+
+    def _require_recognized_definition_identity(self) -> tuple[int, int]:
+        if self._definition_state() not in {"current", "recognized_legacy"}:
+            raise ManagedServiceError(
+                "legacy managed-service definition is not recognized as Ally-owned"
+            )
+        try:
+            current = self.paths.plist.stat(follow_symlinks=False)
+        except OSError as exc:
+            raise ManagedServiceError(
+                "legacy managed-service definition is unavailable"
+            ) from exc
+        return current.st_dev, current.st_ino
 
     def _installed_definition_matches(self) -> bool:
         if self.paths.plist.is_symlink():
