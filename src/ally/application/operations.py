@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 from ally.attention import AttentionDeliveryStore
 from ally.events import EventStore
+from ally.portability import BackupManifest
 from ally.research import ResearchService
 from ally.service import (
     DesktopProactiveCoordinator,
@@ -18,6 +20,8 @@ from ally.tasks import TaskRunner, TaskStore
 from ally.tools import ToolSpec
 
 ServiceHealthProvider = Callable[[], ServiceHealthReport]
+BackupCreator = Callable[[Path], BackupManifest]
+BackupValidator = Callable[[Path], BackupManifest]
 
 
 @dataclass(frozen=True)
@@ -34,3 +38,5 @@ class ApplicationOperations:
     desktop_proactive: DesktopProactiveCoordinator | None = None
     legacy_managed_service: MacOSLaunchdService | None = None
     research: ResearchService | None = None
+    backup_creator: BackupCreator | None = None
+    backup_validator: BackupValidator | None = None
