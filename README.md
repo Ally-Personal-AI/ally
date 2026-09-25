@@ -231,6 +231,28 @@ only after that confirmation. Cancelling leaves the external adapter untouched.
 
 See [Privacy-Gated Public Web Research](docs/research.md).
 
+## User instructions and Settings
+
+Ally's behavior can be customized with private durable instruction profiles at
+global, project, conversation, and task scope. Profiles can be disabled without
+deleting their content, and optional session instructions remain ephemeral.
+
+The native macOS app exposes these profiles under **Settings**. Global
+instructions are the primary editing path; scoped overrides remain separately
+visible with exact scope keys, timestamps, enable/disable controls, explicit
+clear confirmation, and deterministic resolution preview.
+
+Instruction text is behavioral input only. It cannot approve tools or external
+disclosure, select a model/runtime, or modify Ally's security policy.
+
+The CLI remains available for scripting and inspection:
+
+```bash
+uv run ally instructions list
+uv run ally instructions set "Be concise and precise."
+uv run ally instructions resolve --project-key <key>
+```
+
 ## Permissioned tools
 
 Tools are explicit capabilities with a declared risk class. Every invocation goes through Ally's deterministic permission policy and is written to the local audit log.
