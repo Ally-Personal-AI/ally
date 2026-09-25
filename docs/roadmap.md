@@ -22,7 +22,7 @@ implementation of an earlier one.
 | Model memory proposals | Implemented boundary | reviewable extraction bundles; explicit selected acceptance only |
 | Private intelligence boundary | Core implemented; runtime evidence contract implemented; machine acceptance pending | private chat/planning/memory/grounding loopback-only; remote access limited to bundled synthetic/public evals; separate fail-closed runtime privacy artifact ties no-egress evidence to exact capability validation |
 | Controlled external egress | Implemented foundation | trusted adapter-owned field classifications, explicit outbound approval, private/secret denial, payload-free audit, and network-import guard; concrete integrations deferred |
-| Dedicated-hardware validation | Ready to run | resumable evidence-derived validation sessions, read-only first-machine readiness preflight, source-bound disposable workflow evidence, versioned capability evidence, path-free model/runtime artifact fingerprints, separate runtime privacy qualification, cryptographically verified three-artifact candidate comparison, immutable validated runtime profiles, Ally-owned profile catalog/active selection, daily active-profile inference resolution, behavioral qualification, and first-machine runbook |
+| Dedicated-hardware validation | Ready to run | resumable evidence-derived validation sessions, read-only first-machine readiness preflight, source-bound disposable workflow evidence, versioned capability/privacy/workflow evidence, path-free model/runtime artifact fingerprints, cryptographically verified candidate comparison, immutable validated runtime profiles, Ally-owned profile catalog/active selection, daily active-profile inference resolution, behavioral qualification, unified first-machine runbook, and immutable machine acceptance evidence bound to the exact version/source/hardware/active-profile state |
 | Proactivity | Implemented substrate + app-owned macOS delivery path; machine acceptance pending | persisted events, deterministic scheduling/attention, payload-minimized rendering, exact stable delivery IDs, retry/interruption lifecycle accounting, modern signed-app `UNUserNotificationCenter` delivery, explicit `SMAppService` launch-at-login, and fail-closed migration from the historical LaunchAgent; deprecated Python Notification Center/LaunchAgent paths remain legacy CLI compatibility only |
 | Voice | Not started | local ASR/TTS and conversational voice |
 | Multi-user households | Not started | identities, shared/private state, permissions |
@@ -89,6 +89,12 @@ Validation artifacts also fingerprint the frozen evaluation inputs and record
 the exact runtime/model configuration plus optional runtime-native performance
 observations. The comparison command reports Ally-version, hardware, or suite
 mismatches and does not choose a default on the user's behalf.
+
+The final dedicated-machine gates are now representable as a separate immutable,
+payload-free acceptance artifact. It binds empirical Keychain, recovery,
+background-service, notification, signed-release/update, replacement, and
+integrated-use observations to the exact Ally version/source revision, hardware
+profile, and hash-bound active validated runtime profile.
 
 ## Hardware handoff
 
