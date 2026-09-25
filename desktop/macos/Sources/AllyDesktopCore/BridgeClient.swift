@@ -3,7 +3,7 @@ import Foundation
 public struct DesktopBridgeClient: Sendable {
     public static let helperEnvironmentKey = "ALLY_DESKTOP_BRIDGE"
     public static let maximumResponseBytes = 2 * 1024 * 1024
-    public static let supportedProtocolVersion = 11
+    public static let supportedProtocolVersion = 12
 
     public let executableURL: URL
 

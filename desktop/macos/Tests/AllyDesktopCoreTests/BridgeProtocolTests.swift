@@ -5,19 +5,22 @@ import UserNotifications
 @testable import AllyDesktopCore
 
 @Test func decodesBridgeInfoEnvelope() throws {
-    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":11,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap","instructions.list","instructions.resolve","research.inspect","research.search","research.answer","task.propose","task.create"]}}"#.utf8)
+    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":12,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap","instructions.list","instructions.resolve","memory.remember","memory.propose","memory.accept_proposals","research.inspect","research.search","research.answer","task.propose","task.create"]}}"#.utf8)
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let envelope = try decoder.decode(BridgeEnvelope<BridgeInfo>.self, from: data)
 
     #expect(envelope.ok)
-    #expect(envelope.result?.protocolVersion == 11)
+    #expect(envelope.result?.protocolVersion == 12)
     #expect(envelope.result?.transport == "stdio")
     #expect(
         envelope.result?.capabilities == [
             "bootstrap",
             "instructions.list",
             "instructions.resolve",
+            "memory.remember",
+            "memory.propose",
+            "memory.accept_proposals",
             "research.inspect",
             "research.search",
             "research.answer",
@@ -219,6 +222,43 @@ import UserNotifications
     #expect(envelope.result?.steps[0].argumentsText == "value: synthetic")
 }
 
+
+@Test func decodesAndReencodesMemoryProposalBundle() throws {
+    let data = Data(#"{"id":"1","ok":true,"result":{"schema_version":1,"generated_at":"2026-09-25T20:00:00Z","provider":"synthetic-local","model":"synthetic-model","source":{"type":"user","id":null,"uri":null},"privacy":"private","source_text_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","memories":[{"kind":"preference","content":"Synthetic subject prefers oolong tea.","confidence":0.9,"importance":0.8}]}}"#.utf8)
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    let envelope = try decoder.decode(
+        BridgeEnvelope<MemoryProposalBundleSummary>.self,
+        from: data
+    )
+
+    #expect(envelope.result?.schemaVersion == 1)
+    #expect(envelope.result?.memories.count == 1)
+    #expect(envelope.result?.memories[0].kind == "preference")
+    #expect(envelope.result?.memories[0].content == "Synthetic subject prefers oolong tea.")
+
+    guard let bundle = envelope.result else {
+        Issue.record("missing decoded memory proposal")
+        return
+    }
+    let request = BridgeRequest(
+        id: "synthetic-memory-accept",
+        method: "memory.accept_proposals",
+        params: [
+            "bundle": bundle.bridgeValue,
+            "indices": .array([.number(0)]),
+        ]
+    )
+    let rendered = String(
+        decoding: try JSONEncoder().encode(request),
+        as: UTF8.self
+    )
+
+    #expect(rendered.contains("memory.accept_proposals"))
+    #expect(rendered.contains("Synthetic subject prefers oolong tea."))
+    #expect(rendered.contains("development_endpoint") == false)
+    #expect(rendered.contains("development_model") == false)
+}
 
 @Test func decodesMemoryProvenanceAndInactiveState() throws {
     let data = Data(#"{"id":"1","ok":true,"result":{"id":"00000000-0000-0000-0000-000000000010","kind":"preference","content":"Synthetic preference.","source":{"type":"user","id":null,"uri":null},"confidence":1.0,"importance":0.8,"privacy":"private","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:01Z","observed_at":"2026-01-01T00:00:00Z","valid_from":null,"valid_until":null,"supersedes":null,"superseded_at":"2026-01-01T00:00:01Z","superseded_by":"00000000-0000-0000-0000-000000000011","retracted_at":null}}"#.utf8)

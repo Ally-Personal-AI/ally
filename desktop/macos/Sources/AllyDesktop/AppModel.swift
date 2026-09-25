@@ -10,6 +10,7 @@ final class AppModel: ObservableObject {
     @Published var memories: [MemorySummary] = []
     @Published var memoryDetail: MemorySummary?
     @Published var memorySearchResults: [MemorySummary] = []
+    @Published var memoryProposal: MemoryProposalBundleSummary?
     @Published var knowledge: [KnowledgeSourceSummary] = []
     @Published var knowledgeDetail: KnowledgeSourceView?
     @Published var knowledgeSearchResults: [KnowledgeSearchResult] = []
@@ -207,6 +208,103 @@ final class AppModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func rememberMemory(
+        content: String,
+        kind: String,
+        confidence: Double,
+        importance: Double,
+        privacy: String
+    ) async -> Bool {
+        guard let client else { return false }
+        let compact = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !compact.isEmpty else { return false }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let _: MemorySummary = try await client.call(
+                "memory.remember",
+                params: [
+                    "content": .string(compact),
+                    "kind": .string(kind),
+                    "confidence": .number(confidence),
+                    "importance": .number(importance),
+                    "privacy": .string(privacy),
+                ]
+            )
+            memories = try await client.call(
+                "memory.list",
+                params: ["limit": .number(100)]
+            )
+            memorySearchResults = []
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    func proposeMemories(
+        from text: String,
+        privacy: String = "private"
+    ) async {
+        guard let client else { return }
+        let compact = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !compact.isEmpty else {
+            memoryProposal = nil
+            return
+        }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            memoryProposal = try await client.call(
+                "memory.propose",
+                params: [
+                    "text": .string(compact),
+                    "source_type": .string("user"),
+                    "privacy": .string(privacy),
+                ]
+            )
+            errorMessage = nil
+        } catch {
+            memoryProposal = nil
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func acceptMemoryProposals(indices: [Int]) async -> Bool {
+        guard let client, let proposal = memoryProposal, !indices.isEmpty else {
+            return false
+        }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let values = indices.sorted().map { JSONValue.number(Double($0)) }
+            let _: [MemorySummary] = try await client.call(
+                "memory.accept_proposals",
+                params: [
+                    "bundle": proposal.bridgeValue,
+                    "indices": .array(values),
+                ]
+            )
+            memories = try await client.call(
+                "memory.list",
+                params: ["limit": .number(100)]
+            )
+            memorySearchResults = []
+            memoryProposal = nil
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    func clearMemoryProposal() {
+        memoryProposal = nil
     }
 
     func correctMemory(memoryID: String, content: String) async {

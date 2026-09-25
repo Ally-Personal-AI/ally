@@ -121,6 +121,12 @@ SQLite is behind an Ally-owned storage interface and versioned migrations; highe
 
 Memory V1 is structured, temporal, provenance-aware, and directly inspectable. Automatic model writes are intentionally not enabled; models can only produce reviewable memory proposals.
 
+The native macOS Memory surface supports explicit direct capture and reviewable
+local extraction. Direct memories are persisted only after **Save Memory**.
+For extraction, Ally's active validated local model proposes candidates from
+local source text; the user selects exact candidates and **Save Selected**
+persists only those choices. Proposal never grants persistence authority.
+
 Store an explicit memory:
 
 ```bash
