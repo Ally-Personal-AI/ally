@@ -132,3 +132,16 @@ Ally 0.1 release gate should require both:
 
 Automatic update download/replacement remains disabled until the signed
 release/update/replacement gates have actually passed on the dedicated Mac.
+
+## Final release-readiness aggregation
+
+Machine acceptance is one half of the final evidence-side release decision. The
+other half is the selected runtime profile's exact capability/privacy/workflow
+qualification.
+
+Immediately before a tagged pre-release, run
+`ally release readiness` with those source artifacts and this machine
+acceptance report. The release-readiness gate re-verifies both chains against
+the live installation; it does not publish or mutate anything.
+
+See [Ally 0.1 Release Readiness](release-readiness.md).
