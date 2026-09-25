@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Self
+from typing import Literal, Self
 from urllib.parse import urlsplit
 from uuid import UUID
 
@@ -111,10 +111,32 @@ class WebResearchSynthesis(BaseModel):
         return self
 
 
+ResearchSynthesisStatus = Literal[
+    "not_run",
+    "succeeded",
+    "unavailable",
+    "failed",
+]
+
+
 class WebResearchAnswerExecution(BaseModel):
-    """Approved search execution plus optional local-only answer synthesis."""
+    """Approved search execution plus separately reported local synthesis state."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     search: WebResearchExecution
+    synthesis_status: ResearchSynthesisStatus = "not_run"
     synthesis: WebResearchSynthesis | None = None
+    synthesis_error_class: str | None = Field(default=None, max_length=128)
+
+    @model_validator(mode="after")
+    def validate_synthesis_state(self) -> Self:
+        if self.synthesis_status == "succeeded" and self.synthesis is None:
+            raise ValueError("successful research synthesis requires an answer")
+        if self.synthesis_status != "succeeded" and self.synthesis is not None:
+            raise ValueError("non-success research synthesis cannot include an answer")
+        if self.synthesis_status == "failed" and self.synthesis_error_class is None:
+            raise ValueError("failed research synthesis requires a safe error class")
+        if self.synthesis_status != "failed" and self.synthesis_error_class is not None:
+            raise ValueError("only failed research synthesis may include an error class")
+        return self
