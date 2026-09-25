@@ -13,6 +13,10 @@ final class AppModel: ObservableObject {
     @Published var knowledge: [KnowledgeSourceSummary] = []
     @Published var knowledgeDetail: KnowledgeSourceView?
     @Published var knowledgeSearchResults: [KnowledgeSearchResult] = []
+    @Published var researchInspection: EgressInspection?
+    @Published var researchResults: [WebSearchResult] = []
+    @Published var researchStatus: String?
+    @Published var researchMoreResultsAvailable = false
     @Published var selectedConversationID: String?
     @Published var conversation: ConversationView?
     @Published var taskDetail: TaskView?
@@ -318,6 +322,76 @@ final class AppModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func inspectResearch(_ query: String, count: Int = 5) async {
+        guard let client else { return }
+        let compact = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !compact.isEmpty else {
+            researchInspection = nil
+            researchResults = []
+            researchStatus = nil
+            researchMoreResultsAvailable = false
+            return
+        }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            researchInspection = try await client.call(
+                "research.inspect",
+                params: [
+                    "query": .string(compact),
+                    "count": .number(Double(count)),
+                ]
+            )
+            researchStatus = researchInspection?.decision
+            errorMessage = nil
+        } catch {
+            researchInspection = nil
+            researchStatus = nil
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func runApprovedResearch(_ query: String, count: Int = 5) async {
+        guard let client else { return }
+        let compact = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !compact.isEmpty else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let execution: WebResearchExecution = try await client.call(
+                "research.search",
+                params: [
+                    "query": .string(compact),
+                    "count": .number(Double(count)),
+                    "approved": .bool(true),
+                ]
+            )
+            researchStatus = execution.status
+            researchMoreResultsAvailable = execution.moreResultsAvailable
+            if execution.status == "succeeded" {
+                researchResults = execution.results
+                errorMessage = nil
+            } else {
+                researchResults = []
+                if execution.status == "failed" {
+                    errorMessage = "Web research failed safely: \(execution.errorClass ?? "ExternalResearchError")"
+                }
+            }
+        } catch {
+            researchResults = []
+            researchStatus = nil
+            researchMoreResultsAvailable = false
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func clearResearch() {
+        researchInspection = nil
+        researchResults = []
+        researchStatus = nil
+        researchMoreResultsAvailable = false
     }
 
     func refreshAttention() async {
