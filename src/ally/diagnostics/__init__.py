@@ -17,14 +17,6 @@ from ally.diagnostics.machine_acceptance import (
     verify_machine_acceptance_binding,
     write_machine_acceptance_report,
 )
-from ally.diagnostics.release_readiness import (
-    ReleaseReadinessEvidenceError,
-    ReleaseReadinessReport,
-    build_release_readiness_report,
-    load_release_readiness_report,
-    verify_release_readiness_sources,
-    write_release_readiness_report,
-)
 from ally.diagnostics.readiness import (
     EvaluationSuiteCounts,
     FirstMachineReadinessCheck,
@@ -32,6 +24,14 @@ from ally.diagnostics.readiness import (
     ReadinessSeverity,
     build_first_machine_readiness,
     collect_first_machine_readiness,
+)
+from ally.diagnostics.release_readiness import (
+    ReleaseReadinessEvidenceError,
+    ReleaseReadinessReport,
+    build_release_readiness_report,
+    load_release_readiness_report,
+    verify_release_readiness_sources,
+    write_release_readiness_report,
 )
 from ally.diagnostics.runtime_privacy import (
     NetworkObservationMethod,
