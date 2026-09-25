@@ -64,6 +64,7 @@ from ally.commands.memory_proposals import (
     run_propose_memories,
 )
 from ally.commands.planning import run_propose_plan
+from ally.commands.research import run_research_inspect, run_research_search
 from ally.commands.release_readiness import (
     run_create_release_readiness,
     run_show_release_readiness,
@@ -219,6 +220,33 @@ def build_parser() -> argparse.ArgumentParser:
     )
     voice_inspect.add_argument("path")
     voice_inspect.add_argument("--json", action="store_true", dest="json_output")
+
+    research = subcommands.add_parser(
+        "research",
+        help="Search public web information through explicit controlled egress.",
+    )
+    research_commands = research.add_subparsers(dest="research_command")
+
+    research_inspect = research_commands.add_parser(
+        "inspect",
+        help="Inspect what fields would leave Ally; performs no network request.",
+    )
+    research_inspect.add_argument("query")
+    research_inspect.add_argument("--count", type=int, default=5)
+    research_inspect.add_argument("--json", action="store_true", dest="json_output")
+
+    research_search = research_commands.add_parser(
+        "search",
+        help="Search the web only after explicit approval of the exact query.",
+    )
+    research_search.add_argument("query")
+    research_search.add_argument("--count", type=int, default=5)
+    research_search.add_argument(
+        "--approve",
+        action="store_true",
+        help="Explicitly approve disclosure of the exact query to the search provider.",
+    )
+    research_search.add_argument("--json", action="store_true", dest="json_output")
 
     config = subcommands.add_parser(
         "config",
@@ -1532,6 +1560,21 @@ def _run_command(argv: Sequence[str] | None) -> int:
     if args.command == "voice" and args.voice_command == "inspect-wav":
         return run_inspect_voice_wav(
             path=cast(str, args.path),
+            json_output=cast(bool, args.json_output),
+        )
+
+    if args.command == "research" and args.research_command == "inspect":
+        return run_research_inspect(
+            query=cast(str, args.query),
+            count=cast(int, args.count),
+            json_output=cast(bool, args.json_output),
+        )
+
+    if args.command == "research" and args.research_command == "search":
+        return run_research_search(
+            query=cast(str, args.query),
+            count=cast(int, args.count),
+            approved=cast(bool, args.approve),
             json_output=cast(bool, args.json_output),
         )
 
