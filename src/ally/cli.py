@@ -64,6 +64,11 @@ from ally.commands.memory_proposals import (
     run_propose_memories,
 )
 from ally.commands.planning import run_propose_plan
+from ally.commands.release_readiness import (
+    run_create_release_readiness,
+    run_show_release_readiness,
+    run_verify_release_readiness,
+)
 from ally.commands.runtime_profiles import (
     run_active_runtime_profile,
     run_create_runtime_profile,
@@ -1163,6 +1168,56 @@ def build_parser() -> argparse.ArgumentParser:
         dest="json_output",
     )
 
+    release_readiness = subcommands.add_parser(
+        "release-readiness",
+        help="Bind candidate qualification to dedicated-machine acceptance.",
+    )
+    release_readiness_commands = release_readiness.add_subparsers(
+        dest="release_readiness_command"
+    )
+
+    release_readiness_create = release_readiness_commands.add_parser(
+        "create",
+        help="Create immutable final release-readiness evidence.",
+    )
+    release_readiness_create.add_argument("validation_session")
+    release_readiness_create.add_argument("machine_acceptance")
+    release_readiness_create.add_argument("--source-revision", required=True)
+    release_readiness_create.add_argument(
+        "--output",
+        default="validation/release-readiness.json",
+    )
+    release_readiness_create.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
+    release_readiness_show = release_readiness_commands.add_parser(
+        "show",
+        help="Inspect one final release-readiness artifact.",
+    )
+    release_readiness_show.add_argument("report")
+    release_readiness_show.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
+    release_readiness_verify = release_readiness_commands.add_parser(
+        "verify",
+        help="Re-verify final readiness against every current source artifact.",
+    )
+    release_readiness_verify.add_argument("report")
+    release_readiness_verify.add_argument("validation_session")
+    release_readiness_verify.add_argument("machine_acceptance")
+    release_readiness_verify.add_argument("--source-revision", required=True)
+    release_readiness_verify.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
     validate = subcommands.add_parser(
         "validate",
         help="Run reproducible machine and local-model validation.",
@@ -1924,6 +1979,29 @@ def _run_command(argv: Sequence[str] | None) -> int:
         if args.machine_acceptance_command == "verify":
             return run_verify_machine_acceptance(
                 report_path=cast(str, args.report),
+                source_revision=cast(str, args.source_revision),
+                json_output=cast(bool, args.json_output),
+            )
+
+    if args.command == "release-readiness":
+        if args.release_readiness_command == "create":
+            return run_create_release_readiness(
+                validation_session=cast(str, args.validation_session),
+                machine_acceptance=cast(str, args.machine_acceptance),
+                source_revision=cast(str, args.source_revision),
+                output=cast(str, args.output),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.release_readiness_command == "show":
+            return run_show_release_readiness(
+                report_path=cast(str, args.report),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.release_readiness_command == "verify":
+            return run_verify_release_readiness(
+                report_path=cast(str, args.report),
+                validation_session=cast(str, args.validation_session),
+                machine_acceptance=cast(str, args.machine_acceptance),
                 source_revision=cast(str, args.source_revision),
                 json_output=cast(bool, args.json_output),
             )
