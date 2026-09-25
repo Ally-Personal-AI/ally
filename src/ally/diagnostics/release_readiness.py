@@ -14,12 +14,12 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 from ally import __version__
 from ally.diagnostics.hardware import HardwareProfile
-from ally.diagnostics.readiness import FirstMachineReadinessReport
 from ally.diagnostics.machine_acceptance import (
     MachineAcceptanceEvidenceError,
     load_machine_acceptance_report,
     verify_machine_acceptance_binding,
 )
+from ally.diagnostics.readiness import FirstMachineReadinessReport
 from ally.runtime_profiles import (
     ValidatedRuntimeProfileError,
     load_validated_runtime_profile,
