@@ -36,6 +36,20 @@ public struct ConversationView: Decodable, Sendable, Equatable {
     public let messages: [ConversationMessage]
 }
 
+public struct ConversationSearchResult: Decodable, Sendable, Equatable, Identifiable {
+    public let conversation: ConversationSummary
+    public let score: Double
+    public let matchKind: String
+    public let messageId: String?
+    public let messagePosition: Int?
+    public let messageRole: String?
+    public let snippet: String?
+
+    public var id: String {
+        conversation.id
+    }
+}
+
 public struct ChatResponse: Decodable, Sendable, Equatable {
     public let content: String
     public let model: String
