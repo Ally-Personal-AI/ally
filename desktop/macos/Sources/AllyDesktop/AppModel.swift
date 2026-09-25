@@ -487,6 +487,10 @@ final class AppModel: ObservableObject {
             researchMoreResultsAvailable = false
             return
         }
+        researchResults = []
+        researchSynthesis = nil
+        researchSynthesisStatus = nil
+        researchMoreResultsAvailable = false
         isBusy = true
         defer { isBusy = false }
         do {
