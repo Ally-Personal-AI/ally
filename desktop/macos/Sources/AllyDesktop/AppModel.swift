@@ -41,7 +41,7 @@ final class AppModel: ObservableObject {
     @Published var isBusy = false
     @Published var errorMessage: String?
 
-    private let client: DesktopBridgeClient?
+    private let client: (any DesktopBridgeCalling)?
     private let notificationAuthorizationClient = DesktopNotificationAuthorizationClient()
     private let backgroundServiceClient = DesktopBackgroundServiceClient()
     private var proactiveLoopTask: Task<Void, Never>?
@@ -54,12 +54,31 @@ final class AppModel: ObservableObject {
             self.client = nil
             self.errorMessage = error.localizedDescription
         }
+        beginProactiveLoop()
+    }
 
+    init(
+        client: any DesktopBridgeCalling,
+        startProactiveLoop: Bool = false
+    ) {
+        self.client = client
+        if startProactiveLoop {
+            beginProactiveLoop()
+        }
+    }
+
+    private func beginProactiveLoop() {
         proactiveLoopTask = Task { [weak self] in
             while !Task.isCancelled {
-                guard let self else { return }
-                await self.runProactiveCycleIfEnabled()
-                try? await Task.sleep(for: .seconds(60))
+                guard self != nil else { return }
+                if let model = self {
+                    await model.runProactiveCycleIfEnabled()
+                }
+                do {
+                    try await Task.sleep(for: .seconds(60))
+                } catch {
+                    return
+                }
             }
         }
     }
