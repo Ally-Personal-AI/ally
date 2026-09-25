@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+import plistlib
+import sys
+from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager
 from datetime import UTC, datetime
 from io import StringIO
 from pathlib import Path
+from typing import cast
 
 from pydantic import JsonValue
 
@@ -40,6 +43,11 @@ from ally.service import (
     ServiceHealthReport,
     SQLiteServiceLeaseStore,
 )
+from ally.service.macos_launchd import (
+    LaunchctlResult,
+    MacOSLaunchdService,
+    ManagedServicePaths,
+)
 from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
     SQLiteConversationStore,
@@ -73,6 +81,22 @@ class ReversibleTool:
     def run(self, arguments: dict[str, JsonValue]) -> JsonValue:
         self.calls += 1
         return {"calls": self.calls, "arguments": arguments}
+
+
+class BridgeLaunchctl:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, ...]] = []
+        self.loaded = False
+
+    def run(self, arguments: Sequence[str]) -> LaunchctlResult:
+        call = tuple(arguments)
+        self.calls.append(call)
+        if call[0] == "print":
+            return LaunchctlResult(0, "state = waiting\n") if self.loaded else LaunchctlResult(113)
+        if call[0] == "bootout":
+            self.loaded = False
+            return LaunchctlResult(0)
+        raise AssertionError(f"unexpected launchctl call: {call}")
 
 
 class CapturingProvider:
@@ -253,6 +277,8 @@ def _task_application(
 
 def _attention_application(
     tmp_path: Path,
+    *,
+    legacy_managed_service: MacOSLaunchdService | None = None,
 ) -> tuple[
     AllyApplication,
     SQLiteEventStore,
@@ -291,6 +317,7 @@ def _attention_application(
                 database_integrity_ok=True,
                 schema_current=True,
             ),
+            legacy_managed_service=legacy_managed_service,
             desktop_proactive=DesktopProactiveCoordinator(
                 scheduler=SchedulerRuntime(
                     SQLiteScheduleStore(database),
@@ -306,6 +333,33 @@ def _attention_application(
         ),
     )
     return app, events, deliveries
+
+
+def _legacy_service(tmp_path: Path) -> tuple[MacOSLaunchdService, BridgeLaunchctl]:
+    runner = BridgeLaunchctl()
+    paths = ManagedServicePaths(
+        plist=tmp_path / "Library" / "LaunchAgents" / "ai.ally.proactive-service.plist",
+        stdout_log=tmp_path / "data" / "service" / "logs" / "stdout.log",
+        stderr_log=tmp_path / "data" / "service" / "logs" / "stderr.log",
+    )
+    service = MacOSLaunchdService(
+        paths=paths,
+        runner=runner,
+        executable=Path(sys.executable),
+        uid=501,
+        supported=True,
+    )
+    definition = service.definition()
+    arguments_value = definition["ProgramArguments"]
+    assert isinstance(arguments_value, list)
+    arguments = cast(list[str], arguments_value.copy())
+    arguments[0] = "/Applications/SyntheticOldAlly/bin/python"
+    definition["ProgramArguments"] = arguments
+    paths.plist.parent.mkdir(parents=True)
+    paths.plist.write_bytes(
+        plistlib.dumps(definition, fmt=plistlib.FMT_XML, sort_keys=True)
+    )
+    return service, runner
 
 
 def _request(method: str, params: dict[str, object] | None = None) -> str:
@@ -1049,3 +1103,67 @@ def test_bridge_bounds_stdio_requests_without_echoing_payload(tmp_path: Path) ->
     response = output_stream.getvalue()
     assert "request_too_large" in response
     assert "XXXXX" not in response
+
+
+def test_bridge_legacy_service_migration_is_path_free_and_exact(
+    tmp_path: Path,
+) -> None:
+    service, runner = _legacy_service(tmp_path)
+    runner.loaded = True
+    app, _, _ = _attention_application(
+        tmp_path,
+        legacy_managed_service=service,
+    )
+
+    status = handle_request_json(app, _request("service.legacy_status"))
+
+    assert status.ok
+    assert isinstance(status.result, dict)
+    assert status.result["definition_state"] == "recognized_legacy"
+    assert status.result["configured"] is True
+    assert status.result["can_retire"] is True
+    rendered = status.model_dump_json()
+    assert "plist" not in rendered
+    assert "SyntheticOldAlly" not in rendered
+    assert str(tmp_path) not in rendered
+
+    rejected = handle_request_json(
+        app,
+        _request("service.retire_legacy", {"path": "/tmp/not-allowed"}),
+    )
+    assert not rejected.ok
+    assert rejected.error is not None
+    assert rejected.error.code == "invalid_request"
+    assert service.paths.plist.exists()
+
+    retired = handle_request_json(app, _request("service.retire_legacy"))
+    assert retired.ok
+    assert isinstance(retired.result, dict)
+    assert retired.result["configured"] is False
+    assert retired.result["definition_state"] == "absent"
+    assert not service.paths.plist.exists()
+
+
+def test_bridge_refuses_modified_legacy_service_retirement(tmp_path: Path) -> None:
+    service, _ = _legacy_service(tmp_path)
+    definition = plistlib.loads(service.paths.plist.read_bytes())
+    definition["StartInterval"] = 10
+    service.paths.plist.write_bytes(
+        plistlib.dumps(definition, fmt=plistlib.FMT_XML, sort_keys=True)
+    )
+    app, _, _ = _attention_application(
+        tmp_path,
+        legacy_managed_service=service,
+    )
+
+    status = handle_request_json(app, _request("service.legacy_status"))
+    assert status.ok
+    assert isinstance(status.result, dict)
+    assert status.result["definition_state"] == "modified"
+    assert status.result["can_retire"] is False
+
+    retired = handle_request_json(app, _request("service.retire_legacy"))
+    assert not retired.ok
+    assert retired.error is not None
+    assert retired.error.code == "invalid_state"
+    assert service.paths.plist.exists()

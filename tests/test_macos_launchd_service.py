@@ -6,6 +6,7 @@ import plistlib
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -107,7 +108,7 @@ def test_unsupported_status_is_read_only(tmp_path: Path) -> None:
     assert runner.calls == []
 
 
-@pytest.mark.parametrize("action", ["install", "start", "stop", "uninstall"])
+@pytest.mark.parametrize("action", ["install", "start", "stop", "uninstall", "retire_legacy"])
 def test_mutations_are_rejected_off_macos(tmp_path: Path, action: str) -> None:
     service, runner = build_service(tmp_path, supported=False)
 
@@ -248,3 +249,83 @@ def test_cli_status_has_stable_json_shape(capsys: pytest.CaptureFixture[str]) ->
         "running",
         "supported",
     }
+
+
+def test_migration_recognizes_historical_executable_path(tmp_path: Path) -> None:
+    service, runner = build_service(tmp_path)
+    definition = service.definition()
+    arguments_value = definition["ProgramArguments"]
+    assert isinstance(arguments_value, list)
+    arguments = cast(list[str], arguments_value.copy())
+    arguments[0] = "/Applications/SyntheticOldAlly/bin/python"
+    definition["ProgramArguments"] = arguments
+    service.paths.plist.parent.mkdir(parents=True)
+    service.paths.plist.write_bytes(
+        plistlib.dumps(definition, fmt=plistlib.FMT_XML, sort_keys=True)
+    )
+
+    status = service.migration_status()
+
+    assert status.configured
+    assert status.definition_state == "recognized_legacy"
+    assert status.can_retire
+    assert not status.loaded
+    assert runner.calls[-1] == ("print", service.service_target)
+
+
+def test_migration_refuses_modified_or_symlinked_definition(tmp_path: Path) -> None:
+    service, _ = build_service(tmp_path)
+    definition = service.definition()
+    definition["StartInterval"] = 30
+    service.paths.plist.parent.mkdir(parents=True)
+    service.paths.plist.write_bytes(
+        plistlib.dumps(definition, fmt=plistlib.FMT_XML, sort_keys=True)
+    )
+
+    status = service.migration_status()
+
+    assert status.definition_state == "modified"
+    assert not status.can_retire
+    with pytest.raises(ManagedServiceError, match="not recognized"):
+        service.retire_legacy()
+    assert service.paths.plist.exists()
+
+    target = tmp_path / "recognized.plist"
+    target.write_bytes(service.definition_bytes())
+    service.paths.plist.unlink()
+    service.paths.plist.symlink_to(target)
+
+    symlink_status = service.migration_status()
+
+    assert symlink_status.definition_state == "modified"
+    assert not symlink_status.can_retire
+    with pytest.raises(ManagedServiceError, match="not recognized"):
+        service.retire_legacy()
+    assert service.paths.plist.is_symlink()
+
+
+def test_retire_legacy_unloads_then_removes_recognized_definition(
+    tmp_path: Path,
+) -> None:
+    service, runner = build_service(tmp_path)
+    definition = service.definition()
+    arguments_value = definition["ProgramArguments"]
+    assert isinstance(arguments_value, list)
+    arguments = cast(list[str], arguments_value.copy())
+    arguments[0] = "/Applications/SyntheticOldAlly/bin/python"
+    definition["ProgramArguments"] = arguments
+    service.paths.plist.parent.mkdir(parents=True)
+    service.paths.plist.write_bytes(
+        plistlib.dumps(definition, fmt=plistlib.FMT_XML, sort_keys=True)
+    )
+    runner.loaded = True
+    runner.running = True
+
+    status = service.retire_legacy()
+
+    assert not status.configured
+    assert status.definition_state == "absent"
+    assert not status.loaded
+    assert not status.running
+    assert not service.paths.plist.exists()
+    assert ("bootout", service.service_target) in runner.calls

@@ -1,72 +1,71 @@
 # Managed macOS service
 
-Ally's launch-agent adapter makes the bounded proactive cycle recurrent without
-putting daemon behavior into Ally Core. It is present but disabled until the
-user explicitly installs it.
+Ally's historical Python launch-agent adapter remains available for CLI
+compatibility and migration testing. It is **not** the production scheduler for
+the signed desktop app.
 
-The launch agent invokes `ally service cycle --json`. The service cycle
-defaults to the `auto` attention sink, which selects native Notification
-Center on macOS. Notification delivery remains behind the durable attention
-contract; the launch agent does not own notification state.
+The accepted desktop path uses `SMAppService.mainApp` for explicit
+launch-at-login registration and keeps modern `UNUserNotificationCenter`
+delivery inside the signed `ai.ally.personal` application identity.
 
-## Inspect before installing
+## Historical launch-agent contract
+
+The legacy adapter invokes one bounded `ally service cycle --json` every 60
+seconds under the label:
+
+```text
+ai.ally.proactive-service
+```
+
+Its deterministic definition can still be inspected without mutation:
 
 ```bash
 ally service managed inspect
-```
-
-This prints the complete deterministic plist and never writes a file or calls
-`launchctl`. It works on Linux CI as well as macOS.
-
-Review these absolute paths in the output:
-
-- the Python interpreter at the start of `ProgramArguments`;
-- `StandardOutPath`; and
-- `StandardErrorPath`.
-
-The interpreter must be the stable environment intended to run Ally. The agent
-does not activate a virtual environment or search `PATH`.
-
-## Lifecycle
-
-Run these as the macOS login user, not with `sudo`:
-
-```bash
-ally service managed install
 ally service managed status --json
-ally service managed stop
-ally service managed start
-ally service managed uninstall
 ```
 
-Install publishes `~/Library/LaunchAgents/ai.ally.proactive-service.plist` only
-when the destination is absent, then bootstraps it into the current GUI user's
-launchd domain. Repeating install is safe when the exact definition is already
-present. A different file or symlink is never overwritten.
+Manual install/start/stop/uninstall commands remain for compatibility and
+operator recovery, but new desktop installations should not install this agent.
 
-Uninstall first unloads the agent and then removes the plist. It refuses to
-remove a definition whose bytes no longer match Ally's expected definition.
-Logs and personal data are retained.
+## Fail-closed desktop migration
 
-For the overall dedicated-machine order and stop conditions, start with
-[Unified First-Machine Acceptance](hardware/first-machine-acceptance.md).
+Desktop protocol v7 exposes only path-free legacy-service migration state. The
+signed app does not receive the plist path or historical Python executable.
+
+A definition is automatically retirable only when:
+
+- it is a regular file, not a symlink;
+- its label, interval, run-at-load behavior, process type, I/O priority, umask,
+  log paths, and command arguments match Ally's deterministic legacy definition;
+- only the first absolute Python executable path differs from the current
+  environment, allowing an older Ally install to be recognized safely.
+
+Modified or unrecognized definitions are never removed automatically.
+
+Retirement unloads the exact launchd label, re-validates the recognized file and
+its filesystem identity, then unlinks only that same file. A racing replacement
+is left in place and migration fails closed.
+
+While any legacy definition remains configured—or its state cannot be verified—
+the signed app refuses to enable modern background proactivity and pauses its
+automatic proactive loop. The runtime lease remains a second line of defense
+against overlapping cycles, not the migration mechanism itself.
 
 ## Dedicated-machine acceptance
 
-The implementation and mocked lifecycle are hardware-independent. Before
-calling the service production-ready, verify on the dedicated Mac:
+On the dedicated Mac:
 
-1. inspect and install as the intended login user;
-2. confirm a successful cycle, service health report, and
-   `ally attention health --sink macos`;
-3. log out and in, then confirm the agent loads and cycles resume;
-4. restart the Mac and repeat the check;
-5. exercise a cycle failure and confirm later cycles recover;
-6. confirm overlapping invocations are rejected by the runtime lease;
-7. inspect stdout/stderr growth and choose a log-retention policy; and
-8. confirm synthetic native notifications survive login/restart without
-   duplicate delivery; and
-9. uninstall and confirm the agent is unloaded while data and logs remain.
+1. inspect `ally service managed status --json` before enabling the signed app;
+2. for a clean install, confirm no legacy definition exists and enable Background
+   Proactivity through the app;
+3. for an upgrade test, install/create the exact historical Ally definition,
+   confirm the app detects it, and retire it through the explicit migration UI;
+4. alter a synthetic legacy definition and confirm the app refuses automatic
+   retirement and pauses background proactivity;
+5. confirm `SMAppService.mainApp` enable/disable state tracks Login Items;
+6. verify bounded cycles after login and full restart;
+7. verify cycle failure recovery and lease rejection of overlap; and
+8. confirm migration/removal leaves Ally data and historical logs intact.
 
-Record the exact Ally version, Python path, macOS version, commands, timestamps,
-and observed results in the hardware acceptance evidence.
+For the overall order and stop conditions, start with
+[Unified First-Machine Acceptance](hardware/first-machine-acceptance.md).

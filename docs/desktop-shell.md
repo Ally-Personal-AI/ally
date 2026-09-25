@@ -56,7 +56,8 @@ The first shell includes:
 - private-runtime readiness and validated-profile catalog/selection;
 - proactive-service health;
 - full attention event/delivery-history inspection with explicit handled-state mutation; and
-- modern macOS notification authorization status/request through `UNUserNotificationCenter`.
+- modern macOS notification authorization/status through `UNUserNotificationCenter`; and
+- fail-closed migration from the historical Ally launchd service before signed-app background proactivity.
 
 This is still an incremental #66 product surface. Polished empty/error states,
 real Developer ID/notarization acceptance, and dedicated-machine release
@@ -105,7 +106,7 @@ correction/retraction preserve local history.
 
 ## Attention, notification, and proactive-service boundary
 
-Desktop protocol v6 keeps the Attention Center and adds a narrow signed-app
+Desktop protocol v7 keeps the Attention Center and adds a narrow signed-app
 delivery handshake without turning the bridge into a general notification API.
 
 Read-only/event-state operations remain:
@@ -161,6 +162,26 @@ authorization remains a separate explicit user choice.
 The deprecated Python `NSUserNotificationCenter` adapter remains isolated for
 legacy CLI compatibility only. The signed desktop release path does not import
 or call it.
+
+### Legacy background-service migration
+
+Protocol v7 also exposes two path-free operations: `service.legacy_status` and
+`service.retire_legacy`. The signed app never receives the plist path, prior
+Python executable path, or arbitrary launchctl arguments.
+
+Migration is fail closed:
+
+- any configured historical launch agent pauses automatic signed-app proactivity;
+- an exact current definition or a recognized historical Ally definition whose
+  only allowed difference is its absolute Python executable may be retired;
+- modified definitions and symlinks are never removed automatically;
+- retirement unloads the exact `ai.ally.proactive-service` label before unlinking
+  and re-checks file identity so a racing replacement is not deleted; and
+- the new `SMAppService.mainApp` login item cannot be enabled from the UI until
+  legacy state is known and no legacy definition remains configured.
+
+This keeps old and new schedulers from silently coexisting even though the
+runtime lease would still prevent simultaneous proactive-cycle execution.
 
 ## Task approval boundary
 

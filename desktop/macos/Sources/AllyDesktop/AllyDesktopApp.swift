@@ -1020,6 +1020,7 @@ private struct SystemScreen: View {
     @ObservedObject var model: AppModel
     @State private var pendingProfile: RuntimeProfileSummary?
     @State private var showingProfileSelection = false
+    @State private var showingLegacyRetirement = false
 
     var body: some View {
         Form {
@@ -1136,6 +1137,30 @@ private struct SystemScreen: View {
                     "Background activity",
                     value: backgroundServiceStatus(model.backgroundServiceState)
                 )
+                if let legacy = model.legacyManagedService {
+                    LabeledContent(
+                        "Legacy launchd service",
+                        value: legacyServiceStatus(legacy)
+                    )
+                    if legacy.configured && legacy.canRetire {
+                        Button("Retire Legacy Ally Service") {
+                            showingLegacyRetirement = true
+                        }
+                        .disabled(model.isBusy)
+                        Text("The signed app will remove only a recognized Ally-owned historical launch-agent definition. It will not delete a modified or unrecognized plist.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    } else if legacy.configured {
+                        Text("A legacy service definition is present but does not exactly match Ally's recognized historical shape. Automatic background proactivity is paused; review it manually rather than allowing the app to delete it.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    LabeledContent("Legacy launchd service", value: "Unknown")
+                    Text("Ally pauses automatic proactivity when legacy-service state cannot be verified.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
                 if let lastCycle = model.lastProactiveCycleAt {
                     LabeledContent(
                         "Last local cycle",
@@ -1170,6 +1195,11 @@ private struct SystemScreen: View {
                     Button("Enable Background Proactivity") {
                         Task { await model.enableBackgroundService() }
                     }
+                    .disabled(
+                        model.isBusy ||
+                        model.legacyManagedService == nil ||
+                        model.legacyManagedService?.configured == true
+                    )
                     Text("This explicitly registers the signed Ally app to launch at login. It does not install a separate desktop launch agent.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -1195,6 +1225,7 @@ private struct SystemScreen: View {
         .navigationTitle("System")
         .task {
             model.refreshBackgroundServiceState()
+            await model.refreshLegacyManagedServiceStatus()
         }
         .alert(
             "Use this validated profile?",
@@ -1207,6 +1238,17 @@ private struct SystemScreen: View {
             }
         } message: { profile in
             Text("Private inference will use \(profile.model) through \(profile.runtimeName) \(profile.runtimeVersion). Only this already-installed evidence-backed profile ID will be selected.")
+        }
+        .alert(
+            "Retire the legacy Ally background service?",
+            isPresented: $showingLegacyRetirement
+        ) {
+            Button("Cancel", role: .cancel) {}
+            Button("Retire Legacy Service", role: .destructive) {
+                Task { await model.retireLegacyManagedService() }
+            }
+        } message: {
+            Text("Ally will unload and remove only the recognized historical ai.ally.proactive-service launch agent. Modified or unrecognized definitions are never removed automatically.")
         }
     }
 
@@ -1224,6 +1266,22 @@ private struct SystemScreen: View {
 
     private func shortHash(_ value: String) -> String {
         String(value.prefix(12))
+    }
+
+    private func legacyServiceStatus(_ state: LegacyManagedServiceView) -> String {
+        if !state.configured {
+            return "Not Configured"
+        }
+        switch state.definitionState {
+        case "current":
+            return state.loaded ? "Recognized & Loaded" : "Recognized"
+        case "recognized_legacy":
+            return state.loaded ? "Historical & Loaded" : "Historical"
+        case "modified":
+            return "Modified / Manual Review"
+        default:
+            return "Unknown"
+        }
     }
 
     private func backgroundServiceStatus(

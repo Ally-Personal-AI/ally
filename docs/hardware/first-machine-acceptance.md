@@ -394,36 +394,37 @@ Detailed procedure:
 
 ---
 
-## 10. Managed proactive service acceptance (#64)
+## 10. Signed-app background service and legacy migration acceptance (#64)
 
-Inspect before installing:
+For a new desktop installation, do **not** install the historical launch-agent
+scheduler. It remains available only for legacy CLI compatibility.
 
-```bash
-uv run ally service managed inspect
-```
-
-As the intended login user, not with `sudo`:
+Before enabling background proactivity in the signed app, inspect whether an
+older installation left the historical service behind:
 
 ```bash
-uv run ally service managed install
 uv run ally service managed status --json
-uv run ally service health --json
 ```
 
-Verify:
+If it is absent, enable **Background Proactivity** in the signed app and verify
+`SMAppService.mainApp` reaches the expected Login Items state.
 
-1. the expected interpreter/log paths;
-2. successful bounded cycles;
-3. logout/login recovery;
-4. full Mac restart recovery;
-5. recovery after a synthetic cycle failure;
-6. overlapping cycles are rejected by the runtime lease;
-7. log growth/retention policy is acceptable; and
-8. uninstall leaves data/logs intact.
+If it is present, verify the app:
+
+1. reports the legacy service without exposing its filesystem or executable path;
+2. refuses to enable the modern login item while legacy state remains configured;
+3. retires an exact/recognized Ally historical definition only after explicit confirmation;
+4. refuses automatic retirement of a modified definition or symlink; and
+5. resumes signed-app proactive cycles only after migration state is clean.
+
+Then verify successful bounded cycles, logout/login recovery, full Mac restart
+recovery, recovery after a synthetic cycle failure, lease rejection of overlap,
+and that disabling the login item leaves Ally data intact.
 
 ### Stop condition
 
-Managed-service failure blocks desktop/release acceptance.
+Unknown or modified legacy-service state, failed migration, or failed signed-app
+login/restart behavior blocks desktop/release acceptance.
 
 Detailed procedure:
 [Managed macOS Service](../macos-managed-service.md).
@@ -432,23 +433,22 @@ Detailed procedure:
 
 ## 11. Native Notification Center acceptance (#63)
 
-Run:
+Exercise the **signed Ally app**, not the deprecated CLI Notification Center
+adapter, as the acceptance authority.
 
-```bash
-uv run ally attention health --sink macos
-```
-
-Emit synthetic events covering mention-later, notify, and interrupt classes,
-then deliver them through the native sink.
+Emit synthetic events covering mention-later, notify, and interrupt classes and
+allow the app-owned proactive cycle to deliver them through
+`UNUserNotificationCenter`.
 
 Verify:
 
-- one visible notification per event;
-- retries do not duplicate a successful delivery;
+- the signed `ai.ally.personal` identity owns notification authorization;
+- one visible notification appears per event;
+- retries/restart reconciliation do not duplicate a successful delivery;
 - notification previews expose only the intended synthetic summary/message;
-- denied/unobservable authorization behavior is understood;
-- failures persist only safe exception classes;
-- logout/login and restart preserve managed delivery behavior.
+- denied authorization becomes a safe durable failed attempt;
+- successful delivery does not mark the event handled; and
+- logout/login and restart preserve signed-app delivery behavior.
 
 ### Stop condition
 

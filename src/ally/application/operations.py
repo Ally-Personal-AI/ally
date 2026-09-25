@@ -12,6 +12,7 @@ from ally.service import (
     ServiceCycleRunStore,
     ServiceHealthReport,
 )
+from ally.service.macos_launchd import MacOSLaunchdService
 from ally.tasks import TaskRunner, TaskStore
 
 ServiceHealthProvider = Callable[[], ServiceHealthReport]
@@ -28,3 +29,4 @@ class ApplicationOperations:
     service_runs: ServiceCycleRunStore
     service_health: ServiceHealthProvider
     desktop_proactive: DesktopProactiveCoordinator | None = None
+    legacy_managed_service: MacOSLaunchdService | None = None

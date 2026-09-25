@@ -77,6 +77,23 @@ in. A future quit-resistant background agent should be introduced only after its
 cross-process identity/notification behavior can be validated on the dedicated
 Mac.
 
+### Legacy launchd migration
+
+A historical installation may still have
+`~/Library/LaunchAgents/ai.ally.proactive-service.plist`. The signed app checks
+that state through Ally Core before registering or running automatic proactivity.
+
+The app may retire only a recognized Ally-owned definition. A historical
+absolute Python executable path is allowed to differ, but every other plist
+field must match Ally's deterministic legacy definition. Symlinks and modified
+plists are reported for manual review and are never deleted automatically.
+
+While any legacy definition remains configured—or migration state cannot be
+verified—the signed app pauses automatic proactive cycles and refuses to enable
+the modern login item. This prevents two schedulers from being intentionally
+left active even though the shared runtime lease already protects the actual
+cycle from overlap.
+
 ## Notification text privacy
 
 Notification Center is an intentional user-facing disclosure surface. Content
@@ -153,11 +170,15 @@ Before closing the native-attention milestone:
 6. deny notification permission and confirm failed delivery is recorded without
    leaking native error details;
 7. verify only the explicit synthetic summary appears in notification content;
-8. enable/disable background proactivity and verify `SMAppService` state tracks
-   Login Items settings;
-9. restart/login and verify the signed app identity retains the intended
-   notification/background authorization; and
-10. confirm legacy launchd/NSUserNotificationCenter delivery is not active in
+8. if a legacy `ai.ally.proactive-service` launch agent exists, confirm the app
+   detects it and blocks modern background proactivity until migration;
+9. confirm a recognized historical definition can be retired, while a modified
+   or symlinked definition is refused and requires manual review;
+10. enable/disable background proactivity and verify `SMAppService` state tracks
+    Login Items settings;
+11. restart/login and verify the signed app identity retains the intended
+    notification/background authorization; and
+12. confirm legacy launchd/NSUserNotificationCenter delivery is not active in
     the accepted desktop configuration.
 
 For the overall order and stop conditions, start with

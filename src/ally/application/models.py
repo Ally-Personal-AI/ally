@@ -236,6 +236,25 @@ class CompleteDesktopProactiveRequest(BaseModel):
     run_id: UUID
 
 
+class LegacyManagedServiceView(BaseModel):
+    """Path-free migration state for Ally's historical launchd service."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    supported: bool
+    configured: bool
+    definition_state: Literal[
+        "absent",
+        "current",
+        "recognized_legacy",
+        "modified",
+    ]
+    loaded: bool
+    running: bool
+    label: str
+    can_retire: bool
+
+
 class TaskView(BaseModel):
     """Persisted task plus ordered step state for presentation surfaces."""
 

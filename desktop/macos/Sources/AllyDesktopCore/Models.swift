@@ -303,3 +303,13 @@ public struct DesktopProactivePreparation: Decodable, Sendable, Equatable {
     public let run: ServiceCycleSummary
     public let candidates: [DesktopNotificationCandidate]
 }
+
+public struct LegacyManagedServiceView: Decodable, Sendable, Equatable {
+    public let supported: Bool
+    public let configured: Bool
+    public let definitionState: String
+    public let loaded: Bool
+    public let running: Bool
+    public let label: String
+    public let canRetire: Bool
+}
