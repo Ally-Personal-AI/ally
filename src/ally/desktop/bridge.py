@@ -30,10 +30,11 @@ from ally.application import (
     SelectRuntimeProfileRequest,
     SupersedeMemoryRequest,
 )
+from ally.research import WebSearchRequest
 from ally.composition import build_default_application
 from ally.runtime_profiles import InferenceTargetError
 
-BRIDGE_PROTOCOL_VERSION = 7
+BRIDGE_PROTOCOL_VERSION = 8
 MAX_REQUEST_BYTES = 1024 * 1024
 
 BridgeMethod = Literal[
@@ -51,6 +52,8 @@ BridgeMethod = Literal[
     "knowledge.get",
     "knowledge.search",
     "knowledge.ingest_text",
+    "research.inspect",
+    "research.search",
     "runtime.profiles",
     "runtime.select_profile",
     "runtime.deselect_profile",
@@ -175,6 +178,17 @@ class _SearchParams(BaseModel):
     limit: int = Field(default=20, ge=1, le=100)
 
 
+class _ResearchParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    query: str = Field(min_length=1, max_length=600)
+    count: int = Field(default=5, ge=1, le=20)
+
+
+class _ResearchSearchParams(_ResearchParams):
+    approved: bool = False
+
+
 class _RuntimeProfileParams(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -261,6 +275,8 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                 "knowledge.get",
                 "knowledge.search",
                 "knowledge.ingest_text",
+                "research.inspect",
+                "research.search",
                 "runtime.profiles",
                 "runtime.select_profile",
                 "runtime.deselect_profile",
@@ -400,6 +416,29 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                     text=params.text,
                     media_type=params.media_type,
                 )
+            ).model_dump(mode="json")
+        )
+
+    if request.method == "research.inspect":
+        params = cast(
+            _ResearchParams,
+            _validate_params(_ResearchParams, request.params),
+        )
+        return _json_value(
+            app.inspect_web_research(
+                WebSearchRequest(query=params.query, count=params.count)
+            ).model_dump(mode="json")
+        )
+
+    if request.method == "research.search":
+        params = cast(
+            _ResearchSearchParams,
+            _validate_params(_ResearchSearchParams, request.params),
+        )
+        return _json_value(
+            app.search_web(
+                WebSearchRequest(query=params.query, count=params.count),
+                approved=params.approved,
             ).model_dump(mode="json")
         )
 
