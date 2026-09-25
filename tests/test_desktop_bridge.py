@@ -551,6 +551,107 @@ def test_bridge_conversation_round_trip_uses_application_facade(tmp_path: Path) 
     ]
 
 
+def test_bridge_conversation_search_finds_title_without_model_inference(
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider([])
+    app = _application(tmp_path, provider=provider)
+    created = app.create_conversation(title="Synthetic greenhouse strategy")
+
+    response = handle_request_json(
+        app,
+        _request(
+            "conversation.search",
+            {"query": "greenhouse", "limit": 20},
+        ),
+    )
+
+    assert response.ok
+    assert isinstance(response.result, list)
+    assert len(response.result) == 1
+    hit = response.result[0]
+    assert isinstance(hit, dict)
+    conversation = hit["conversation"]
+    assert isinstance(conversation, dict)
+    assert conversation["id"] == str(created.id)
+    assert hit["match_kind"] == "title"
+    assert hit["snippet"] is None
+    assert provider.requests == []
+
+
+def test_bridge_conversation_search_returns_bounded_message_snippet_without_new_inference(
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider(["Synthetic assistant response."])
+    app = _application(tmp_path, provider=provider)
+    created = app.create_conversation(title="Unrelated synthetic thread")
+    message = (
+        "prefix " * 40
+        + "ORCHARD-734 is the distinctive synthetic marker. "
+        + "suffix " * 40
+    )
+    app.send_message(
+        ChatTurnRequest(
+            conversation_id=created.id,
+            message=message,
+        )
+    )
+    inference_calls = len(provider.requests)
+
+    response = handle_request_json(
+        app,
+        _request(
+            "conversation.search",
+            {"query": "ORCHARD-734", "limit": 20},
+        ),
+    )
+
+    assert response.ok
+    assert isinstance(response.result, list)
+    assert len(response.result) == 1
+    hit = response.result[0]
+    assert isinstance(hit, dict)
+    assert hit["match_kind"] == "message"
+    assert hit["message_role"] == "user"
+    snippet = hit["snippet"]
+    assert isinstance(snippet, str)
+    assert "ORCHARD-734" in snippet
+    assert len(snippet) <= 360
+    assert len(provider.requests) == inference_calls
+
+
+@pytest.mark.parametrize(
+    "forbidden",
+    (
+        {"development_model": "unvalidated-model"},
+        {"development_endpoint": "http://127.0.0.1:9999/v1"},
+        {"conversation_id": "00000000-0000-0000-0000-000000000001"},
+        {"history": "private history"},
+    ),
+)
+def test_bridge_conversation_search_rejects_undeclared_context_fields(
+    tmp_path: Path,
+    forbidden: dict[str, object],
+) -> None:
+    provider = CapturingProvider([])
+    app = _application(tmp_path, provider=provider)
+    params: dict[str, object] = {
+        "query": "synthetic",
+        "limit": 20,
+    }
+    params.update(forbidden)
+
+    response = handle_request_json(
+        app,
+        _request("conversation.search", params),
+    )
+
+    assert not response.ok
+    assert response.error is not None
+    assert response.error.code == "invalid_request"
+    assert provider.requests == []
+
+
 def test_bridge_rejects_raw_runtime_coordinates(tmp_path: Path) -> None:
     provider = CapturingProvider([])
     app = _application(tmp_path, provider=provider)
