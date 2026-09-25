@@ -46,9 +46,9 @@ public struct DesktopNotificationDeliveryClient {
             )
         }
 
-        async let delivered = center.deliveredNotifications()
-        async let pending = center.pendingNotificationRequests()
-        return await DesktopNotificationDeliveryContext(
+        let delivered = await center.deliveredNotifications()
+        let pending = await center.pendingNotificationRequests()
+        return DesktopNotificationDeliveryContext(
             canDeliver: true,
             knownIdentifiers: Self.knownIdentifiers(
                 delivered: delivered,
