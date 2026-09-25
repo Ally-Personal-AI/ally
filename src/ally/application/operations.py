@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from ally.attention import AttentionDeliveryStore
 from ally.events import EventStore
+from ally.service.macos_launchd import MacOSLaunchdService
 from ally.service import (
     DesktopProactiveCoordinator,
     ServiceCycleRunStore,
@@ -28,3 +29,4 @@ class ApplicationOperations:
     service_runs: ServiceCycleRunStore
     service_health: ServiceHealthProvider
     desktop_proactive: DesktopProactiveCoordinator | None = None
+    legacy_managed_service: MacOSLaunchdService | None = None
