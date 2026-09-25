@@ -426,6 +426,20 @@ private struct ResearchScreen: View {
 
             Divider()
 
+            if model.researchSynthesisStatus == "unavailable" {
+                Text(
+                    "Public results are available, but local answer synthesis requires an active validated local runtime."
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            } else if model.researchSynthesisStatus == "failed" {
+                Text(
+                    "Public results are available, but local answer synthesis failed safely. No invalid answer was presented."
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            }
+
             if let synthesis = model.researchSynthesis {
                 GroupBox(
                     synthesis.insufficientEvidence
