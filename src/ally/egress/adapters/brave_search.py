@@ -124,27 +124,26 @@ class BraveSearchAdapter:
                     "Accept": "application/json",
                     "X-Subscription-Token": token,
                 },
-            ) as client:
-                with client.stream(
-                    "GET",
-                    self._endpoint,
-                    params={
-                        "q": request.query,
-                        "count": request.count,
-                    },
-                ) as response:
-                    if response.status_code < 200 or response.status_code >= 300:
+            ) as client, client.stream(
+                "GET",
+                self._endpoint,
+                params={
+                    "q": request.query,
+                    "count": request.count,
+                },
+            ) as response:
+                if response.status_code < 200 or response.status_code >= 300:
+                    raise BraveSearchResponseError(
+                        "Brave Search returned a non-success status"
+                    )
+                size = 0
+                for chunk in response.iter_bytes():
+                    size += len(chunk)
+                    if size > MAX_BRAVE_RESPONSE_BYTES:
                         raise BraveSearchResponseError(
-                            "Brave Search returned a non-success status"
+                            "Brave Search response exceeds the size limit"
                         )
-                    size = 0
-                    for chunk in response.iter_bytes():
-                        size += len(chunk)
-                        if size > MAX_BRAVE_RESPONSE_BYTES:
-                            raise BraveSearchResponseError(
-                                "Brave Search response exceeds the size limit"
-                            )
-                        chunks.append(chunk)
+                    chunks.append(chunk)
         except BraveSearchResponseError:
             raise
         except httpx.HTTPError:
