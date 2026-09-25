@@ -144,6 +144,11 @@ before presentation.
 If search succeeds with no results, Ally returns a deterministic
 insufficient-evidence answer without invoking a model.
 
+Search and synthesis have separate result states. If the approved search
+succeeds but no validated local model is available, or local synthesis fails
+its provider/provenance contract, the bounded raw search results remain
+available while no synthesized answer is presented.
+
 Research answers remain ephemeral. Ally does not add search/query history
 persistence in this phase.
 
