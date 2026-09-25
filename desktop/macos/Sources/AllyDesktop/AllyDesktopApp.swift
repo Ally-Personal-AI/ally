@@ -908,7 +908,7 @@ private struct KnowledgeScreen: View {
         }
         .fileImporter(
             isPresented: $showingFileImporter,
-            allowedContentTypes: [.text],
+            allowedContentTypes: [.plainText],
             allowsMultipleSelection: false
         ) { result in
             switch result {
