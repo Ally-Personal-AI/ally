@@ -308,13 +308,25 @@ def inspect(app: Path) -> dict[str, Any]:
     if not isinstance(ally_manifest_version, str) or not ally_manifest_version:
         raise BundleError("release manifest Ally version is invalid")
     bridge_protocol = manifest.get("bridge_protocol_version")
-    if not isinstance(bridge_protocol, int) or isinstance(bridge_protocol, bool) or bridge_protocol < 1:
+    if (
+        not isinstance(bridge_protocol, int)
+        or isinstance(bridge_protocol, bool)
+        or bridge_protocol < 1
+    ):
         raise BundleError("release manifest bridge protocol version is invalid")
     database_schema = manifest.get("database_schema_version")
-    if not isinstance(database_schema, int) or isinstance(database_schema, bool) or database_schema < 0:
+    if (
+        not isinstance(database_schema, int)
+        or isinstance(database_schema, bool)
+        or database_schema < 0
+    ):
         raise BundleError("release manifest database schema version is invalid")
     build_manifest = manifest.get("build_version")
-    if not isinstance(build_manifest, int) or isinstance(build_manifest, bool) or build_manifest < 1:
+    if (
+        not isinstance(build_manifest, int)
+        or isinstance(build_manifest, bool)
+        or build_manifest < 1
+    ):
         raise BundleError("release manifest build version is invalid")
 
     info_build = info.get("CFBundleVersion")
