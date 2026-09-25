@@ -5,15 +5,15 @@ import UserNotifications
 @testable import AllyDesktopCore
 
 @Test func decodesBridgeInfoEnvelope() throws {
-    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":7,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap"]}}"#.utf8)
+    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":8,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap","research.inspect","research.search"]}}"#.utf8)
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let envelope = try decoder.decode(BridgeEnvelope<BridgeInfo>.self, from: data)
 
     #expect(envelope.ok)
-    #expect(envelope.result?.protocolVersion == 7)
+    #expect(envelope.result?.protocolVersion == 8)
     #expect(envelope.result?.transport == "stdio")
-    #expect(envelope.result?.capabilities == ["bootstrap"])
+    #expect(envelope.result?.capabilities == ["bootstrap", "research.inspect", "research.search"])
 }
 
 @Test func decodesBootstrapWithoutRequiringPrivatePayloadFields() throws {
@@ -41,6 +41,58 @@ import UserNotifications
 
     #expect(rendered.contains("synthetic private message"))
     #expect(rendered.contains("conversation.send"))
+}
+
+@Test func encodesApprovedResearchAsExactLocalBridgePayload() throws {
+    let request = BridgeRequest(
+        id: "synthetic-research",
+        method: "research.search",
+        params: [
+            "query": .string("synthetic public research query"),
+            "count": .number(5),
+            "approved": .bool(true),
+        ]
+    )
+    let rendered = String(
+        decoding: try JSONEncoder().encode(request),
+        as: UTF8.self
+    )
+
+    #expect(rendered.contains("research.search"))
+    #expect(rendered.contains("synthetic public research query"))
+    #expect(rendered.contains("\"approved\":true"))
+}
+
+@Test func decodesResearchInspectionWithoutQueryPayload() throws {
+    let data = Data(#"{"id":"1","ok":true,"result":{"request_id":"00000000-0000-0000-0000-000000000050","service":"synthetic.search","operation":"web.search","decision":"require_approval","fields":[{"name":"count","classification":"public"},{"name":"query","classification":"explicit_outbound"}],"error_class":null}}"#.utf8)
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    let envelope = try decoder.decode(
+        BridgeEnvelope<EgressInspection>.self,
+        from: data
+    )
+
+    #expect(envelope.result?.decision == "require_approval")
+    #expect(envelope.result?.service == "synthetic.search")
+    #expect(envelope.result?.fields.count == 2)
+    #expect(envelope.result?.fields[1].classification == "explicit_outbound")
+    #expect(String(decoding: data, as: UTF8.self).contains("synthetic public research query") == false)
+}
+
+@Test func decodesApprovedResearchResults() throws {
+    let data = Data(#"{"id":"1","ok":true,"result":{"request_id":"00000000-0000-0000-0000-000000000051","service":"synthetic.search","operation":"web.search","decision":"allow","status":"succeeded","results":[{"title":"Synthetic public result","url":"https://example.test/research","description":"Synthetic public snippet."}],"more_results_available":false,"error_class":null}}"#.utf8)
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+    let envelope = try decoder.decode(
+        BridgeEnvelope<WebResearchExecution>.self,
+        from: data
+    )
+
+    #expect(envelope.result?.status == "succeeded")
+    #expect(envelope.result?.results.count == 1)
+    #expect(envelope.result?.results[0].title == "Synthetic public result")
+    #expect(envelope.result?.results[0].url == "https://example.test/research")
+    #expect(envelope.result?.moreResultsAvailable == false)
 }
 
 @Test func helperEnvironmentDropsUnrelatedShellState() {
