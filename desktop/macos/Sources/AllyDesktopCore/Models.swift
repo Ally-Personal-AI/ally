@@ -206,6 +206,57 @@ public struct MemorySourceSummary: Decodable, Sendable, Equatable {
     public let type: String
     public let id: String?
     public let uri: String?
+
+    public var bridgeValue: JSONValue {
+        var value: [String: JSONValue] = ["type": .string(type)]
+        value["id"] = id.map(JSONValue.string) ?? .null
+        value["uri"] = uri.map(JSONValue.string) ?? .null
+        return .object(value)
+    }
+}
+
+public struct MemoryCandidateProposal: Decodable, Sendable, Equatable, Identifiable {
+    public let kind: String
+    public let content: String
+    public let confidence: Double
+    public let importance: Double
+
+    public var id: String {
+        "\(kind):\(content)"
+    }
+
+    public var bridgeValue: JSONValue {
+        .object([
+            "kind": .string(kind),
+            "content": .string(content),
+            "confidence": .number(confidence),
+            "importance": .number(importance),
+        ])
+    }
+}
+
+public struct MemoryProposalBundleSummary: Decodable, Sendable, Equatable {
+    public let schemaVersion: Int
+    public let generatedAt: String
+    public let provider: String
+    public let model: String
+    public let source: MemorySourceSummary
+    public let privacy: String
+    public let sourceTextSha256: String
+    public let memories: [MemoryCandidateProposal]
+
+    public var bridgeValue: JSONValue {
+        .object([
+            "schema_version": .number(Double(schemaVersion)),
+            "generated_at": .string(generatedAt),
+            "provider": .string(provider),
+            "model": .string(model),
+            "source": source.bridgeValue,
+            "privacy": .string(privacy),
+            "source_text_sha256": .string(sourceTextSha256),
+            "memories": .array(memories.map(\.bridgeValue)),
+        ])
+    }
 }
 
 public struct MemorySummary: Decodable, Sendable, Equatable, Identifiable {
