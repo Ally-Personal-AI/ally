@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 from ally import __version__
 from ally.diagnostics.hardware import HardwareProfile
+from ally.diagnostics.readiness import FirstMachineReadinessReport
 from ally.diagnostics.machine_acceptance import (
     MachineAcceptanceEvidenceError,
     load_machine_acceptance_report,
@@ -98,7 +99,7 @@ def build_release_readiness_report(
     active_profile_id: str,
     active_profile_sha256: str,
     generated_at: datetime | None = None,
-    readiness: object | None = None,
+    readiness: FirstMachineReadinessReport | None = None,
 ) -> ReleaseReadinessReport:
     """Bind exact candidate evidence to exact dedicated-machine acceptance.
 
@@ -118,7 +119,7 @@ def build_release_readiness_report(
             )
         status = inspect_validation_session(
             session_path,
-            readiness=readiness,  # type: ignore[arg-type]
+            readiness=readiness,
         )
     except ReleaseReadinessEvidenceError:
         raise
@@ -284,7 +285,7 @@ def verify_release_readiness_sources(
     hardware: HardwareProfile,
     active_profile_id: str,
     active_profile_sha256: str,
-    readiness: object | None = None,
+    readiness: FirstMachineReadinessReport | None = None,
 ) -> ReleaseReadinessReport:
     """Rebuild release readiness from live sources and require an exact match."""
 
