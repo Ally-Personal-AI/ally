@@ -362,7 +362,7 @@ def build_release(
     staging = temporary_root / destination.name
     try:
         staging.mkdir()
-        helper = staging / "ally-desktop-bridge"
+        helper = temporary_root / "ally-desktop-bridge"
         _build_helper(destination=helper, mode=mode, identity=identity)
         desktop = _build_desktop()
 
@@ -427,8 +427,6 @@ def build_release(
             encoding="utf-8",
         )
         staging.rename(destination)
-    except Exception:
-        raise
     finally:
         shutil.rmtree(temporary_root, ignore_errors=True)
 
