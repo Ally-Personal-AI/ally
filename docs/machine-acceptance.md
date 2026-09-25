@@ -30,6 +30,10 @@ Every report is bound to:
 - the currently selected validated runtime profile ID; and
 - the SHA-256 recorded by Ally's hash-bound active-profile selection.
 
+Before evidence is created or verified, the active validated runtime profile
+must itself report the same Ally version and exact hardware/OS profile as the
+current machine.
+
 Verification fails if any of those values no longer match the current
 installation.
 
