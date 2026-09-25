@@ -170,7 +170,13 @@ The model cannot choose source provenance or privacy, and proposal generation ne
 
 Knowledge V1 supports deterministic ingestion of UTF-8 plain-text files with immutable revision history.
 
-Ingest a file:
+The native macOS app can add pasted notes or import one explicitly selected
+plain-text file. Native file import is bounded to 128 KiB, rejects symlinks,
+non-regular files, invalid UTF-8, and whitespace-only content, and does not pass
+the filesystem path through Ally's stdio bridge. Stored native imports use a
+synthetic `ally-desktop://import/<uuid>` URI rather than a `file://` path.
+
+Ingest a file from the CLI:
 
 ```bash
 uv run ally knowledge ingest ./notes.txt
