@@ -108,8 +108,18 @@ def build_release_readiness_report(
     summary of the exact source artifacts.
     """
 
-    session_path = validation_session_path.expanduser().resolve()
-    machine_path = machine_acceptance_path.expanduser().resolve()
+    session_input = validation_session_path.expanduser()
+    machine_input = machine_acceptance_path.expanduser()
+    if session_input.is_symlink():
+        raise ReleaseReadinessEvidenceError(
+            "validation session source must not be a symlink"
+        )
+    if machine_input.is_symlink():
+        raise ReleaseReadinessEvidenceError(
+            "machine acceptance source must not be a symlink"
+        )
+    session_path = session_input.resolve()
+    machine_path = machine_input.resolve()
 
     try:
         manifest = load_validation_session(session_path)
@@ -158,6 +168,10 @@ def build_release_readiness_report(
     )
 
     profile_path = session_path.parent / manifest.artifacts.profile
+    if profile_path.is_symlink():
+        raise ReleaseReadinessEvidenceError(
+            "validated profile source must not be a symlink"
+        )
     try:
         profile = load_validated_runtime_profile(profile_path)
         actual_profile_digest = _sha256(profile_path)
