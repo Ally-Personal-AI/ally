@@ -222,7 +222,14 @@ uv run ally secrets set research.brave.api-key
 
 Returned title/URL/snippet data stays local for subsequent reasoning by Ally's
 validated local model. Egress audit stores only disclosure metadata, never the
-query or returned results. See [Privacy-Gated Public Web Research](docs/research.md).
+query or returned results.
+
+The native macOS app also exposes Research as a first-class daily-use surface.
+It inspects the disclosure first, shows the exact locally entered query in a
+confirmation prompt, and sends `approved=true` through the local stdio bridge
+only after that confirmation. Cancelling leaves the external adapter untouched.
+
+See [Privacy-Gated Public Web Research](docs/research.md).
 
 ## Permissioned tools
 
