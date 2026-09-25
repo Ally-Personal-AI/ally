@@ -144,6 +144,7 @@ from ally.commands.validation_sessions import (
     run_show_validation_session,
     run_verify_validation_session,
 )
+from ally.commands.voice import run_inspect_voice_wav
 from ally.diagnostics import (
     MachineAcceptanceStatus,
     NetworkObservationMethod,
@@ -206,6 +207,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--session-instructions",
         help="Temporary instructions for this invocation; never persisted.",
     )
+
+    voice = subcommands.add_parser(
+        "voice",
+        help="Inspect bounded local voice inputs.",
+    )
+    voice_commands = voice.add_subparsers(dest="voice_command")
+    voice_inspect = voice_commands.add_parser(
+        "inspect-wav",
+        help="Inspect one local PCM16 WAV without transcribing or persisting it.",
+    )
+    voice_inspect.add_argument("path")
+    voice_inspect.add_argument("--json", action="store_true", dest="json_output")
 
     config = subcommands.add_parser(
         "config",
@@ -1515,6 +1528,13 @@ def _run_command(argv: Sequence[str] | None) -> int:
             instruction_task=cast(str | None, args.instruction_task),
             session_instructions=cast(str | None, args.session_instructions),
         )
+
+    if args.command == "voice":
+        if args.voice_command == "inspect-wav":
+            return run_inspect_voice_wav(
+                path=cast(str, args.path),
+                json_output=cast(bool, args.json_output),
+            )
 
     if args.command == "config":
         if args.config_command == "path":
