@@ -1,5 +1,6 @@
 """Release/update trust policy for Ally artifacts."""
 
+from ally.release.readiness import ReleaseReadinessReport
 from ally.release.update_preparation import (
     PreMigrationBackupEvidence,
     UpdatePreparationError,
@@ -20,6 +21,7 @@ __all__ = [
     "PreMigrationBackupEvidence",
     "ReleaseIdentity",
     "ReleaseMetadata",
+    "ReleaseReadinessReport",
     "UpdateDecision",
     "UpdatePreparationError",
     "UpdatePreparationRecord",
