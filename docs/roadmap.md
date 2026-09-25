@@ -13,8 +13,8 @@ implementation of an earlier one.
 | Native desktop shell | Daily-use + release foundation advancing; machine acceptance pending | SwiftUI shell over a bounded local stdio bridge to `AllyApplication`; full daily-use state surfaces plus app-owned `UNUserNotificationCenter` delivery, duplicate reconciliation, explicit notification permission, opt-in `SMAppService.mainApp` launch-at-login, stable-ID bundle/signing, self-contained frozen bridge, offline forward-only update trust, schema-aware update preparation, and a CI-exercised local release orchestrator; real Developer ID/notarization and installed-machine replacement behavior remain |
 | User instructions | Implemented V2 | global/project/conversation/task profiles, enable/disable, provenance-aware composition, and ephemeral session instructions |
 | Behavioral model qualification | Implemented V1 | separate refusal, instruction-following, calibration, moralizing, and paired viewpoint-symmetry evidence integrated into local-model validation |
-| Long-term memory | Implemented V1 | temporal/provenance-aware explicit memory and grounding |
-| Personal knowledge | Implemented V1 | versioned plain-text ingestion, retrieval, grounding |
+| Long-term memory | Implemented V1.1 | temporal/provenance-aware explicit memory and grounding with deterministic BM25 retrieval; semantic/hybrid retrieval remains future |
+| Personal knowledge | Implemented V1.1 | versioned plain-text ingestion plus deterministic BM25 chunk retrieval/grounding; semantic/hybrid retrieval remains future |
 | Tools | Implemented V1 | typed capabilities, risk policy, local audit |
 | Skills | Implemented V1 | declarative manifests, safe install lifecycle, explicit process-isolated Python execution |
 | Reliable agency | Implemented core | persisted tasks, approval pauses, verification, retries |
