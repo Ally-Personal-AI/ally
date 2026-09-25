@@ -23,8 +23,7 @@ public struct DesktopNotificationDeliveryContext: Sendable, Equatable {
     }
 }
 
-public struct DesktopNotificationDeliveryClient {
-    public init() {}
+public enum DesktopNotificationDeliveryClient {
 
     public static func knownIdentifiers(
         delivered: [UNNotification],
@@ -34,7 +33,7 @@ public struct DesktopNotificationDeliveryClient {
             .union(pending.map(\.identifier))
     }
 
-    public func context() async -> DesktopNotificationDeliveryContext {
+    public static func context() async -> DesktopNotificationDeliveryContext {
         let center = UNUserNotificationCenter.current()
         let settings = await center.notificationSettings()
         let canDeliver = settings.authorizationStatus == .authorized
@@ -57,7 +56,7 @@ public struct DesktopNotificationDeliveryClient {
         )
     }
 
-    public func deliver(
+    public static func deliver(
         _ candidate: DesktopNotificationCandidate,
         context: DesktopNotificationDeliveryContext
     ) async -> DesktopNotificationDeliveryOutcome {
