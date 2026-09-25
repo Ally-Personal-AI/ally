@@ -495,14 +495,18 @@ Verify:
 - an unstapled candidate is rejected;
 - source revision is present in the accepted result;
 - any database-schema increase reports
-  `requires_pre_migration_backup=true`; and
+  `requires_pre_migration_backup=true`;
+- schema-raising preparation refuses to proceed without a fresh backup;
+- the preparation result hash-binds the revalidated archive/database and
+  contains no local paths; and
 - manual replacement preserves user-owned state outside `Ally.app`.
 
 ### Stop condition
 
 Do not enable automatic update fetching or replacement until these checks pass.
-If a candidate raises database schema compatibility, create and validate Ally's
-existing backup artifact before testing replacement/migration.
+If a candidate raises database schema compatibility, require
+`macos_update_prepare.py` to create and revalidate Ally's backup artifact before
+testing replacement/migration.
 
 Detailed contract:
 [macOS Update Candidate Trust](../macos-update-trust.md).
