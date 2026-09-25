@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from ally.context import ContextBlock
-from ally.context.lexical import lexical_tokens
+from ally.context.lexical import bm25_scores
 from ally.knowledge import KnowledgeChunk, KnowledgeSource, KnowledgeStore
 
 
@@ -18,7 +18,7 @@ class KnowledgeHit:
 
 
 class LexicalKnowledgeRetriever:
-    """Rank current knowledge chunks by deterministic lexical overlap."""
+    """Rank current knowledge chunks with deterministic BM25 lexical relevance."""
 
     def __init__(
         self,
@@ -34,17 +34,16 @@ class LexicalKnowledgeRetriever:
         self._candidate_limit = candidate_limit
 
     def retrieve(self, query: str) -> tuple[KnowledgeHit, ...]:
-        query_tokens = lexical_tokens(query)
-        if not query_tokens:
-            return ()
+        candidates = self._store.list_search_candidates(limit=self._candidate_limit)
+        scores = bm25_scores(
+            query,
+            tuple(chunk.content for chunk in candidates),
+        )
 
         hits: list[KnowledgeHit] = []
         source_cache: dict[UUID, KnowledgeSource] = {}
-
-        for chunk in self._store.list_search_candidates(limit=self._candidate_limit):
-            chunk_tokens = lexical_tokens(chunk.content)
-            overlap = len(query_tokens & chunk_tokens)
-            if overlap == 0:
+        for chunk, score in zip(candidates, scores, strict=True):
+            if score <= 0.0:
                 continue
 
             source = source_cache.get(chunk.source_id)
@@ -55,7 +54,6 @@ class LexicalKnowledgeRetriever:
                 source_cache[chunk.source_id] = loaded
                 source = loaded
 
-            score = overlap / len(query_tokens)
             hits.append(KnowledgeHit(chunk=chunk, source=source, score=score))
 
         hits.sort(
@@ -63,6 +61,7 @@ class LexicalKnowledgeRetriever:
                 hit.score,
                 hit.source.updated_at,
                 -hit.chunk.ordinal,
+                str(hit.chunk.id),
             ),
             reverse=True,
         )

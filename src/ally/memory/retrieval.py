@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ally.context import ContextBlock
-from ally.context.lexical import lexical_tokens
+from ally.context.lexical import bm25_scores
 from ally.memory import MemoryRecord, MemoryStore
 
 
@@ -16,7 +16,7 @@ class MemoryHit:
 
 
 class LexicalMemoryRetriever:
-    """Rank active memories with deterministic lexical overlap."""
+    """Rank active memories with deterministic BM25 lexical relevance."""
 
     def __init__(
         self,
@@ -32,25 +32,24 @@ class LexicalMemoryRetriever:
         self._candidate_limit = candidate_limit
 
     def retrieve(self, query: str) -> tuple[MemoryHit, ...]:
-        query_tokens = lexical_tokens(query)
-        if not query_tokens:
-            return ()
+        candidates = self._store.list(limit=self._candidate_limit)
+        scores = bm25_scores(
+            query,
+            tuple(memory.content for memory in candidates),
+        )
 
-        hits: list[MemoryHit] = []
-        for memory in self._store.list(limit=self._candidate_limit):
-            memory_tokens = lexical_tokens(memory.content)
-            overlap = len(query_tokens & memory_tokens)
-            if overlap == 0:
-                continue
-            lexical_score = overlap / len(query_tokens)
-            score = lexical_score + (memory.importance * 0.2)
-            hits.append(MemoryHit(memory=memory, score=score))
-
+        hits = [
+            MemoryHit(memory=memory, score=score)
+            for memory, score in zip(candidates, scores, strict=True)
+            if score > 0.0
+        ]
         hits.sort(
             key=lambda hit: (
                 hit.score,
                 hit.memory.importance,
+                hit.memory.confidence,
                 hit.memory.updated_at,
+                str(hit.memory.id),
             ),
             reverse=True,
         )

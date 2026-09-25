@@ -79,3 +79,17 @@ def test_memory_context_preserves_provenance_label() -> None:
     assert len(blocks) == 1
     assert blocks[0].source == f"memory:{record.id}"
     assert "provenance=user" in blocks[0].content
+
+
+def test_memory_relevance_outranks_importance_when_terms_are_more_specific() -> None:
+    specific = memory("The orchard irrigation controller uses zone seven.", importance=0.1)
+    broad = memory("The orchard has seasonal maintenance tasks.", importance=1.0)
+    retriever = LexicalMemoryRetriever(
+        MemoryStoreStub((broad, specific)),
+        limit=2,
+    )
+
+    hits = retriever.retrieve("orchard irrigation controller")
+
+    assert [hit.memory.id for hit in hits] == [specific.id, broad.id]
+    assert hits[0].score > hits[1].score

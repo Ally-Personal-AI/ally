@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ally.knowledge import NewKnowledgeSource
+from ally.knowledge import KnowledgeSource, NewKnowledgeSource
 from ally.knowledge.chunking import chunk_text
 from ally.knowledge.ingestion import text_sha256
 from ally.knowledge.retrieval import KnowledgeContextProvider, LexicalKnowledgeRetriever
@@ -28,3 +28,26 @@ def test_knowledge_retrieval_preserves_safe_provenance_without_uri(
     assert "Example Notes" in blocks[0].content
     assert "file:///private/example.txt" not in blocks[0].content
     assert "file:///private/example.txt" not in blocks[0].source
+
+
+def test_knowledge_retrieval_weights_rare_query_terms_across_corpus(
+    tmp_path: Path,
+) -> None:
+    store = SQLiteKnowledgeStore(SQLiteDatabase(tmp_path / "bm25.sqlite3"))
+    sources: list[KnowledgeSource] = []
+    for uri, title, content in (
+        ("synthetic://common-one", "Common One", "common alpha information"),
+        ("synthetic://common-two", "Common Two", "common beta information"),
+        ("synthetic://rare", "Rare", "rare gamma information"),
+    ):
+        source, _ = store.ingest(
+            NewKnowledgeSource(uri=uri, title=title),
+            source_sha256=text_sha256(content),
+            chunks=chunk_text(content),
+        )
+        sources.append(source)
+
+    hits = LexicalKnowledgeRetriever(store, limit=3).retrieve("common rare")
+
+    assert hits[0].source.id == sources[2].id
+    assert hits[0].score > hits[1].score
