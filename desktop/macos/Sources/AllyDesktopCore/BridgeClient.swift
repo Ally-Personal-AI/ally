@@ -59,7 +59,24 @@ private final class BridgeIOState: @unchecked Sendable {
     }
 }
 
-public struct DesktopBridgeClient: Sendable {
+public protocol DesktopBridgeCalling: Sendable {
+    func call<Result: Decodable & Sendable>(
+        _ method: String,
+        params: [String: JSONValue],
+        as resultType: Result.Type
+    ) async throws -> Result
+}
+
+public extension DesktopBridgeCalling {
+    func call<Result: Decodable & Sendable>(
+        _ method: String,
+        params: [String: JSONValue] = [:]
+    ) async throws -> Result {
+        try await call(method, params: params, as: Result.self)
+    }
+}
+
+public struct DesktopBridgeClient: Sendable, DesktopBridgeCalling {
     public static let helperEnvironmentKey = "ALLY_DESKTOP_BRIDGE"
     public static let maximumResponseBytes = 2 * 1024 * 1024
     public static let supportedProtocolVersion = 15
