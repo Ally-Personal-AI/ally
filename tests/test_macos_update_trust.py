@@ -131,7 +131,6 @@ def test_update_policy_rejects_non_forward_candidates(
 def test_codesign_identity_requires_exact_bundle_and_team() -> None:
     identity = parse_codesign_identity(
         "Executable=/Applications/Ally.app/Contents/MacOS/AllyDesktop\n"
-        "Identifier=ai.ally.personal\n"
         "CodeDirectory v=20500 size=999 flags=0x10000(runtime) hashes=1+0 location=embedded\n"
         "Identifier=ai.ally.personal\n"
         "TeamIdentifier=ABCDE12345\n"
