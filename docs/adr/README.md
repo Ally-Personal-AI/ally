@@ -51,6 +51,7 @@ supersede previous ADRs rather than silently rewriting project history.
 42. [Daily private inference resolves the active validated runtime profile](0042-daily-private-inference-resolves-active-validated-profile.md)
 43. [Presentation adapters share a UI-neutral application facade](0043-presentation-adapters-share-application-facade.md)
 44. [Dedicated-machine acceptance is versioned, payload-free evidence](0044-machine-acceptance-is-versioned-evidence.md)
+45. [Release readiness re-verifies existing evidence](0045-release-readiness-reverifies-existing-evidence.md)
 
 ## Adding an ADR
 
