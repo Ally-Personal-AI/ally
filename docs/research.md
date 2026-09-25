@@ -84,7 +84,7 @@ The initial interface requires approval per execution. There is no global
 ## Native desktop flow
 
 The macOS app exposes a dedicated Research surface over desktop bridge protocol
-v8.
+v11.
 
 The app first calls `research.inspect`. That response contains only the
 destination, operation, decision, and field names/classifications. It never
@@ -121,13 +121,36 @@ Egress audit remains payload-free. It records that a search disclosure happened,
 which field classes were involved, the approval state, and the terminal status,
 but never the query or returned results.
 
+## Local answer synthesis
+
+After an approved search succeeds, Ally can synthesize a sourced answer through
+the active validated local model. This second stage performs no external model
+inference and adds no new outbound disclosure.
+
+The synthesizer receives only:
+
+- the exact query already approved for search; and
+- the bounded normalized public title/URL/snippet results.
+
+Search-result content is explicitly treated as untrusted evidence rather than
+instructions. Prompt-like text inside titles or snippets does not gain authority.
+
+The local model must return strict JSON with an answer, a sorted unique source
+index list, and an explicit insufficient-evidence flag. Inline markers such as
+`[1]` must exactly match the declared source indices, and every index must refer
+to a result actually supplied to the model. Invalid provenance fails closed
+before presentation.
+
+If search succeeds with no results, Ally returns a deterministic
+insufficient-evidence answer without invoking a model.
+
+Research answers remain ephemeral. Ally does not add search/query history
+persistence in this phase.
+
 ## Local reasoning after search
 
-Public results return into the Ally process. Any later summarization,
-personalization, comparison with memory, or planning should use Ally's local
-validated model.
-
-The search provider is not an inference provider and receives no personal model
+Public results and any sourced synthesis stay inside the Ally process. The
+search provider is not an inference provider and receives no personal model
 context implicitly.
 
 ## Current limitations
@@ -138,6 +161,7 @@ Phase 1 intentionally does not include:
 - page crawling or arbitrary URL fetching;
 - automatic query generation/disclosure from private context;
 - remote LLM summarization;
+- automatic personalization from memory/history/instructions;
 - task-planner integration;
 - search-history persistence beyond payload-free egress audit.
 
