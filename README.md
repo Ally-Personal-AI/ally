@@ -186,6 +186,44 @@ Private chat always uses the loopback provider. Conversation history, memory,
 knowledge grounding, and user instructions are not eligible for external model
 inference.
 
+## Privacy-gated web research
+
+Ally can search public web information without implicitly sending private
+conversation context, memory, documents, or instructions to the search provider.
+
+The exact query is treated as `explicit_outbound`, so inspection is available
+before any network request:
+
+```bash
+uv run ally research inspect "OpenAI latest model release" --json
+```
+
+A search without approval stops before credential access or network I/O:
+
+```bash
+uv run ally research search "OpenAI latest model release"
+```
+
+After reviewing the exact query, approve that one disclosure:
+
+```bash
+uv run ally research search \
+  "OpenAI latest model release" \
+  --approve
+```
+
+The default adapter uses Brave Search and resolves its API token only at the
+trusted egress edge from the opaque Keychain reference
+`research.brave.api-key`:
+
+```bash
+uv run ally secrets set research.brave.api-key
+```
+
+Returned title/URL/snippet data stays local for subsequent reasoning by Ally's
+validated local model. Egress audit stores only disclosure metadata, never the
+query or returned results. See [Privacy-Gated Public Web Research](docs/research.md).
+
 ## Permissioned tools
 
 Tools are explicit capabilities with a declared risk class. Every invocation goes through Ally's deterministic permission policy and is written to the local audit log.
