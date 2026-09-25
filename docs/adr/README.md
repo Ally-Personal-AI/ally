@@ -50,6 +50,7 @@ supersede previous ADRs rather than silently rewriting project history.
 41. [Daily runtime selection resolves from an installed validated profile](0041-daily-runtime-selection-resolves-installed-validated-profile.md)
 42. [Daily private inference resolves the active validated runtime profile](0042-daily-private-inference-resolves-active-validated-profile.md)
 43. [Presentation adapters share a UI-neutral application facade](0043-presentation-adapters-share-application-facade.md)
+44. [Dedicated-machine acceptance is versioned, payload-free evidence](0044-machine-acceptance-is-versioned-evidence.md)
 
 ## Adding an ADR
 

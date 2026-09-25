@@ -45,6 +45,11 @@ from ally.commands.knowledge import (
     run_search_knowledge,
     run_show_knowledge_source,
 )
+from ally.commands.machine_acceptance import (
+    run_create_machine_acceptance,
+    run_show_machine_acceptance,
+    run_verify_machine_acceptance,
+)
 from ally.commands.managed_service import run_managed_service
 from ally.commands.memory import (
     run_list_memories,
@@ -134,7 +139,11 @@ from ally.commands.validation_sessions import (
     run_show_validation_session,
     run_verify_validation_session,
 )
-from ally.diagnostics import NetworkObservationMethod, RuntimeIsolationMode
+from ally.diagnostics import (
+    MachineAcceptanceStatus,
+    NetworkObservationMethod,
+    RuntimeIsolationMode,
+)
 from ally.events import (
     ATTENTION_CLASSES,
     EVENT_IMPORTANCE_LEVELS,
@@ -1093,6 +1102,67 @@ def build_parser() -> argparse.ArgumentParser:
     session_verify.add_argument("session")
     session_verify.add_argument("--json", action="store_true", dest="json_output")
 
+    machine_acceptance = subcommands.add_parser(
+        "machine-acceptance",
+        help="Create and verify dedicated-machine acceptance evidence.",
+    )
+    machine_acceptance_commands = machine_acceptance.add_subparsers(
+        dest="machine_acceptance_command"
+    )
+
+    machine_acceptance_create = machine_acceptance_commands.add_parser(
+        "create",
+        help="Create immutable payload-free dedicated-machine acceptance evidence.",
+    )
+    machine_acceptance_create.add_argument("--source-revision", required=True)
+    machine_acceptance_create.add_argument(
+        "--output",
+        default="validation/machine-acceptance.json",
+    )
+    for gate in (
+        "keychain",
+        "recovery",
+        "background_service",
+        "notifications",
+        "signed_release",
+        "update_preparation",
+        "app_replacement",
+        "integrated_daily_use",
+    ):
+        machine_acceptance_create.add_argument(
+            f"--{gate.replace('_', '-')}",
+            choices=("pass", "fail", "not_run"),
+            default="not_run",
+        )
+    machine_acceptance_create.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
+    machine_acceptance_show = machine_acceptance_commands.add_parser(
+        "show",
+        help="Inspect one dedicated-machine acceptance artifact.",
+    )
+    machine_acceptance_show.add_argument("report")
+    machine_acceptance_show.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
+    machine_acceptance_verify = machine_acceptance_commands.add_parser(
+        "verify",
+        help="Verify acceptance against the current machine and active profile.",
+    )
+    machine_acceptance_verify.add_argument("report")
+    machine_acceptance_verify.add_argument("--source-revision", required=True)
+    machine_acceptance_verify.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
     validate = subcommands.add_parser(
         "validate",
         help="Run reproducible machine and local-model validation.",
@@ -1819,6 +1889,42 @@ def _run_command(argv: Sequence[str] | None) -> int:
         if args.validation_session_command == "verify":
             return run_verify_validation_session(
                 session_path=cast(str, args.session),
+                json_output=cast(bool, args.json_output),
+            )
+
+    if args.command == "machine-acceptance":
+        if args.machine_acceptance_command == "create":
+            return run_create_machine_acceptance(
+                source_revision=cast(str, args.source_revision),
+                output=cast(str, args.output),
+                keychain=cast(MachineAcceptanceStatus, args.keychain),
+                recovery=cast(MachineAcceptanceStatus, args.recovery),
+                background_service=cast(
+                    MachineAcceptanceStatus,
+                    args.background_service,
+                ),
+                notifications=cast(MachineAcceptanceStatus, args.notifications),
+                signed_release=cast(MachineAcceptanceStatus, args.signed_release),
+                update_preparation=cast(
+                    MachineAcceptanceStatus,
+                    args.update_preparation,
+                ),
+                app_replacement=cast(MachineAcceptanceStatus, args.app_replacement),
+                integrated_daily_use=cast(
+                    MachineAcceptanceStatus,
+                    args.integrated_daily_use,
+                ),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.machine_acceptance_command == "show":
+            return run_show_machine_acceptance(
+                report_path=cast(str, args.report),
+                json_output=cast(bool, args.json_output),
+            )
+        if args.machine_acceptance_command == "verify":
+            return run_verify_machine_acceptance(
+                report_path=cast(str, args.report),
+                source_revision=cast(str, args.source_revision),
                 json_output=cast(bool, args.json_output),
             )
 

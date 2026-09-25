@@ -402,6 +402,32 @@ endpoint/model strings.
 
 See [Apple Silicon First-Machine Validation](docs/hardware/apple-silicon-validation.md) for the full procedure and exit criteria.
 
+After the real Keychain, recovery, signed-app service, notification,
+Developer ID/notarization, update-preparation/replacement, and integrated-use
+gates have been exercised, record them as one immutable payload-free artifact:
+
+```bash
+uv run ally machine-acceptance create \
+  --source-revision <40-character-git-sha> \
+  --keychain pass \
+  --recovery pass \
+  --background-service pass \
+  --notifications pass \
+  --signed-release pass \
+  --update-preparation pass \
+  --app-replacement pass \
+  --integrated-daily-use pass \
+  --output validation/machine-acceptance.json
+
+uv run ally machine-acceptance verify \
+  validation/machine-acceptance.json \
+  --source-revision <40-character-git-sha>
+```
+
+The report is bound to the current Ally version, exact source revision,
+hardware/OS profile, and hash-bound active validated runtime profile. See
+[Dedicated-Machine Acceptance Evidence](docs/machine-acceptance.md).
+
 ## Proactive events
 
 Ally now has a deterministic event and attention substrate. Events are persisted before any handler runs, and explicit importance maps to conservative attention classes:

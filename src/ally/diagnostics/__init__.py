@@ -7,6 +7,16 @@ from ally.diagnostics.candidates import (
     compare_candidate_evidence,
 )
 from ally.diagnostics.hardware import HardwareProfile, collect_hardware_profile
+from ally.diagnostics.machine_acceptance import (
+    MachineAcceptanceChecks,
+    MachineAcceptanceEvidenceError,
+    MachineAcceptanceReport,
+    MachineAcceptanceStatus,
+    build_machine_acceptance_report,
+    load_machine_acceptance_report,
+    verify_machine_acceptance_binding,
+    write_machine_acceptance_report,
+)
 from ally.diagnostics.readiness import (
     EvaluationSuiteCounts,
     FirstMachineReadinessCheck,
@@ -68,6 +78,10 @@ __all__ = [
     "FunctionalWorkflowEvidenceReport",
     "HardwareProfile",
     "LocalModelValidationReport",
+    "MachineAcceptanceChecks",
+    "MachineAcceptanceEvidenceError",
+    "MachineAcceptanceReport",
+    "MachineAcceptanceStatus",
     "NetworkObservationMethod",
     "PerformanceObservations",
     "ReadinessSeverity",
@@ -86,6 +100,7 @@ __all__ = [
     "build_candidate_evidence",
     "build_first_machine_readiness",
     "build_functional_workflow_report",
+    "build_machine_acceptance_report",
     "build_runtime_privacy_report",
     "build_service_health",
     "collect_first_machine_readiness",
@@ -94,13 +109,16 @@ __all__ = [
     "compare_validation_reports",
     "fingerprint_artifact",
     "load_functional_workflow_report",
+    "load_machine_acceptance_report",
     "load_runtime_privacy_report",
     "load_validation_report",
     "run_isolated_synthetic_workflows",
     "run_local_model_validation",
     "verify_functional_workflow_source",
+    "verify_machine_acceptance_binding",
     "verify_runtime_privacy_source",
     "write_functional_workflow_report",
+    "write_machine_acceptance_report",
     "write_runtime_privacy_report",
     "write_validation_report",
 ]
