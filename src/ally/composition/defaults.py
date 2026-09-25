@@ -7,9 +7,12 @@ from contextlib import AbstractContextManager
 from ally.application import AllyApplication, ApplicationOperations
 from ally.configuration import default_config_path
 from ally.diagnostics import build_service_health
+from ally.egress import DefaultEgressPolicy, EgressExecutor
+from ally.egress.adapters import BraveSearchAdapter
 from ally.events import EventRuntime
 from ally.models import ModelProvider
 from ally.models.providers import OpenAICompatibleProvider
+from ally.research import ResearchService
 from ally.runtime_profiles import (
     ResolvedInferenceTarget,
     RuntimeProfileCatalog,
@@ -17,6 +20,7 @@ from ally.runtime_profiles import (
     resolve_inference_target,
 )
 from ally.scheduler import SchedulerRuntime
+from ally.secrets import build_system_secret_store
 from ally.security.tool_policy import DefaultToolPolicy
 from ally.service import DesktopProactiveCoordinator, SQLiteServiceLeaseStore
 from ally.service.macos_launchd import MacOSLaunchdService
@@ -25,6 +29,7 @@ from ally.storage.sqlite import (
     SQLiteAttentionDeliveryStore,
     SQLiteConversationStore,
     SQLiteDatabase,
+    SQLiteEgressAuditStore,
     SQLiteEventStore,
     SQLiteKnowledgeStore,
     SQLiteMemoryStore,
@@ -89,6 +94,15 @@ def build_default_application() -> AllyApplication:
             runtime_database_path=default_runtime_database_path(),
         ),
         legacy_managed_service=MacOSLaunchdService(),
+        research=ResearchService(
+            executor=EgressExecutor(
+                DefaultEgressPolicy(),
+                SQLiteEgressAuditStore(database),
+            ),
+            adapter=BraveSearchAdapter(
+                secret_store_factory=build_system_secret_store,
+            ),
+        ),
         desktop_proactive=DesktopProactiveCoordinator(
             scheduler=SchedulerRuntime(
                 SQLiteScheduleStore(database),
