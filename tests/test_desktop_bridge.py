@@ -653,6 +653,84 @@ def test_bridge_conversation_search_rejects_undeclared_context_fields(
     assert provider.requests == []
 
 
+def test_bridge_exact_conversation_delete_cascades_without_model_inference(
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider([])
+    app = _application(tmp_path, provider=provider)
+    conversation = app.create_conversation(title="Synthetic delete target")
+    app._conversations.append_messages(  # noqa: SLF001
+        conversation.id,
+        (
+            NewConversationMessage(role="user", content="private synthetic text"),
+        ),
+    )
+
+    deleted = handle_request_json(
+        app,
+        _request(
+            "conversation.delete",
+            {"conversation_id": str(conversation.id)},
+        ),
+    )
+
+    assert deleted.ok
+    assert deleted.result is True
+    assert app.list_conversations() == ()
+    assert app._conversations.list_messages(conversation.id) == ()  # noqa: SLF001
+    assert provider.requests == []
+
+
+def test_bridge_exact_knowledge_delete_cascades_without_model_inference(
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider([])
+    app = _application(tmp_path, provider=provider)
+    ingested = app.ingest_knowledge_text(
+        KnowledgeTextIngestRequest(
+            uri="ally-desktop://note/synthetic-delete",
+            title="Synthetic delete target",
+            text="private synthetic knowledge",
+        )
+    )
+
+    deleted = handle_request_json(
+        app,
+        _request(
+            "knowledge.delete",
+            {"source_id": str(ingested.source.id)},
+        ),
+    )
+
+    assert deleted.ok
+    assert deleted.result is True
+    assert app.list_knowledge_sources() == ()
+    assert provider.requests == []
+
+
+@pytest.mark.parametrize(
+    ("method", "params"),
+    (
+        ("conversation.delete", {"conversation_id": str(UUID(int=1)), "all": True}),
+        ("knowledge.delete", {"source_id": str(UUID(int=2)), "path": "/tmp/private"}),
+    ),
+)
+def test_bridge_delete_rejects_extra_authority_fields(
+    tmp_path: Path,
+    method: str,
+    params: dict[str, object],
+) -> None:
+    provider = CapturingProvider([])
+    app = _application(tmp_path, provider=provider)
+
+    response = handle_request_json(app, _request(method, params))
+
+    assert not response.ok
+    assert response.error is not None
+    assert response.error.code == "invalid_request"
+    assert provider.requests == []
+
+
 def test_bridge_rejects_raw_runtime_coordinates(tmp_path: Path) -> None:
     provider = CapturingProvider([])
     app = _application(tmp_path, provider=provider)
