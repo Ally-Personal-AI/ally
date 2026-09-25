@@ -27,6 +27,8 @@ from ally.application import (
     DesktopNotificationResultRequest,
     InstructionSelectorRequest,
     KnowledgeTextIngestRequest,
+    MemoryProposalRequest,
+    RememberMemoryRequest,
     ResolveUserInstructionsRequest,
     RunTaskRequest,
     SelectRuntimeProfileRequest,
@@ -36,11 +38,12 @@ from ally.application import (
     TaskProposalRequest,
 )
 from ally.composition import build_default_application
+from ally.memory import MemoryProposalBundle
 from ally.research import WebSearchRequest
 from ally.runtime_profiles import InferenceTargetError
 from ally.tasks import NewTaskStep, TaskPlan
 
-BRIDGE_PROTOCOL_VERSION = 11
+BRIDGE_PROTOCOL_VERSION = 12
 MAX_REQUEST_BYTES = 1024 * 1024
 
 BridgeMethod = Literal[
@@ -51,6 +54,9 @@ BridgeMethod = Literal[
     "conversation.send",
     "memory.list",
     "memory.get",
+    "memory.remember",
+    "memory.propose",
+    "memory.accept_proposals",
     "memory.search",
     "memory.supersede",
     "memory.retract",
@@ -159,6 +165,39 @@ class _MemoryListParams(_ListParams):
         "relational",
     ] | None = None
     include_inactive: bool = False
+
+
+class _RememberMemoryParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    content: str = Field(min_length=1, max_length=1_000_000)
+    kind: Literal[
+        "episodic",
+        "semantic",
+        "procedural",
+        "preference",
+        "relational",
+    ] = "semantic"
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    importance: float = Field(default=0.5, ge=0.0, le=1.0)
+    privacy: Literal["private", "shared", "public"] = "private"
+
+
+class _MemoryProposalParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    text: str = Field(min_length=1, max_length=1_000_000)
+    source_type: Literal["user", "conversation", "document", "tool", "system"] = "user"
+    source_id: str | None = Field(default=None, max_length=1024)
+    source_uri: str | None = Field(default=None, max_length=4096)
+    privacy: Literal["private", "shared", "public"] = "private"
+
+
+class _MemoryAcceptParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    bundle: MemoryProposalBundle
+    indices: tuple[int, ...] = Field(min_length=1, max_length=20)
 
 
 class _MemoryParams(BaseModel):
@@ -315,6 +354,9 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                 "conversation.send",
                 "memory.list",
                 "memory.get",
+                "memory.remember",
+                "memory.propose",
+                "memory.accept_proposals",
                 "memory.search",
                 "memory.supersede",
                 "memory.retract",
@@ -398,6 +440,52 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                 kind=params.kind,
                 include_inactive=params.include_inactive,
                 limit=params.limit,
+            )
+        )
+
+    if request.method == "memory.remember":
+        params = cast(
+            _RememberMemoryParams,
+            _validate_params(_RememberMemoryParams, request.params),
+        )
+        return _json_value(
+            app.remember(
+                RememberMemoryRequest(
+                    content=params.content,
+                    kind=params.kind,
+                    confidence=params.confidence,
+                    importance=params.importance,
+                    privacy=params.privacy,
+                )
+            ).model_dump(mode="json")
+        )
+
+    if request.method == "memory.propose":
+        params = cast(
+            _MemoryProposalParams,
+            _validate_params(_MemoryProposalParams, request.params),
+        )
+        return _json_value(
+            app.propose_memory(
+                MemoryProposalRequest(
+                    text=params.text,
+                    source_type=params.source_type,
+                    source_id=params.source_id,
+                    source_uri=params.source_uri,
+                    privacy=params.privacy,
+                )
+            ).model_dump(mode="json")
+        )
+
+    if request.method == "memory.accept_proposals":
+        params = cast(
+            _MemoryAcceptParams,
+            _validate_params(_MemoryAcceptParams, request.params),
+        )
+        return _models_json(
+            app.accept_memory_proposals(
+                params.bundle,
+                indices=params.indices,
             )
         )
 
