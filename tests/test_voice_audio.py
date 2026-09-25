@@ -53,6 +53,8 @@ def test_load_pcm16_wav_returns_ephemeral_pcm_clip(tmp_path: Path) -> None:
     assert audio.channels == 2
     assert audio.frame_count == 800
     assert audio.duration_seconds == pytest.approx(0.05)
+    assert "pcm" not in audio.model_dump()
+    assert "pcm" not in repr(audio)
 
 
 def test_pcm16_wav_rejects_non_16_bit_audio(tmp_path: Path) -> None:
