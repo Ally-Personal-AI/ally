@@ -480,6 +480,7 @@ final class AppModel: ObservableObject {
         guard !compact.isEmpty else {
             researchInspection = nil
             researchResults = []
+            researchSynthesis = nil
             researchStatus = nil
             researchMoreResultsAvailable = false
             return
