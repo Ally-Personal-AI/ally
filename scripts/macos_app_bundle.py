@@ -30,10 +30,11 @@ _BRIDGE_CLIENT_SWIFT = (
     / "desktop/macos/Sources/AllyDesktopCore/BridgeClient.swift"
 )
 _PYPROJECT = _REPOSITORY_ROOT / "pyproject.toml"
+_SCHEMA_PY = _REPOSITORY_ROOT / "src/ally/storage/sqlite/schema.py"
 
 _APP_EXECUTABLE_NAME = "AllyDesktop"
 _DISPLAY_NAME = "Ally"
-_MANIFEST_SCHEMA_VERSION = 1
+_MANIFEST_SCHEMA_VERSION = 2
 
 
 class BundleError(RuntimeError):
@@ -59,6 +60,14 @@ def _single_swift_integer(path: Path, name: str) -> int:
     return int(match.group(1))
 
 
+def _single_python_integer(path: Path, name: str) -> int:
+    content = path.read_text(encoding="utf-8")
+    match = re.search(rf"^\s*{name}\s*=\s*(\d+)\s*$", content, re.MULTILINE)
+    if match is None:
+        raise BundleError(f"could not read Python release constant: {name}")
+    return int(match.group(1))
+
+
 def release_contract() -> dict[str, str | int]:
     return {
         "bundle_identifier": _single_swift_string(
@@ -76,6 +85,10 @@ def release_contract() -> dict[str, str | int]:
         "bridge_protocol_version": _single_swift_integer(
             _BRIDGE_CLIENT_SWIFT,
             "supportedProtocolVersion",
+        ),
+        "database_schema_version": _single_python_integer(
+            _SCHEMA_PY,
+            "CURRENT_SCHEMA_VERSION",
         ),
     }
 
@@ -154,12 +167,17 @@ def assemble(
     helper_source = _require_executable(helper, "desktop helper")
     if not re.fullmatch(r"[1-9]\d*", build_version):
         raise BundleError("build version must be a positive integer")
+    if source_revision is not None and not re.fullmatch(r"[0-9a-f]{40}", source_revision):
+        raise BundleError(
+            "source revision must be a full lowercase 40-character Git commit SHA"
+        )
 
     contract = release_contract()
     bundle_identifier = str(contract["bundle_identifier"])
     helper_relative_path = str(contract["helper_relative_path"])
     manifest_relative_path = str(contract["manifest_relative_path"])
     protocol_version = int(contract["bridge_protocol_version"])
+    database_schema_version = int(contract["database_schema_version"])
     version = ally_version()
 
     destination = output.expanduser().resolve()
@@ -211,7 +229,9 @@ def assemble(
             "schema_version": _MANIFEST_SCHEMA_VERSION,
             "bundle_identifier": bundle_identifier,
             "ally_version": version,
+            "build_version": int(build_version),
             "bridge_protocol_version": protocol_version,
+            "database_schema_version": database_schema_version,
             "helper_relative_path": helper_relative_path,
             "helper_sha256": sha256(helper_destination),
             "source_revision": source_revision,
@@ -240,7 +260,9 @@ def _load_json_object(path: Path) -> dict[str, Any]:
     return cast(dict[str, Any], value)
 
 
-def verify(app: Path) -> dict[str, Any]:
+def inspect(app: Path) -> dict[str, Any]:
+    """Validate self-contained bundle metadata without tying it to this checkout."""
+
     root = app.expanduser().resolve(strict=True)
     if not root.is_dir() or root.suffix != ".app":
         raise BundleError("bundle must be an existing .app directory")
@@ -249,7 +271,6 @@ def verify(app: Path) -> dict[str, Any]:
     bundle_identifier = str(contract["bundle_identifier"])
     helper_relative_path = str(contract["helper_relative_path"])
     manifest_relative_path = str(contract["manifest_relative_path"])
-    protocol_version = int(contract["bridge_protocol_version"])
 
     info_path = root / "Contents/Info.plist"
     try:
@@ -277,14 +298,61 @@ def verify(app: Path) -> dict[str, Any]:
     expected = {
         "schema_version": _MANIFEST_SCHEMA_VERSION,
         "bundle_identifier": bundle_identifier,
-        "ally_version": ally_version(),
-        "bridge_protocol_version": protocol_version,
         "helper_relative_path": helper_relative_path,
     }
     for key, value in expected.items():
         if manifest.get(key) != value:
             raise BundleError(f"release manifest mismatch: {key}")
-    if manifest.get("helper_sha256") != sha256(helper):
+
+    ally_manifest_version = manifest.get("ally_version")
+    if not isinstance(ally_manifest_version, str) or not ally_manifest_version:
+        raise BundleError("release manifest Ally version is invalid")
+    bridge_protocol = manifest.get("bridge_protocol_version")
+    if (
+        not isinstance(bridge_protocol, int)
+        or isinstance(bridge_protocol, bool)
+        or bridge_protocol < 1
+    ):
+        raise BundleError("release manifest bridge protocol version is invalid")
+    database_schema = manifest.get("database_schema_version")
+    if (
+        not isinstance(database_schema, int)
+        or isinstance(database_schema, bool)
+        or database_schema < 0
+    ):
+        raise BundleError("release manifest database schema version is invalid")
+    build_manifest = manifest.get("build_version")
+    if (
+        not isinstance(build_manifest, int)
+        or isinstance(build_manifest, bool)
+        or build_manifest < 1
+    ):
+        raise BundleError("release manifest build version is invalid")
+
+    info_build = info.get("CFBundleVersion")
+    if not isinstance(info_build, str) or not re.fullmatch(r"[1-9]\d*", info_build):
+        raise BundleError("bundle build version is invalid")
+    if int(info_build) != build_manifest:
+        raise BundleError("bundle build version does not match release manifest")
+    info_short_version = info.get("CFBundleShortVersionString")
+    if not isinstance(info_short_version, str) or not re.fullmatch(
+        r"\d+\.\d+\.\d+",
+        info_short_version,
+    ):
+        raise BundleError("bundle short version is invalid")
+    if short_version(ally_manifest_version) != info_short_version:
+        raise BundleError("bundle short version does not match release manifest")
+
+    source_revision = manifest.get("source_revision")
+    if source_revision is not None and (
+        not isinstance(source_revision, str)
+        or re.fullmatch(r"[0-9a-f]{40}", source_revision) is None
+    ):
+        raise BundleError("release manifest source revision is invalid")
+    helper_digest = manifest.get("helper_sha256")
+    if not isinstance(helper_digest, str) or re.fullmatch(r"[0-9a-f]{64}", helper_digest) is None:
+        raise BundleError("release manifest helper hash is invalid")
+    if helper_digest != sha256(helper):
         raise BundleError("desktop helper hash does not match release manifest")
 
     forbidden_names = {".ally", "backups", "data", "models", "secrets"}
@@ -296,6 +364,22 @@ def verify(app: Path) -> dict[str, Any]:
     if embedded_forbidden:
         raise BundleError("release bundle contains a user-data/runtime directory")
 
+    return manifest
+
+
+def verify(app: Path) -> dict[str, Any]:
+    """Verify a bundle built from the current checkout's exact release contract."""
+
+    manifest = inspect(app)
+    contract = release_contract()
+    expected = {
+        "ally_version": ally_version(),
+        "bridge_protocol_version": int(contract["bridge_protocol_version"]),
+        "database_schema_version": int(contract["database_schema_version"]),
+    }
+    for key, value in expected.items():
+        if manifest.get(key) != value:
+            raise BundleError(f"release manifest mismatch: {key}")
     return manifest
 
 
@@ -317,6 +401,18 @@ def refresh_helper_hash(app: Path) -> str:
         or manifest.get("ally_version") != ally_version()
         or manifest.get("bridge_protocol_version")
         != int(contract["bridge_protocol_version"])
+        or manifest.get("database_schema_version")
+        != int(contract["database_schema_version"])
+        or not isinstance(manifest.get("build_version"), int)
+        or isinstance(manifest.get("build_version"), bool)
+        or int(manifest["build_version"]) < 1
+        or (
+            manifest.get("source_revision") is not None
+            and (
+                not isinstance(manifest.get("source_revision"), str)
+                or re.fullmatch(r"[0-9a-f]{40}", str(manifest["source_revision"])) is None
+            )
+        )
         or manifest.get("helper_relative_path")
         != str(contract["helper_relative_path"])
     ):

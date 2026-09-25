@@ -183,13 +183,15 @@ private func makeSyntheticReleaseBundle(
     )
     let helperHash = try DesktopReleaseBundle.sha256(of: helper)
     let manifest: [String: Any] = [
-        "schema_version": 1,
+        "schema_version": 2,
         "bundle_identifier": bundleIdentifier,
         "ally_version": "0.1.0.dev0",
+        "build_version": 7,
         "bridge_protocol_version": bridgeProtocolVersion,
+        "database_schema_version": 14,
         "helper_relative_path": DesktopReleaseBundle.helperRelativePath,
         "helper_sha256": helperHash,
-        "source_revision": "synthetic",
+        "source_revision": String(repeating: "a", count: 40),
     ]
     let manifestData = try JSONSerialization.data(
         withJSONObject: manifest,

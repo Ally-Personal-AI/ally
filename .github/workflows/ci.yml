@@ -92,6 +92,30 @@ jobs:
             --identity - \
             --no-timestamp
           python scripts/macos_app_bundle.py verify "$RUNNER_TEMP/Ally.app"
+      - name: Exercise update-candidate trust boundary
+        run: |
+          set -euo pipefail
+          BIN_DIR="$(swift build --package-path desktop/macos -c release --show-bin-path)"
+          python scripts/macos_app_bundle.py assemble \
+            --app-executable "$BIN_DIR/AllyDesktop" \
+            --helper "$RUNNER_TEMP/ally-desktop-bridge" \
+            --output "$RUNNER_TEMP/Ally-Candidate.app" \
+            --source-revision "$GITHUB_SHA" \
+            --build-version "2"
+          python scripts/macos_release_signing.py sign \
+            "$RUNNER_TEMP/Ally-Candidate.app" \
+            --identity - \
+            --no-timestamp
+          uv run python scripts/macos_update_trust.py compare \
+            --current "$RUNNER_TEMP/Ally.app" \
+            --candidate "$RUNNER_TEMP/Ally-Candidate.app"
+          if uv run python scripts/macos_update_trust.py verify-update \
+            --current "$RUNNER_TEMP/Ally.app" \
+            --candidate "$RUNNER_TEMP/Ally-Candidate.app" \
+            --team-id ABCDE12345; then
+            echo "ad-hoc signed bundle unexpectedly passed production update trust"
+            exit 1
+          fi
 
   distribution:
     name: Distribution (${{ matrix.os }})

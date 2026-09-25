@@ -671,3 +671,6 @@ MIGRATIONS: tuple[Migration, ...] = (
         ),
     )
 )
+
+
+CURRENT_SCHEMA_VERSION = 14

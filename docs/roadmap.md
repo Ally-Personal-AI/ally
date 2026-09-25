@@ -10,7 +10,7 @@ implementation of an earlier one.
 | Configuration / secrets | Adapter implemented; machine acceptance pending | strict non-secret config, direct macOS Security-framework adapter, reference-only CLI, fail-closed tests |
 | Local conversation | Implemented | provider-neutral private chat with active validated-profile resolution by default, loopback-only development override, and no remote escape hatch |
 | Application facade | Implemented V1 + desktop proactive handshake | typed UI-neutral runtime/chat/conversation/memory/knowledge services plus task approval/execution, pending attention/history, read-only service health/history, bounded bootstrap, and an exact-ID prepare/ack/complete handshake for signed-app notification delivery; the facade still never calls OS notification APIs or accepts caller-supplied notification payloads |
-| Native desktop shell | Daily-use + release foundation advancing; machine acceptance pending | SwiftUI shell over a bounded local stdio bridge to `AllyApplication`; full daily-use state surfaces plus app-owned `UNUserNotificationCenter` delivery, duplicate reconciliation, explicit notification permission, opt-in `SMAppService.mainApp` launch-at-login, stable-ID bundle/signing, and a self-contained frozen bridge; real Developer ID/notarization and installed-machine behavior remain |
+| Native desktop shell | Daily-use + release foundation advancing; machine acceptance pending | SwiftUI shell over a bounded local stdio bridge to `AllyApplication`; full daily-use state surfaces plus app-owned `UNUserNotificationCenter` delivery, duplicate reconciliation, explicit notification permission, opt-in `SMAppService.mainApp` launch-at-login, stable-ID bundle/signing, self-contained frozen bridge, and offline forward-only update-candidate trust verification; real Developer ID/notarization and installed-machine behavior remain |
 | User instructions | Implemented V2 | global/project/conversation/task profiles, enable/disable, provenance-aware composition, and ephemeral session instructions |
 | Behavioral model qualification | Implemented V1 | separate refusal, instruction-following, calibration, moralizing, and paired viewpoint-symmetry evidence integrated into local-model validation |
 | Long-term memory | Implemented V1 | temporal/provenance-aware explicit memory and grounding |
@@ -74,6 +74,12 @@ installations use `SMAppService.mainApp` instead. Linux inspection is
 non-mutating, and deterministic tests cover legacy recognition, modified/symlink
 refusal, retirement identity races, and the existing launchd lifecycle. Real
 Login Items, migration, login, and restart acceptance remains hardware-gated.
+
+Release manifest v2 also binds each desktop build to its build number, bridge
+protocol, supported database schema, helper digest, and source revision.
+Hardware-independent update policy rejects rollback/same-build candidates and
+flags schema-raising updates for a pre-migration backup. Hosted CI proves
+ad-hoc signing is insufficient for production update trust.
 
 These controls keep the first-machine evidence comparable over time: a model or
 runtime comparison should not silently change because unrelated dependencies

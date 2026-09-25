@@ -40,7 +40,7 @@ def _assemble(tmp_path: Path) -> Path:
             "--output",
             str(output),
             "--source-revision",
-            "synthetic-revision",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "--build-version",
             "7",
         ],
@@ -66,16 +66,18 @@ def test_assemble_creates_release_contract_and_manifest(tmp_path: Path) -> None:
             encoding="utf-8"
         )
     )
-    assert manifest["schema_version"] == 1
+    assert manifest["schema_version"] == 2
     assert manifest["bundle_identifier"] == "ai.ally.personal"
     assert manifest["ally_version"] == "0.1.0.dev0"
+    assert manifest["build_version"] == 7
     assert manifest["bridge_protocol_version"] == 7
+    assert manifest["database_schema_version"] == 14
     assert (
         manifest["helper_relative_path"]
         == "Contents/Helpers/ally-desktop-bridge"
     )
     assert len(manifest["helper_sha256"]) == 64
-    assert manifest["source_revision"] == "synthetic-revision"
+    assert manifest["source_revision"] == "a" * 40
 
     verified = subprocess.run(
         [sys.executable, str(SCRIPT), "verify", str(app)],
@@ -199,3 +201,51 @@ def test_refresh_helper_hash_rebinds_signed_helper_bytes(tmp_path: Path) -> None
         text=True,
     )
     assert json.loads(verified.stdout)["helper_sha256"] == refreshed.stdout.strip()
+
+
+def test_assemble_rejects_non_commit_source_revision(tmp_path: Path) -> None:
+    app_executable = _executable(tmp_path / "app-source", "#!/bin/sh\nexit 0\n")
+    helper = _executable(tmp_path / "helper-source", "#!/bin/sh\nexit 0\n")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "assemble",
+            "--app-executable",
+            str(app_executable),
+            "--helper",
+            str(helper),
+            "--output",
+            str(tmp_path / "Ally.app"),
+            "--source-revision",
+            "not-a-full-commit",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "40-character git commit sha" in result.stderr.lower()
+
+
+def test_verify_rejects_manifest_build_mismatch(tmp_path: Path) -> None:
+    app = _assemble(tmp_path)
+    manifest_path = app / "Contents/Resources/release-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["build_version"] = 8
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "verify", str(app)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "build version" in result.stderr.lower()

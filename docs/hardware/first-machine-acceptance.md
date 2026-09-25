@@ -459,7 +459,46 @@ Detailed procedure:
 
 ---
 
-## 12. Final integrated acceptance
+## 12. Signed release and update-candidate acceptance
+
+Using synthetic Ally state only, build/sign/notarize two full app bundles with
+the real Developer ID identity and increasing build numbers.
+
+Verify the newer staged candidate before any replacement:
+
+```bash
+uv run python scripts/macos_update_trust.py verify-update \
+  --current /Applications/Ally.app \
+  --candidate /private/staging/Ally.app \
+  --team-id <APPLE-DEVELOPER-TEAM-ID>
+```
+
+Verify:
+
+- both installed and candidate identities resolve to `ai.ally.personal`;
+- both signatures use the expected Developer ID TeamIdentifier;
+- hardened runtime, signing timestamp, staple validation, and Gatekeeper pass;
+- the newer build is accepted;
+- equal/older builds are rejected;
+- a differently signed candidate is rejected;
+- an unstapled candidate is rejected;
+- source revision is present in the accepted result;
+- any database-schema increase reports
+  `requires_pre_migration_backup=true`; and
+- manual replacement preserves user-owned state outside `Ally.app`.
+
+### Stop condition
+
+Do not enable automatic update fetching or replacement until these checks pass.
+If a candidate raises database schema compatibility, create and validate Ally's
+existing backup artifact before testing replacement/migration.
+
+Detailed contract:
+[macOS Update Candidate Trust](../macos-update-trust.md).
+
+---
+
+## 13. Final integrated acceptance
 
 With the selected validated profile active:
 
