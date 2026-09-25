@@ -25,16 +25,20 @@ from ally.application import (
     ChatTurnRequest,
     CompleteDesktopProactiveRequest,
     DesktopNotificationResultRequest,
+    InstructionSelectorRequest,
     KnowledgeTextIngestRequest,
+    ResolveUserInstructionsRequest,
     RunTaskRequest,
     SelectRuntimeProfileRequest,
+    SetUserInstructionsEnabledRequest,
+    SetUserInstructionsRequest,
     SupersedeMemoryRequest,
 )
 from ally.composition import build_default_application
 from ally.research import WebSearchRequest
 from ally.runtime_profiles import InferenceTargetError
 
-BRIDGE_PROTOCOL_VERSION = 8
+BRIDGE_PROTOCOL_VERSION = 9
 MAX_REQUEST_BYTES = 1024 * 1024
 
 BridgeMethod = Literal[
@@ -52,6 +56,12 @@ BridgeMethod = Literal[
     "knowledge.get",
     "knowledge.search",
     "knowledge.ingest_text",
+    "instructions.list",
+    "instructions.get",
+    "instructions.set",
+    "instructions.set_enabled",
+    "instructions.clear",
+    "instructions.resolve",
     "research.inspect",
     "research.search",
     "runtime.profiles",
@@ -178,6 +188,12 @@ class _SearchParams(BaseModel):
     limit: int = Field(default=20, ge=1, le=100)
 
 
+class _InstructionListParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    include_disabled: bool = True
+
+
 class _ResearchParams(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -275,6 +291,12 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                 "knowledge.get",
                 "knowledge.search",
                 "knowledge.ingest_text",
+                "instructions.list",
+                "instructions.get",
+                "instructions.set",
+                "instructions.set_enabled",
+                "instructions.clear",
+                "instructions.resolve",
                 "research.inspect",
                 "research.search",
                 "runtime.profiles",
@@ -417,6 +439,60 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                     media_type=params.media_type,
                 )
             ).model_dump(mode="json")
+        )
+
+    if request.method == "instructions.list":
+        params = cast(
+            _InstructionListParams,
+            _validate_params(_InstructionListParams, request.params),
+        )
+        return _models_json(
+            app.list_user_instructions(
+                include_disabled=params.include_disabled,
+            )
+        )
+
+    if request.method == "instructions.get":
+        params = cast(
+            InstructionSelectorRequest,
+            _validate_params(InstructionSelectorRequest, request.params),
+        )
+        return _json_value(
+            app.user_instructions(params).model_dump(mode="json")
+        )
+
+    if request.method == "instructions.set":
+        params = cast(
+            SetUserInstructionsRequest,
+            _validate_params(SetUserInstructionsRequest, request.params),
+        )
+        return _json_value(
+            app.set_user_instructions(params).model_dump(mode="json")
+        )
+
+    if request.method == "instructions.set_enabled":
+        params = cast(
+            SetUserInstructionsEnabledRequest,
+            _validate_params(SetUserInstructionsEnabledRequest, request.params),
+        )
+        return _json_value(
+            app.set_user_instructions_enabled(params).model_dump(mode="json")
+        )
+
+    if request.method == "instructions.clear":
+        params = cast(
+            InstructionSelectorRequest,
+            _validate_params(InstructionSelectorRequest, request.params),
+        )
+        return _json_value(app.clear_user_instructions(params))
+
+    if request.method == "instructions.resolve":
+        params = cast(
+            ResolveUserInstructionsRequest,
+            _validate_params(ResolveUserInstructionsRequest, request.params),
+        )
+        return _json_value(
+            app.resolve_user_instructions(params).model_dump(mode="json")
         )
 
     if request.method == "research.inspect":
