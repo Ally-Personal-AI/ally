@@ -27,6 +27,7 @@ from ally.application.models import (
     KnowledgeSearchResult,
     KnowledgeSourceView,
     KnowledgeTextIngestRequest,
+    LegacyManagedServiceView,
     MemoryProposalRequest,
     PendingAttentionBootstrapSection,
     RememberMemoryRequest,
@@ -85,6 +86,7 @@ from ally.service import (
     ServiceLeaseUnavailableError,
     ServiceRunConflictError,
 )
+from ally.service.macos_launchd import ManagedServiceError
 from ally.tasks import TaskPlan, TaskRecord, TaskStepRecord
 
 InferenceTargetResolver = Callable[
@@ -760,6 +762,43 @@ class AllyApplication:
 
     def service_health(self) -> ServiceHealthReport:
         return self._require_operations().service_health()
+
+    def legacy_managed_service_status(self) -> LegacyManagedServiceView:
+        """Inspect the historical launchd service without exposing local paths."""
+
+        operations = self._require_operations()
+        service = operations.legacy_managed_service
+        if service is None:
+            raise ApplicationUnavailableError(
+                "legacy managed-service migration is not available"
+            )
+        status = service.migration_status()
+        return LegacyManagedServiceView(
+            supported=status.supported,
+            configured=status.configured,
+            definition_state=status.definition_state,
+            loaded=status.loaded,
+            running=status.running,
+            label=status.label,
+            can_retire=status.can_retire,
+        )
+
+    def retire_legacy_managed_service(self) -> LegacyManagedServiceView:
+        """Retire only a recognized Ally-owned historical launchd service."""
+
+        operations = self._require_operations()
+        service = operations.legacy_managed_service
+        if service is None:
+            raise ApplicationUnavailableError(
+                "legacy managed-service migration is not available"
+            )
+        try:
+            service.retire_legacy()
+        except ManagedServiceError as exc:
+            raise ApplicationStateError(
+                "legacy managed-service retirement is not safe in the current state"
+            ) from exc
+        return self.legacy_managed_service_status()
 
     def _require_runtime_profiles(self) -> RuntimeProfileCatalog:
         if self._runtime_profiles is None:
