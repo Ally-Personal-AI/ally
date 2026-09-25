@@ -201,6 +201,29 @@ final class AppModel: ObservableObject {
         conversationSearchResults = []
     }
 
+    func deleteConversation(_ id: String) async -> Bool {
+        guard let client else { return false }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let deleted: Bool = try await client.call(
+                "conversation.delete",
+                params: ["conversation_id": .string(id)]
+            )
+            guard deleted else { return false }
+            selectedConversationID = nil
+            conversation = nil
+            composer = ""
+            conversationSearchResults = []
+            snapshot = try await client.call("bootstrap")
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
     func selectMemory(_ id: String) async {
         guard let client else { return }
         isBusy = true
@@ -423,6 +446,30 @@ final class AppModel: ObservableObject {
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    func deleteKnowledgeSource(_ id: String) async -> Bool {
+        guard let client else { return false }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let deleted: Bool = try await client.call(
+                "knowledge.delete",
+                params: ["source_id": .string(id)]
+            )
+            guard deleted else { return false }
+            knowledgeDetail = nil
+            knowledgeSearchResults = []
+            knowledge = try await client.call(
+                "knowledge.list",
+                params: ["limit": .number(100)]
+            )
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
         }
     }
 
