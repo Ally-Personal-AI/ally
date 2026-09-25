@@ -312,6 +312,14 @@ class LegacyManagedServiceView(BaseModel):
     can_retire: bool
 
 
+class TaskProposalRequest(BaseModel):
+    """Request one non-persisting local model task-plan proposal."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    goal: str = Field(min_length=1, max_length=100_000)
+
+
 class TaskView(BaseModel):
     """Persisted task plus ordered step state for presentation surfaces."""
 
