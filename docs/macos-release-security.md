@@ -274,3 +274,24 @@ authority.
 A future release workflow should require a currently verified
 `qualified_for_release=true` artifact before tagging or distribution. See
 [Final Release Readiness Evidence](release-readiness.md).
+
+## Local release build orchestration
+
+The repository now provides `scripts/macos_release_pipeline.py` as the canonical
+ordering layer for macOS release construction.
+
+Hosted macOS CI exercises its ad-hoc mode end-to-end. Production mode is stricter:
+it refuses to create output until the exact final release-readiness artifact
+verifies against the current validation session, machine acceptance, source
+revision, hardware, and active profile.
+
+The builder also requires a clean checkout whose exact `HEAD` matches the
+release source revision, places output outside the repository, never overwrites a
+production output, builds PyInstaller embedded code with the Developer ID
+identity, signs/notarizes/staples/assesses the app, extracts and re-verifies the
+final ZIP, and writes path-free artifact metadata bound to the release-readiness
+SHA-256.
+
+It deliberately has no Git tag, GitHub release, upload, updater, or installed-app
+replacement authority. See
+[macOS Release Build Orchestration](macos-release-build.md).
