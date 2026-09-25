@@ -41,6 +41,13 @@ from ally.application.models import (
     TaskView,
 )
 from ally.application.operations import ApplicationOperations, ServiceHealthProvider
+from ally.application.voice import (
+    VoiceChatApplication,
+    VoiceTrustError,
+    VoiceTurnCoordinator,
+    VoiceTurnRequest,
+    VoiceTurnResult,
+)
 
 __all__ = [
     "AllyApplication",
@@ -81,4 +88,9 @@ __all__ = [
     "SupersedeMemoryRequest",
     "TaskBootstrapSection",
     "TaskView",
+    "VoiceChatApplication",
+    "VoiceTrustError",
+    "VoiceTurnCoordinator",
+    "VoiceTurnRequest",
+    "VoiceTurnResult",
 ]
