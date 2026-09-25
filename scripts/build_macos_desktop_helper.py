@@ -6,11 +6,11 @@ import argparse
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
-import re
 from pathlib import Path
 from typing import cast
 
@@ -24,16 +24,16 @@ _BRIDGE_CLIENT_SWIFT = (
 _MAXIMUM_SMOKE_RESPONSE_BYTES = 2 * 1024 * 1024
 
 
+class HelperBuildError(RuntimeError):
+    """Raised when the standalone helper cannot be built or verified safely."""
+
+
 def _desktop_protocol_version() -> int:
     content = _BRIDGE_CLIENT_SWIFT.read_text(encoding="utf-8")
     match = re.search(r"\bsupportedProtocolVersion\s*=\s*(\d+)", content)
     if match is None:
         raise HelperBuildError("desktop protocol version could not be determined")
     return int(match.group(1))
-
-
-class HelperBuildError(RuntimeError):
-    """Raised when the standalone helper cannot be built or verified safely."""
 
 
 def _require_macos() -> None:
