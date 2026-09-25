@@ -947,7 +947,9 @@ def test_bridge_research_answer_uses_local_model_after_approved_search(
     assert isinstance(synthesis, dict)
     assert search["status"] == "succeeded"
     assert response.result["synthesis_status"] == "succeeded"
-    assert synthesis["answer"].endswith("[1]")
+    answer = synthesis["answer"]
+    assert isinstance(answer, str)
+    assert answer.endswith("[1]")
     assert synthesis["cited_result_indices"] == [1]
     assert adapter.calls == [
         (
