@@ -47,7 +47,7 @@ class FakeApplication:
 
 class FakeRecognizer:
     def __init__(self, trust_domain: VoiceTrustDomain = "local") -> None:
-        self._trust_domain = trust_domain
+        self._trust_domain: VoiceTrustDomain = trust_domain
         self.calls = 0
 
     @property
@@ -66,7 +66,7 @@ class FakeRecognizer:
 
 class FakeSynthesizer:
     def __init__(self, trust_domain: VoiceTrustDomain = "local") -> None:
-        self._trust_domain = trust_domain
+        self._trust_domain: VoiceTrustDomain = trust_domain
         self.calls: list[str] = []
 
     @property
