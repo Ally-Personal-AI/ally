@@ -5,7 +5,9 @@ public struct DesktopReleaseManifest: Decodable, Sendable, Equatable {
     public let schemaVersion: Int
     public let bundleIdentifier: String
     public let allyVersion: String
+    public let buildVersion: Int
     public let bridgeProtocolVersion: Int
+    public let databaseSchemaVersion: Int
     public let helperRelativePath: String
     public let helperSha256: String
     public let sourceRevision: String?
@@ -36,11 +38,13 @@ public enum DesktopReleaseBundle {
         }
 
         guard
-            manifest.schemaVersion == 1,
+            manifest.schemaVersion == 2,
             manifest.bundleIdentifier == Self.bundleIdentifier,
             actualBundleIdentifier == manifest.bundleIdentifier,
             manifest.bridgeProtocolVersion == DesktopBridgeClient.supportedProtocolVersion,
             manifest.helperRelativePath == helperRelativePath,
+            manifest.buildVersion > 0,
+            manifest.databaseSchemaVersion >= 0,
             isLowercaseSHA256(manifest.helperSha256),
             !manifest.allyVersion.isEmpty
         else {
