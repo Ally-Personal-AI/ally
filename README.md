@@ -448,6 +448,28 @@ uv run ally release-readiness verify \
 This gate performs no tagging, publishing, signing, downloading, or application
 replacement. See [Final Release Readiness Evidence](docs/release-readiness.md).
 
+The macOS release build is then executed locally through the same orchestrated
+path exercised by hosted macOS CI. Production mode requires the verified
+release-readiness artifact before it creates any output and performs Developer
+ID signing, notarization, staple/Gatekeeper validation, archive re-verification,
+and path-free release metadata:
+
+```bash
+uv run python scripts/macos_release_pipeline.py build \
+  --mode production \
+  --source-revision <40-character-git-sha> \
+  --build-version <monotonic-build-number> \
+  --output-dir /absolute/path/outside/repository/ally-release \
+  --identity "Developer ID Application: <public identity>" \
+  --notary-profile <existing-notarytool-keychain-profile> \
+  --release-readiness validation/release-readiness.json \
+  --validation-session validation/candidate-a/session.json \
+  --machine-acceptance validation/machine-acceptance.json
+```
+
+The builder does not tag, upload, publish, or replace an installed app. See
+[macOS Release Build Orchestration](docs/macos-release-build.md).
+
 ## Proactive events
 
 Ally now has a deterministic event and attention substrate. Events are persisted before any handler runs, and explicit importance maps to conservative attention classes:
