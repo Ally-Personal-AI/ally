@@ -363,6 +363,18 @@ public struct WebResearchExecution: Decodable, Sendable, Equatable {
 }
 
 
+public struct WebResearchSynthesis: Decodable, Sendable, Equatable {
+    public let answer: String
+    public let citedResultIndices: [Int]
+    public let insufficientEvidence: Bool
+}
+
+public struct WebResearchAnswerExecution: Decodable, Sendable, Equatable {
+    public let search: WebResearchExecution
+    public let synthesis: WebResearchSynthesis?
+}
+
+
 public struct RuntimeProfileSummary: Decodable, Sendable, Equatable, Identifiable {
     public let profileId: String
     public let generatedAt: String
