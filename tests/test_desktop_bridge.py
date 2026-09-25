@@ -737,6 +737,129 @@ def test_bridge_knowledge_text_ingest_detail_and_search_are_local_contracts(
     assert path_attempt.error.code == "invalid_request"
 
 
+def test_bridge_manages_scoped_instructions_without_authority_fields(
+    tmp_path: Path,
+) -> None:
+    app = _application(tmp_path, provider=CapturingProvider([]))
+
+    created = handle_request_json(
+        app,
+        _request(
+            "instructions.set",
+            {
+                "scope": "global",
+                "content": "Be concise.",
+                "enabled": True,
+            },
+        ),
+    )
+    assert created.ok
+    assert isinstance(created.result, dict)
+    assert created.result["scope"] == "global"
+    assert created.result["enabled"] is True
+
+    project = handle_request_json(
+        app,
+        _request(
+            "instructions.set",
+            {
+                "scope": "project",
+                "scope_key": "synthetic-project",
+                "content": "Prefer metric units.",
+                "enabled": False,
+            },
+        ),
+    )
+    assert project.ok
+
+    listed = handle_request_json(
+        app,
+        _request("instructions.list", {"include_disabled": True}),
+    )
+    assert listed.ok
+    assert isinstance(listed.result, list)
+    assert [item["scope"] for item in listed.result if isinstance(item, dict)] == [
+        "global",
+        "project",
+    ]
+
+    toggled = handle_request_json(
+        app,
+        _request(
+            "instructions.set_enabled",
+            {
+                "scope": "project",
+                "scope_key": "synthetic-project",
+                "enabled": True,
+            },
+        ),
+    )
+    assert toggled.ok
+
+    resolved = handle_request_json(
+        app,
+        _request(
+            "instructions.resolve",
+            {
+                "project_key": "synthetic-project",
+                "session_instructions": "Answer briefly.",
+            },
+        ),
+    )
+    assert resolved.ok
+    assert isinstance(resolved.result, dict)
+    contributions = resolved.result["contributions"]
+    assert isinstance(contributions, list)
+    assert [item["scope"] for item in contributions if isinstance(item, dict)] == [
+        "global",
+        "project",
+        "session",
+    ]
+
+    rejected = handle_request_json(
+        app,
+        _request(
+            "instructions.set",
+            {
+                "scope": "global",
+                "content": "Synthetic instructions.",
+                "tool_permission": "allow_all",
+            },
+        ),
+    )
+    assert not rejected.ok
+    assert rejected.error is not None
+    assert rejected.error.code == "invalid_request"
+
+    invalid_scope = handle_request_json(
+        app,
+        _request(
+            "instructions.set",
+            {
+                "scope": "global",
+                "scope_key": "must-not-exist",
+                "content": "Synthetic instructions.",
+            },
+        ),
+    )
+    assert not invalid_scope.ok
+    assert invalid_scope.error is not None
+    assert invalid_scope.error.code == "invalid_request"
+
+    cleared = handle_request_json(
+        app,
+        _request(
+            "instructions.clear",
+            {
+                "scope": "project",
+                "scope_key": "synthetic-project",
+            },
+        ),
+    )
+    assert cleared.ok
+    assert cleared.result is True
+
+
 def test_bridge_research_requires_exact_query_approval(
     tmp_path: Path,
 ) -> None:

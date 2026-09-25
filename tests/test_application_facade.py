@@ -13,10 +13,14 @@ from ally.application import (
     ApplicationNotFoundError,
     ApplicationStateError,
     ChatTurnRequest,
+    InstructionSelectorRequest,
     KnowledgeTextIngestRequest,
     MemoryProposalRequest,
     RememberMemoryRequest,
+    ResolveUserInstructionsRequest,
     SelectRuntimeProfileRequest,
+    SetUserInstructionsEnabledRequest,
+    SetUserInstructionsRequest,
     SupersedeMemoryRequest,
 )
 from ally.diagnostics import (
@@ -195,6 +199,86 @@ def _installed_runtime_profile(
         encoding="utf-8",
     )
     return catalog, profile
+
+
+def test_application_manages_and_resolves_scoped_user_instructions(
+    tmp_path: Path,
+) -> None:
+    app, _ = _application(tmp_path, provider=CapturingProvider([]))
+
+    assert app.list_user_instructions() == ()
+
+    global_profile = app.set_user_instructions(
+        SetUserInstructionsRequest(
+            content="Be concise and precise.",
+        )
+    )
+    project_profile = app.set_user_instructions(
+        SetUserInstructionsRequest(
+            scope="project",
+            scope_key="synthetic-project",
+            content="Prefer metric units.",
+            enabled=False,
+        )
+    )
+
+    assert global_profile.scope == "global"
+    assert project_profile.enabled is False
+    assert [profile.scope for profile in app.list_user_instructions()] == [
+        "global",
+        "project",
+    ]
+    assert app.list_user_instructions(include_disabled=False) == (global_profile,)
+
+    fetched = app.user_instructions(
+        InstructionSelectorRequest(
+            scope="project",
+            scope_key="synthetic-project",
+        )
+    )
+    assert fetched.content == "Prefer metric units."
+
+    enabled = app.set_user_instructions_enabled(
+        SetUserInstructionsEnabledRequest(
+            scope="project",
+            scope_key="synthetic-project",
+            enabled=True,
+        )
+    )
+    assert enabled.enabled is True
+
+    resolved = app.resolve_user_instructions(
+        ResolveUserInstructionsRequest(
+            project_key="synthetic-project",
+            session_instructions="Answer in one paragraph.",
+        )
+    )
+    assert [item.scope for item in resolved.profiles] == ["global", "project"]
+    assert [item.scope for item in resolved.contributions] == [
+        "global",
+        "project",
+        "session",
+    ]
+    assert resolved.rendered is not None
+    assert "[global]" in resolved.rendered
+    assert "[project:synthetic-project]" in resolved.rendered
+    assert "[session]" in resolved.rendered
+
+    assert app.clear_user_instructions(
+        InstructionSelectorRequest(
+            scope="project",
+            scope_key="synthetic-project",
+        )
+    )
+    assert [profile.scope for profile in app.list_user_instructions()] == ["global"]
+
+    with pytest.raises(ApplicationNotFoundError):
+        app.user_instructions(
+            InstructionSelectorRequest(
+                scope="project",
+                scope_key="synthetic-project",
+            )
+        )
 
 
 def test_application_chat_composes_instructions_grounding_and_persistence(

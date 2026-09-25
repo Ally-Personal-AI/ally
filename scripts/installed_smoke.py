@@ -137,6 +137,9 @@ def run_workflows(root: Path) -> None:
         bridge_info["ok"] is True
         and bridge_info["result"]["protocol_version"] == BRIDGE_PROTOCOL_VERSION
         and bridge_info["result"]["transport"] == "stdio"
+        and "instructions.list" in bridge_info["result"]["capabilities"]
+        and "instructions.set" in bridge_info["result"]["capabilities"]
+        and "instructions.resolve" in bridge_info["result"]["capabilities"]
         and "research.inspect" in bridge_info["result"]["capabilities"]
         and "research.search" in bridge_info["result"]["capabilities"],
         "installed desktop bridge protocol",

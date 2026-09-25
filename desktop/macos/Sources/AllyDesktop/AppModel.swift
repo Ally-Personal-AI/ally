@@ -13,6 +13,8 @@ final class AppModel: ObservableObject {
     @Published var knowledge: [KnowledgeSourceSummary] = []
     @Published var knowledgeDetail: KnowledgeSourceView?
     @Published var knowledgeSearchResults: [KnowledgeSearchResult] = []
+    @Published var instructionProfiles: [UserInstructionsSummary] = []
+    @Published var instructionResolution: InstructionResolutionView?
     @Published var researchInspection: EgressInspection?
     @Published var researchResults: [WebSearchResult] = []
     @Published var researchStatus: String?
@@ -73,9 +75,14 @@ final class AppModel: ObservableObject {
                 "knowledge.list",
                 params: ["limit": .number(100)]
             )
+            async let instructions: [UserInstructionsSummary] = client.call(
+                "instructions.list",
+                params: ["include_disabled": .bool(true)]
+            )
             self.snapshot = try await snapshot
             self.memories = try await memories
             self.knowledge = try await knowledge
+            self.instructionProfiles = try await instructions
             do {
                 self.runtimeProfiles = try await client.call("runtime.profiles")
                 self.errorMessage = nil
@@ -320,6 +327,147 @@ final class AppModel: ObservableObject {
             knowledgeSearchResults = []
             errorMessage = nil
         } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func refreshInstructions() async {
+        guard let client else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            instructionProfiles = try await client.call(
+                "instructions.list",
+                params: ["include_disabled": .bool(true)]
+            )
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func setInstructions(
+        scope: String,
+        scopeKey: String?,
+        content: String,
+        enabled: Bool
+    ) async {
+        guard let client else { return }
+        let compactContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !compactContent.isEmpty else { return }
+        var params: [String: JSONValue] = [
+            "scope": .string(scope),
+            "content": .string(compactContent),
+            "enabled": .bool(enabled),
+        ]
+        if let scopeKey, !scopeKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            params["scope_key"] = .string(
+                scopeKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+        }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let _: UserInstructionsSummary = try await client.call(
+                "instructions.set",
+                params: params
+            )
+            instructionProfiles = try await client.call(
+                "instructions.list",
+                params: ["include_disabled": .bool(true)]
+            )
+            instructionResolution = nil
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func setInstructionsEnabled(
+        _ profile: UserInstructionsSummary,
+        enabled: Bool
+    ) async {
+        guard let client else { return }
+        var params: [String: JSONValue] = [
+            "scope": .string(profile.scope),
+            "enabled": .bool(enabled),
+        ]
+        if profile.scope != "global" {
+            params["scope_key"] = .string(profile.scopeKey)
+        }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let _: UserInstructionsSummary = try await client.call(
+                "instructions.set_enabled",
+                params: params
+            )
+            instructionProfiles = try await client.call(
+                "instructions.list",
+                params: ["include_disabled": .bool(true)]
+            )
+            instructionResolution = nil
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func clearInstructions(_ profile: UserInstructionsSummary) async {
+        guard let client else { return }
+        var params: [String: JSONValue] = [
+            "scope": .string(profile.scope),
+        ]
+        if profile.scope != "global" {
+            params["scope_key"] = .string(profile.scopeKey)
+        }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let _: Bool = try await client.call(
+                "instructions.clear",
+                params: params
+            )
+            instructionProfiles = try await client.call(
+                "instructions.list",
+                params: ["include_disabled": .bool(true)]
+            )
+            instructionResolution = nil
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func resolveInstructions(
+        projectKey: String,
+        conversationKey: String,
+        taskKey: String,
+        sessionInstructions: String
+    ) async {
+        guard let client else { return }
+        var params: [String: JSONValue] = [:]
+        for (name, value) in [
+            ("project_key", projectKey),
+            ("conversation_key", conversationKey),
+            ("task_key", taskKey),
+            ("session_instructions", sessionInstructions),
+        ] {
+            let compact = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !compact.isEmpty {
+                params[name] = .string(compact)
+            }
+        }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            instructionResolution = try await client.call(
+                "instructions.resolve",
+                params: params
+            )
+            errorMessage = nil
+        } catch {
+            instructionResolution = nil
             errorMessage = error.localizedDescription
         }
     }

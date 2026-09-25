@@ -5,15 +5,23 @@ import UserNotifications
 @testable import AllyDesktopCore
 
 @Test func decodesBridgeInfoEnvelope() throws {
-    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":8,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap","research.inspect","research.search"]}}"#.utf8)
+    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":9,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap","instructions.list","instructions.resolve","research.inspect","research.search"]}}"#.utf8)
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let envelope = try decoder.decode(BridgeEnvelope<BridgeInfo>.self, from: data)
 
     #expect(envelope.ok)
-    #expect(envelope.result?.protocolVersion == 8)
+    #expect(envelope.result?.protocolVersion == 9)
     #expect(envelope.result?.transport == "stdio")
-    #expect(envelope.result?.capabilities == ["bootstrap", "research.inspect", "research.search"])
+    #expect(
+        envelope.result?.capabilities == [
+            "bootstrap",
+            "instructions.list",
+            "instructions.resolve",
+            "research.inspect",
+            "research.search",
+        ]
+    )
 }
 
 @Test func decodesBootstrapWithoutRequiringPrivatePayloadFields() throws {
@@ -41,6 +49,36 @@ import UserNotifications
 
     #expect(rendered.contains("synthetic private message"))
     #expect(rendered.contains("conversation.send"))
+}
+
+@Test func decodesScopedInstructionsAndResolutionProvenance() throws {
+    let profileData = Data(#"{"id":"1","ok":true,"result":{"scope":"project","scope_key":"synthetic-project","content":"Prefer metric units.","enabled":true,"created_at":"2026-09-25T00:00:00Z","updated_at":"2026-09-25T00:01:00Z"}}"#.utf8)
+    let resolutionData = Data(#"{"id":"2","ok":true,"result":{"profiles":[{"scope":"global","scope_key":"","content":"Be concise.","enabled":true,"created_at":"2026-09-25T00:00:00Z","updated_at":"2026-09-25T00:00:00Z"},{"scope":"project","scope_key":"synthetic-project","content":"Prefer metric units.","enabled":true,"created_at":"2026-09-25T00:00:00Z","updated_at":"2026-09-25T00:01:00Z"}],"contributions":[{"scope":"global","scope_key":"","content":"Be concise."},{"scope":"project","scope_key":"synthetic-project","content":"Prefer metric units."},{"scope":"session","scope_key":"","content":"Answer briefly."}],"rendered":"[global]\\nBe concise.\\n\\n[project:synthetic-project]\\nPrefer metric units.\\n\\n[session]\\nAnswer briefly."}}"#.utf8)
+    let decoder = JSONDecoder()
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
+
+    let profile = try decoder.decode(
+        BridgeEnvelope<UserInstructionsSummary>.self,
+        from: profileData
+    )
+    let resolution = try decoder.decode(
+        BridgeEnvelope<InstructionResolutionView>.self,
+        from: resolutionData
+    )
+
+    #expect(profile.result?.displayScope == "Project: synthetic-project")
+    #expect(profile.result?.enabled == true)
+    #expect(resolution.result?.profiles.count == 2)
+    #expect(resolution.result?.contributions.map(\.scope) == [
+        "global",
+        "project",
+        "session",
+    ])
+    #expect(
+        resolution.result?.contributions[1].displayScope
+            == "Project: synthetic-project"
+    )
+    #expect(resolution.result?.rendered?.contains("[session]") == true)
 }
 
 @Test func encodesApprovedResearchAsExactLocalBridgePayload() throws {

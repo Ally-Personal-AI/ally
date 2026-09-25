@@ -251,6 +251,44 @@ public struct KnowledgeIngestResult: Decodable, Sendable, Equatable {
 }
 
 
+public struct UserInstructionsSummary: Decodable, Sendable, Equatable, Identifiable {
+    public let scope: String
+    public let scopeKey: String
+    public let content: String
+    public let enabled: Bool
+    public let createdAt: String
+    public let updatedAt: String
+
+    public var id: String {
+        "\(scope):\(scopeKey)"
+    }
+
+    public var displayScope: String {
+        scope == "global" ? "Global" : "\(scope.capitalized): \(scopeKey)"
+    }
+}
+
+public struct InstructionContributionSummary: Decodable, Sendable, Equatable, Identifiable {
+    public let scope: String
+    public let scopeKey: String
+    public let content: String
+
+    public var id: String {
+        "\(scope):\(scopeKey)"
+    }
+
+    public var displayScope: String {
+        scope == "global" ? "Global" : "\(scope.capitalized): \(scopeKey)"
+    }
+}
+
+public struct InstructionResolutionView: Decodable, Sendable, Equatable {
+    public let profiles: [UserInstructionsSummary]
+    public let contributions: [InstructionContributionSummary]
+    public let rendered: String?
+}
+
+
 public struct EgressFieldManifest: Decodable, Sendable, Equatable, Identifiable {
     public let name: String
     public let classification: String

@@ -6,11 +6,16 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ally.attention import AttentionDeliveryRecord
 from ally.conversations import Conversation, ConversationMessage
 from ally.events import EventRecord
+from ally.instructions import (
+    InstructionContribution,
+    InstructionScope,
+    UserInstructions,
+)
 from ally.knowledge import KnowledgeChunk, KnowledgeRevision, KnowledgeSource
 from ally.memory import (
     MemoryKind,
@@ -131,6 +136,58 @@ class SelectRuntimeProfileRequest(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     profile_id: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class InstructionSelectorRequest(BaseModel):
+    """Select one exact durable instruction scope."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    scope: InstructionScope = "global"
+    scope_key: str | None = Field(default=None, max_length=512)
+
+    @model_validator(mode="after")
+    def validate_scope_key(self) -> InstructionSelectorRequest:
+        compact = (self.scope_key or "").strip()
+        if self.scope == "global" and compact:
+            raise ValueError("global instructions cannot have a scope key")
+        if self.scope != "global" and not compact:
+            raise ValueError(f"{self.scope} instructions require a scope key")
+        return self
+
+
+class SetUserInstructionsRequest(InstructionSelectorRequest):
+    """Create or replace one exact durable instruction profile."""
+
+    content: str = Field(min_length=1, max_length=100_000)
+    enabled: bool = True
+
+
+class SetUserInstructionsEnabledRequest(InstructionSelectorRequest):
+    """Enable or disable one exact existing durable instruction profile."""
+
+    enabled: bool
+
+
+class ResolveUserInstructionsRequest(BaseModel):
+    """Preview deterministic instruction resolution for one explicit context."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    project_key: str | None = Field(default=None, max_length=512)
+    conversation_key: str | None = Field(default=None, max_length=512)
+    task_key: str | None = Field(default=None, max_length=512)
+    session_instructions: str | None = Field(default=None, max_length=100_000)
+
+
+class InstructionResolutionView(BaseModel):
+    """Resolved durable profiles plus provenance-aware rendered contributions."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    profiles: tuple[UserInstructions, ...]
+    contributions: tuple[InstructionContribution, ...]
+    rendered: str | None = None
 
 
 class RememberMemoryRequest(BaseModel):
