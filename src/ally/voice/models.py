@@ -31,7 +31,7 @@ class PCM16Audio(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    pcm: bytes
+    pcm: bytes = Field(repr=False, exclude=True)
     sample_rate_hz: int = Field(ge=MIN_SAMPLE_RATE_HZ, le=MAX_SAMPLE_RATE_HZ)
     channels: int = Field(ge=1, le=2)
 
