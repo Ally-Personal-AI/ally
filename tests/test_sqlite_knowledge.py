@@ -79,3 +79,33 @@ def test_search_candidates_only_include_current_revisions(tmp_path: Path) -> Non
 
     assert {chunk.revision for chunk in candidates} == {2}
     assert all(chunk.source_id == source.id for chunk in candidates)
+
+
+def test_delete_source_cascades_revisions_and_chunks(tmp_path: Path) -> None:
+    database_path = tmp_path / "ally.sqlite3"
+    store = build_store(database_path)
+    source, revision = ingest(
+        store,
+        uri="file:///delete-me.txt",
+        text="Synthetic deletion target.",
+    )
+    assert store.list_revisions(source.id)
+    assert store.list_revision_chunks(revision.id)
+
+    assert store.delete_source(source.id) is True
+    assert store.get_source(source.id) is None
+    assert store.list_revision_chunks(revision.id) == ()
+
+    database = SQLiteDatabase(database_path)
+    with database.connect() as connection:
+        revisions = connection.execute(
+            "SELECT COUNT(*) FROM knowledge_revisions WHERE source_id = ?",
+            (str(source.id),),
+        ).fetchone()
+        chunks = connection.execute(
+            "SELECT COUNT(*) FROM knowledge_chunks WHERE source_id = ?",
+            (str(source.id),),
+        ).fetchone()
+    assert revisions == (0,)
+    assert chunks == (0,)
+    assert store.delete_source(source.id) is False

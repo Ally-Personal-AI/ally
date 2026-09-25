@@ -5,18 +5,20 @@ import UserNotifications
 @testable import AllyDesktopCore
 
 @Test func decodesBridgeInfoEnvelope() throws {
-    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":13,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap","conversation.search","instructions.list","instructions.resolve","memory.remember","memory.propose","memory.accept_proposals","research.inspect","research.search","research.answer","task.propose","task.create"]}}"#.utf8)
+    let data = Data(#"{"id":"1","ok":true,"result":{"protocol_version":14,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":["bootstrap","conversation.search","conversation.delete","knowledge.delete","instructions.list","instructions.resolve","memory.remember","memory.propose","memory.accept_proposals","research.inspect","research.search","research.answer","task.propose","task.create"]}}"#.utf8)
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let envelope = try decoder.decode(BridgeEnvelope<BridgeInfo>.self, from: data)
 
     #expect(envelope.ok)
-    #expect(envelope.result?.protocolVersion == 13)
+    #expect(envelope.result?.protocolVersion == 14)
     #expect(envelope.result?.transport == "stdio")
     #expect(
         envelope.result?.capabilities == [
             "bootstrap",
             "conversation.search",
+            "conversation.delete",
+            "knowledge.delete",
             "instructions.list",
             "instructions.resolve",
             "memory.remember",
@@ -29,6 +31,17 @@ import UserNotifications
             "task.create",
         ]
     )
+}
+
+@Test func decodesExactDeletionBoolean() throws {
+    let data = Data(#"{"id":"1","ok":true,"result":true}"#.utf8)
+    let decoder = JSONDecoder()
+    let envelope = try decoder.decode(
+        BridgeEnvelope<Bool>.self,
+        from: data
+    )
+
+    #expect(envelope.result == true)
 }
 
 @Test func decodesConversationHistorySearchResult() throws {

@@ -123,6 +123,11 @@ network service. V1 deliberately bounds candidate conversations/messages and
 searchable characters; indexed or semantic history search remains evidence-led
 future work.
 
+The native conversation screen also supports explicit permanent deletion of one
+exact conversation. Ally confirms the destructive action locally, then removes
+the conversation and its owned messages from the active database. Independent
+backup archives are not modified and may still contain earlier copies.
+
 SQLite is behind an Ally-owned storage interface and versioned migrations; higher-level code does not depend directly on SQLite.
 
 ## Long-term memory
@@ -183,6 +188,10 @@ plain-text file. Native file import is bounded to 128 KiB, rejects symlinks,
 non-regular files, invalid UTF-8, and whitespace-only content, and does not pass
 the filesystem path through Ally's stdio bridge. Stored native imports use a
 synthetic `ally-desktop://import/<uuid>` URI rather than a `file://` path.
+
+A native source can also be explicitly deleted by exact ID after destructive
+confirmation. Deletion removes the source plus its owned revisions/chunks from
+the active database. It does not alter separately created backup archives.
 
 Ingest a file from the CLI:
 

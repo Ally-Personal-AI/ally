@@ -149,7 +149,16 @@ private struct RootView: View {
             Group {
                 switch selection {
                 case .conversation(let id):
-                    ConversationScreen(model: model, conversationID: id)
+                    ConversationScreen(
+                        model: model,
+                        conversationID: id,
+                        deleted: {
+                            conversationSearchText = ""
+                            submittedConversationSearch = ""
+                            model.clearConversationSearch()
+                            selection = .system
+                        }
+                    )
                 case .memory:
                     MemoryScreen(model: model)
                 case .knowledge:
@@ -195,6 +204,8 @@ private struct RootView: View {
 private struct ConversationScreen: View {
     @ObservedObject var model: AppModel
     let conversationID: String
+    let deleted: () -> Void
+    @State private var showingDeleteConfirmation = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -236,6 +247,33 @@ private struct ConversationScreen: View {
             .padding()
         }
         .navigationTitle(model.conversation?.conversation.title ?? "Conversation")
+        .toolbar {
+            ToolbarItem {
+                Button(role: .destructive) {
+                    showingDeleteConfirmation = true
+                } label: {
+                    Label("Delete Conversation", systemImage: "trash")
+                }
+                .disabled(model.isBusy)
+            }
+        }
+        .alert(
+            "Delete conversation?",
+            isPresented: $showingDeleteConfirmation
+        ) {
+            Button("Delete", role: .destructive) {
+                Task {
+                    if await model.deleteConversation(conversationID) {
+                        deleted()
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(
+                "This permanently removes the conversation and its messages from Ally's active database. Separate backup archives are not deleted and may still contain earlier copies."
+            )
+        }
         .task(id: conversationID) {
             await model.selectConversation(conversationID)
         }
@@ -901,13 +939,14 @@ private struct KnowledgeScreen: View {
     @State private var searchText = ""
     @State private var showingIngest = false
     @State private var showingFileImporter = false
+    @State private var path: [String] = []
 
     private var isSearching: Bool {
         !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
                 if isSearching {
                     ForEach(model.knowledgeSearchResults) { hit in
@@ -969,7 +1008,15 @@ private struct KnowledgeScreen: View {
                 }
             }
             .navigationDestination(for: String.self) { sourceID in
-                KnowledgeDetailScreen(model: model, sourceID: sourceID)
+                KnowledgeDetailScreen(
+                    model: model,
+                    sourceID: sourceID,
+                    deleted: {
+                        path.removeAll()
+                        searchText = ""
+                        model.knowledgeSearchResults = []
+                    }
+                )
             }
         }
         .sheet(isPresented: $showingIngest) {
@@ -1006,6 +1053,8 @@ private struct KnowledgeScreen: View {
 private struct KnowledgeDetailScreen: View {
     @ObservedObject var model: AppModel
     let sourceID: String
+    let deleted: () -> Void
+    @State private var showingDeleteConfirmation = false
 
     var body: some View {
         ScrollView {
@@ -1069,6 +1118,33 @@ private struct KnowledgeDetailScreen: View {
             }
         }
         .navigationTitle("Knowledge Source")
+        .toolbar {
+            ToolbarItem {
+                Button(role: .destructive) {
+                    showingDeleteConfirmation = true
+                } label: {
+                    Label("Delete Knowledge", systemImage: "trash")
+                }
+                .disabled(model.isBusy)
+            }
+        }
+        .alert(
+            "Delete knowledge source?",
+            isPresented: $showingDeleteConfirmation
+        ) {
+            Button("Delete", role: .destructive) {
+                Task {
+                    if await model.deleteKnowledgeSource(sourceID) {
+                        deleted()
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(
+                "This permanently removes this source, every revision, and every chunk from Ally's active database. Separate backup archives are not deleted and may still contain earlier copies."
+            )
+        }
         .task(id: sourceID) {
             await model.selectKnowledgeSource(sourceID)
         }

@@ -62,3 +62,21 @@ def test_store_rejects_append_to_unknown_conversation(tmp_path: Path) -> None:
             uuid4(),
             (NewConversationMessage(role="user", content="hello"),),
         )
+
+
+def test_store_delete_removes_conversation_and_messages(tmp_path: Path) -> None:
+    store = build_store(tmp_path / "ally.sqlite3")
+    conversation = store.create(title="Synthetic delete target")
+    stored = store.append_messages(
+        conversation.id,
+        (
+            NewConversationMessage(role="user", content="delete me"),
+            NewConversationMessage(role="assistant", content="deleted"),
+        ),
+    )
+    assert len(stored) == 2
+
+    assert store.delete(conversation.id) is True
+    assert store.get(conversation.id) is None
+    assert store.list_messages(conversation.id) == ()
+    assert store.delete(conversation.id) is False

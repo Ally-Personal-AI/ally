@@ -43,7 +43,7 @@ from ally.research import WebSearchRequest
 from ally.runtime_profiles import InferenceTargetError
 from ally.tasks import NewTaskStep, TaskPlan
 
-BRIDGE_PROTOCOL_VERSION = 13
+BRIDGE_PROTOCOL_VERSION = 14
 MAX_REQUEST_BYTES = 1024 * 1024
 
 BridgeMethod = Literal[
@@ -53,6 +53,7 @@ BridgeMethod = Literal[
     "conversation.get",
     "conversation.send",
     "conversation.search",
+    "conversation.delete",
     "memory.list",
     "memory.get",
     "memory.remember",
@@ -65,6 +66,7 @@ BridgeMethod = Literal[
     "knowledge.get",
     "knowledge.search",
     "knowledge.ingest_text",
+    "knowledge.delete",
     "instructions.list",
     "instructions.get",
     "instructions.set",
@@ -359,6 +361,7 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                 "conversation.get",
                 "conversation.send",
                 "conversation.search",
+                "conversation.delete",
                 "memory.list",
                 "memory.get",
                 "memory.remember",
@@ -371,6 +374,7 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
                 "knowledge.get",
                 "knowledge.search",
                 "knowledge.ingest_text",
+                "knowledge.delete",
                 "instructions.list",
                 "instructions.get",
                 "instructions.set",
@@ -436,6 +440,13 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
             )
         )
         return _json_value(result.model_dump(mode="json"))
+
+    if request.method == "conversation.delete":
+        params = cast(
+            _ConversationParams,
+            _validate_params(_ConversationParams, request.params),
+        )
+        return _json_value(app.delete_conversation(params.conversation_id))
 
     if request.method == "conversation.search":
         params = cast(
@@ -556,6 +567,13 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
         return _json_value(
             app.knowledge_source(params.source_id).model_dump(mode="json")
         )
+
+    if request.method == "knowledge.delete":
+        params = cast(
+            _KnowledgeParams,
+            _validate_params(_KnowledgeParams, request.params),
+        )
+        return _json_value(app.delete_knowledge_source(params.source_id))
 
     if request.method == "knowledge.search":
         params = cast(

@@ -290,6 +290,9 @@ class FailingConversationStore:
     def list(self, *, limit: int = 50) -> tuple[Conversation, ...]:
         raise RuntimeError("PRIVATE-DB-PATH=/secret/location")
 
+    def delete(self, conversation_id: UUID) -> bool:
+        return self._delegate.delete(conversation_id)
+
     def list_messages(
         self,
         conversation_id: UUID,
