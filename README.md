@@ -428,6 +428,21 @@ The report is bound to the current Ally version, exact source revision,
 hardware/OS profile, and hash-bound active validated runtime profile. See
 [Dedicated-Machine Acceptance Evidence](docs/machine-acceptance.md).
 
+Immediately before an Ally 0.1 tagged pre-release, re-verify the complete active
+evidence chain without mutating state:
+
+```bash
+uv run ally release readiness \
+  validation/candidate-a/capability.json \
+  validation/candidate-a/privacy.json \
+  validation/candidate-a/workflows.json \
+  validation/machine-acceptance.json \
+  --source-revision <40-character-git-sha> \
+  --json
+```
+
+See [Ally 0.1 Release Readiness](docs/release-readiness.md).
+
 ## Proactive events
 
 Ally now has a deterministic event and attention substrate. Events are persisted before any handler runs, and explicit importance maps to conservative attention classes:
