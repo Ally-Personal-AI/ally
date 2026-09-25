@@ -316,7 +316,7 @@ class MacOSLaunchdService:
         if payload == self.definition_bytes():
             return "current"
         try:
-            installed = plistlib.loads(payload)
+            installed: object = plistlib.loads(payload)
         except (plistlib.InvalidFileException, ValueError, TypeError):
             return "modified"
         if self._is_recognized_legacy_definition(installed):
@@ -326,18 +326,20 @@ class MacOSLaunchdService:
     def _is_recognized_legacy_definition(self, installed: object) -> bool:
         if not isinstance(installed, dict):
             return False
+        installed_items = cast(dict[object, object], installed)
         normalized: dict[str, object] = {}
-        for key, value in installed.items():
+        for key, value in installed_items.items():
             if not isinstance(key, str):
                 return False
             normalized[key] = value
 
         arguments_value = normalized.get("ProgramArguments")
-        if not isinstance(arguments_value, list) or not all(
-            isinstance(item, str) for item in arguments_value
-        ):
+        if not isinstance(arguments_value, list):
             return False
-        arguments = cast(list[str], arguments_value)
+        argument_items = cast(list[object], arguments_value)
+        if not all(isinstance(item, str) for item in argument_items):
+            return False
+        arguments = cast(list[str], argument_items)
         expected_arguments = [
             str(self.executable),
             "-m",
