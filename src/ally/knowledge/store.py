@@ -36,6 +36,9 @@ class KnowledgeStore(Protocol):
     def list_sources(self, *, limit: int = 100) -> tuple[KnowledgeSource, ...]:
         ...
 
+    def delete_source(self, source_id: UUID) -> bool:
+        ...
+
     def list_revisions(self, source_id: UUID) -> tuple[KnowledgeRevision, ...]:
         ...
 
