@@ -1,23 +1,26 @@
-"""Fail-closed preparation for a verified Ally application update."""
+"""Fail-closed preparation policy for a verified Ally application update."""
 
 from __future__ import annotations
 
-import hashlib
+import re
 from dataclasses import dataclass
-from pathlib import Path
 
-from ally.portability import (
-    BackupManifest,
-    BackupValidationError,
-    create_backup,
-    validate_backup,
-)
 from ally.release.update_trust import UpdateDecision
-from ally.storage.sqlite import SQLiteDatabase
+
+_SHA256_RE = re.compile(r"[0-9a-f]{64}")
 
 
 class UpdatePreparationError(RuntimeError):
     """Raised when a verified update cannot satisfy pre-install safety gates."""
+
+
+@dataclass(frozen=True)
+class PreMigrationBackupEvidence:
+    """Path-free evidence produced after creating and revalidating a fresh backup."""
+
+    archive_sha256: str
+    database_sha256: str
+    schema_versions: tuple[int, ...]
 
 
 @dataclass(frozen=True)
@@ -39,20 +42,46 @@ class UpdatePreparationRecord:
     backup_schema_versions: tuple[int, ...] | None
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
+def _require_valid_backup_evidence(
+    evidence: PreMigrationBackupEvidence,
+    decision: UpdateDecision,
+) -> None:
+    if _SHA256_RE.fullmatch(evidence.archive_sha256) is None:
+        raise UpdatePreparationError("pre-update backup archive digest is invalid")
+    if _SHA256_RE.fullmatch(evidence.database_sha256) is None:
+        raise UpdatePreparationError("pre-update backup database digest is invalid")
+    if not evidence.schema_versions:
+        raise UpdatePreparationError(
+            "pre-update backup has no Ally database schema history"
+        )
+    if evidence.schema_versions[-1] != decision.current_database_schema_version:
+        raise UpdatePreparationError(
+            "pre-update backup does not match the installed release database schema"
+        )
 
 
-def _record(
+def prepare_update(
     decision: UpdateDecision,
     *,
-    backup_manifest: BackupManifest | None = None,
-    backup_archive_sha256: str | None = None,
+    backup: PreMigrationBackupEvidence | None = None,
 ) -> UpdatePreparationRecord:
+    """Apply update-preparation policy without authenticating or replacing code.
+
+    The caller must supply an UpdateDecision produced by the trusted candidate
+    verification boundary. Backup evidence must be produced by an infrastructure
+    edge after creating and revalidating a fresh Ally backup.
+
+    This policy performs no filesystem access, release fetching, application
+    replacement, database migration, or rollback.
+    """
+
+    if decision.requires_pre_migration_backup and backup is None:
+        raise UpdatePreparationError(
+            "schema-raising update requires a fresh validated pre-migration backup"
+        )
+    if backup is not None:
+        _require_valid_backup_evidence(backup, decision)
+
     return UpdatePreparationRecord(
         schema_version=1,
         current_build_version=decision.current_build_version,
@@ -63,91 +92,8 @@ def _record(
         candidate_database_schema_version=decision.candidate_database_schema_version,
         candidate_source_revision=decision.candidate_source_revision,
         requires_pre_migration_backup=decision.requires_pre_migration_backup,
-        backup_created=backup_manifest is not None,
-        backup_archive_sha256=backup_archive_sha256,
-        backup_database_sha256=(
-            None if backup_manifest is None else backup_manifest.database.sha256
-        ),
-        backup_schema_versions=(
-            None if backup_manifest is None else backup_manifest.database.schema_versions
-        ),
-    )
-
-
-def _require_backup_matches_installed_release(
-    manifest: BackupManifest,
-    decision: UpdateDecision,
-) -> None:
-    versions = manifest.database.schema_versions
-    if not versions:
-        raise UpdatePreparationError(
-            "pre-update backup has no Ally database schema history"
-        )
-    if versions[-1] != decision.current_database_schema_version:
-        raise UpdatePreparationError(
-            "pre-update backup does not match the installed release database schema"
-        )
-
-
-def prepare_update(
-    decision: UpdateDecision,
-    *,
-    database: SQLiteDatabase | None = None,
-    backup_destination: Path | None = None,
-) -> UpdatePreparationRecord:
-    """Satisfy pre-install data-safety requirements without replacing application code.
-
-    The caller must supply an UpdateDecision produced by the trusted candidate
-    verification boundary. This function never authenticates application code,
-    fetches releases, or replaces an app bundle.
-
-    A schema-raising update is not considered prepared unless a fresh Ally backup
-    is created, re-opened through the normal validation boundary, and confirmed to
-    match the installed release's database-schema contract.
-    """
-
-    if decision.requires_pre_migration_backup and backup_destination is None:
-        raise UpdatePreparationError(
-            "schema-raising update requires a fresh validated pre-migration backup"
-        )
-
-    if backup_destination is None:
-        return _record(decision)
-
-    if database is None:
-        raise UpdatePreparationError(
-            "a database is required when creating a pre-update backup"
-        )
-
-    destination = backup_destination.expanduser()
-    try:
-        created = create_backup(database, destination)
-        validated = validate_backup(destination)
-    except (
-        BackupValidationError,
-        FileExistsError,
-        OSError,
-        ValueError,
-    ) as exc:
-        raise UpdatePreparationError(
-            "pre-update backup could not be created and validated"
-        ) from exc
-
-    if created != validated:
-        raise UpdatePreparationError(
-            "pre-update backup changed between creation and validation"
-        )
-    _require_backup_matches_installed_release(validated, decision)
-
-    try:
-        archive_sha256 = _sha256(destination.resolve(strict=True))
-    except OSError as exc:
-        raise UpdatePreparationError(
-            "pre-update backup could not be bound to the preparation record"
-        ) from exc
-
-    return _record(
-        decision,
-        backup_manifest=validated,
-        backup_archive_sha256=archive_sha256,
+        backup_created=backup is not None,
+        backup_archive_sha256=None if backup is None else backup.archive_sha256,
+        backup_database_sha256=None if backup is None else backup.database_sha256,
+        backup_schema_versions=None if backup is None else backup.schema_versions,
     )
