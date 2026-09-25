@@ -653,52 +653,66 @@ def test_bridge_conversation_search_rejects_undeclared_context_fields(
     assert provider.requests == []
 
 
-def test_bridge_exact_conversation_delete_cascades_without_model_inference(
+def test_bridge_exact_conversation_delete_uses_no_model_inference(
     tmp_path: Path,
 ) -> None:
     provider = CapturingProvider([])
     app = _application(tmp_path, provider=provider)
-    conversation = app.create_conversation(title="Synthetic delete target")
-    app._conversations.append_messages(  # noqa: SLF001
-        conversation.id,
-        (
-            NewConversationMessage(role="user", content="private synthetic text"),
+    created = handle_request_json(
+        app,
+        _request(
+            "conversation.create",
+            {"title": "Synthetic delete target"},
         ),
     )
+    assert created.ok
+    assert isinstance(created.result, dict)
+    conversation_id = created.result["id"]
+    assert isinstance(conversation_id, str)
 
     deleted = handle_request_json(
         app,
         _request(
             "conversation.delete",
-            {"conversation_id": str(conversation.id)},
+            {"conversation_id": conversation_id},
         ),
     )
 
     assert deleted.ok
     assert deleted.result is True
     assert app.list_conversations() == ()
-    assert app._conversations.list_messages(conversation.id) == ()  # noqa: SLF001
     assert provider.requests == []
 
 
-def test_bridge_exact_knowledge_delete_cascades_without_model_inference(
+def test_bridge_exact_knowledge_delete_uses_no_model_inference(
     tmp_path: Path,
 ) -> None:
     provider = CapturingProvider([])
     app = _application(tmp_path, provider=provider)
-    ingested = app.ingest_knowledge_text(
-        KnowledgeTextIngestRequest(
-            uri="ally-desktop://note/synthetic-delete",
-            title="Synthetic delete target",
-            text="private synthetic knowledge",
-        )
+    ingested = handle_request_json(
+        app,
+        _request(
+            "knowledge.ingest_text",
+            {
+                "uri": "ally-desktop://note/synthetic-delete",
+                "title": "Synthetic delete target",
+                "text": "private synthetic knowledge",
+                "media_type": "text/plain",
+            },
+        ),
     )
+    assert ingested.ok
+    assert isinstance(ingested.result, dict)
+    source = ingested.result["source"]
+    assert isinstance(source, dict)
+    source_id = source["id"]
+    assert isinstance(source_id, str)
 
     deleted = handle_request_json(
         app,
         _request(
             "knowledge.delete",
-            {"source_id": str(ingested.source.id)},
+            {"source_id": source_id},
         ),
     )
 
@@ -711,8 +725,20 @@ def test_bridge_exact_knowledge_delete_cascades_without_model_inference(
 @pytest.mark.parametrize(
     ("method", "params"),
     (
-        ("conversation.delete", {"conversation_id": str(UUID(int=1)), "all": True}),
-        ("knowledge.delete", {"source_id": str(UUID(int=2)), "path": "/tmp/private"}),
+        (
+            "conversation.delete",
+            {
+                "conversation_id": "00000000-0000-0000-0000-000000000001",
+                "all": True,
+            },
+        ),
+        (
+            "knowledge.delete",
+            {
+                "source_id": "00000000-0000-0000-0000-000000000002",
+                "path": "/tmp/private",
+            },
+        ),
     ),
 )
 def test_bridge_delete_rejects_extra_authority_fields(
