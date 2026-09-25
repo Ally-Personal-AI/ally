@@ -10,8 +10,8 @@ from uuid import UUID
 
 import pytest
 
-from ally import __version__
 import ally.diagnostics.release_readiness as release_readiness
+from ally import __version__
 from ally.diagnostics.hardware import HardwareProfile
 from ally.diagnostics.machine_acceptance import (
     MachineAcceptanceChecks,
