@@ -995,7 +995,9 @@ def test_bridge_research_answer_preserves_results_when_local_model_is_unavailabl
     search = response.result["search"]
     assert isinstance(search, dict)
     assert search["status"] == "succeeded"
-    assert len(search["results"]) == 1
+    results = search["results"]
+    assert isinstance(results, list)
+    assert len(results) == 1
     assert response.result["synthesis_status"] == "unavailable"
     assert response.result["synthesis"] is None
     assert adapter.calls == [
@@ -1044,7 +1046,9 @@ def test_bridge_research_answer_preserves_results_when_synthesis_fails(
     search = response.result["search"]
     assert isinstance(search, dict)
     assert search["status"] == "succeeded"
-    assert len(search["results"]) == 1
+    results = search["results"]
+    assert isinstance(results, list)
+    assert len(results) == 1
     assert response.result["synthesis_status"] == "failed"
     assert response.result["synthesis"] is None
     assert response.result["synthesis_error_class"] == "ResearchSynthesisError"
