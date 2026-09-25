@@ -464,7 +464,7 @@ def dispatch_request(app: AllyApplication, request: BridgeRequest) -> JsonValue:
             _validate_params(_MemoryProposalParams, request.params),
         )
         return _json_value(
-            app.propose_memory(
+            app.propose_memories(
                 MemoryProposalRequest(
                     text=params.text,
                     source_type=params.source_type,
