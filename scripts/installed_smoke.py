@@ -438,6 +438,31 @@ def run_workflows(root: Path) -> None:
             "machine acceptance evidence verification",
         )
 
+        release_readiness_path = root / "release-readiness.json"
+        release_readiness = json.loads(cli(
+            "release-readiness", "create",
+            str(root / "session.json"),
+            str(machine_acceptance_path),
+            "--source-revision", source_revision,
+            "--output", str(release_readiness_path),
+            "--json",
+        ))
+        require(
+            release_readiness["candidate_label"] == "synthetic-candidate"
+            and release_readiness["validated_profile_id"] == profile_id,
+            "release readiness exact evidence binding",
+        )
+        shown_readiness = json.loads(cli(
+            "release-readiness", "show",
+            str(release_readiness_path),
+            "--json",
+        ))
+        require(
+            shown_readiness["validated_profile_id"] == profile_id
+            and "qualified_for_release" in shown_readiness,
+            "release readiness installed inspection",
+        )
+
         cli("profiles", "deselect")
         cli("profiles", "remove", profile_id)
     finally:
