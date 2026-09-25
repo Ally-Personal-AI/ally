@@ -4,12 +4,14 @@ import json
 import wave
 from pathlib import Path
 
+import pytest
+
 from ally.commands.voice import run_inspect_voice_wav
 
 
 def test_voice_inspection_command_emits_path_free_json(
     tmp_path: Path,
-    capsys,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     path = tmp_path / "private-name.wav"
     with wave.open(str(path), "wb") as handle:
