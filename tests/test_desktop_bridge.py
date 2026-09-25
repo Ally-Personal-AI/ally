@@ -712,6 +712,9 @@ def test_bridge_memory_proposal_is_review_only_and_uses_validated_local_model(
     (
         {"development_endpoint": "http://127.0.0.1:9999/v1"},
         {"development_model": "unreviewed-model"},
+        {"source_type": "system"},
+        {"source_id": "caller-claimed-source"},
+        {"source_uri": "file:///private/caller-claimed-source"},
     ),
 )
 def test_bridge_memory_proposal_rejects_runtime_override_fields(
