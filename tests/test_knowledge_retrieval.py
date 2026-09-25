@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ally.knowledge import NewKnowledgeSource
+from ally.knowledge import KnowledgeSource, NewKnowledgeSource
 from ally.knowledge.chunking import chunk_text
 from ally.knowledge.ingestion import text_sha256
 from ally.knowledge.retrieval import KnowledgeContextProvider, LexicalKnowledgeRetriever
@@ -34,7 +34,7 @@ def test_knowledge_retrieval_weights_rare_query_terms_across_corpus(
     tmp_path: Path,
 ) -> None:
     store = SQLiteKnowledgeStore(SQLiteDatabase(tmp_path / "bm25.sqlite3"))
-    sources = []
+    sources: list[KnowledgeSource] = []
     for uri, title, content in (
         ("synthetic://common-one", "Common One", "common alpha information"),
         ("synthetic://common-two", "Common Two", "common beta information"),
