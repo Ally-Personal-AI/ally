@@ -94,6 +94,25 @@ def run_workflows(root: Path) -> None:
         and "path" not in voice_metadata,
         "bounded local voice WAV inspection",
     )
+
+    research_inspection = json.loads(
+        cli(
+            "research",
+            "inspect",
+            "synthetic public research query",
+            "--count",
+            "3",
+            "--json",
+        )
+    )
+    require(
+        research_inspection["decision"] == "require_approval"
+        and research_inspection["service"] == "brave.search"
+        and [field["name"] for field in research_inspection["fields"]]
+        == ["count", "query"]
+        and "synthetic public research query" not in json.dumps(research_inspection),
+        "payload-free installed research disclosure inspection",
+    )
     console_scripts = {
         item.name: item.value
         for item in entry_points(group="console_scripts")
@@ -586,7 +605,7 @@ def run_workflows(root: Path) -> None:
     )
     print(
         "Installed workflows passed: evals/behavior, isolated validation, "
-        "desktop bridge, chat/resume, memory, knowledge, tasks,"
+        "desktop bridge, chat/resume, memory, knowledge, research inspection, tasks,"
     )
     print("service health, managed-service inspection, skill worker, and backup/restore.")
 
