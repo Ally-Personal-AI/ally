@@ -671,3 +671,6 @@ MIGRATIONS: tuple[Migration, ...] = (
         ),
     )
 )
+
+
+CURRENT_SCHEMA_VERSION = MIGRATIONS[-1].version if MIGRATIONS else 0
