@@ -628,6 +628,43 @@ application-replacement authority.
 Detailed contract:
 [Final Release Readiness Evidence](../release-readiness.md).
 
+---
+
+## 16. Build the local signed/notarized release artifact
+
+After final release readiness verifies, build the actual release artifact from
+that same clean source revision:
+
+```bash
+uv run python scripts/macos_release_pipeline.py build \
+  --mode production \
+  --source-revision "$SOURCE_REVISION" \
+  --build-version <monotonic-build-number> \
+  --output-dir /absolute/path/outside/repository/ally-release \
+  --identity "Developer ID Application: <public identity>" \
+  --notary-profile <existing-notarytool-keychain-profile> \
+  --release-readiness validation/release-readiness.json \
+  --validation-session validation/candidate-a/session.json \
+  --machine-acceptance validation/machine-acceptance.json
+```
+
+Verify the output contains only `Ally.app`, `Ally.zip`, and
+`release-artifact.json`. Confirm the metadata source revision, build number,
+archive SHA-256, notarization state, and release-readiness SHA-256 are the
+expected values.
+
+### Stop condition
+
+Do not tag or publish the release if the orchestrator refuses readiness,
+checkout cleanliness/provenance, signing, notarization, Gatekeeper assessment,
+archive extraction, or final bundle verification.
+
+The orchestrator itself never tags, uploads, publishes, updates, or replaces the
+installed application.
+
+Detailed contract:
+[macOS Release Build Orchestration](../macos-release-build.md).
+
 ## Handoff to desktop shell (#66)
 
 The native desktop shell may begin after:
