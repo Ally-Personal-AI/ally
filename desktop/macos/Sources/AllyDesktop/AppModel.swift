@@ -473,6 +473,44 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func updateKnowledgeSource(
+        _ source: KnowledgeSourceSummary,
+        text: String
+    ) async -> Bool {
+        guard let client else { return false }
+        let compact = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !compact.isEmpty else { return false }
+        let payload = KnowledgeSourceUpdatePayload(
+            source: source,
+            text: compact
+        )
+
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let result: KnowledgeIngestResult = try await client.call(
+                "knowledge.ingest_text",
+                params: payload.bridgeParams
+            )
+            async let refreshedKnowledge: [KnowledgeSourceSummary] = client.call(
+                "knowledge.list",
+                params: ["limit": .number(100)]
+            )
+            async let detail: KnowledgeSourceView = client.call(
+                "knowledge.get",
+                params: ["source_id": .string(result.source.id)]
+            )
+            knowledge = try await refreshedKnowledge
+            knowledgeDetail = try await detail
+            knowledgeSearchResults = []
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
     func ingestKnowledge(title: String, text: String) async {
         let compactTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let compactText = text.trimmingCharacters(in: .whitespacesAndNewlines)
