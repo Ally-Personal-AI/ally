@@ -134,8 +134,10 @@ def run_workflows(root: Path) -> None:
     ))
     require(
         bridge_info["ok"] is True
-        and bridge_info["result"]["protocol_version"] == 7
-        and bridge_info["result"]["transport"] == "stdio",
+        and bridge_info["result"]["protocol_version"] == 8
+        and bridge_info["result"]["transport"] == "stdio"
+        and "research.inspect" in bridge_info["result"]["capabilities"]
+        and "research.search" in bridge_info["result"]["capabilities"],
         "installed desktop bridge protocol",
     )
     core = json.loads(output([*console, "eval", "run", "--json"]))
