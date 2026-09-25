@@ -109,3 +109,20 @@ def test_production_pipeline_never_accepts_clean_replacement(tmp_path: Path) -> 
 
     assert result.returncode != 0
     assert "never replace" in result.stderr.lower()
+
+
+def test_release_pipeline_refuses_output_inside_repository() -> None:
+    repository = SCRIPT.parents[1]
+    result = _run(
+        "--mode",
+        "adhoc",
+        "--source-revision",
+        "a" * 40,
+        "--build-version",
+        "1",
+        "--output-dir",
+        str(repository / "synthetic-release-output"),
+    )
+
+    assert result.returncode != 0
+    assert "outside the repository" in result.stderr.lower()
