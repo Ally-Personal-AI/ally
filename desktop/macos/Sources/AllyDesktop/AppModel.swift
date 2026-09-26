@@ -42,8 +42,9 @@ final class AppModel: ObservableObject {
     @Published var errorMessage: String?
 
     private let client: (any DesktopBridgeCalling)?
-    private let notificationAuthorizationClient = DesktopNotificationAuthorizationClient()
-    private let backgroundServiceClient = DesktopBackgroundServiceClient()
+    private let notificationAuthorizationClient: any DesktopNotificationAuthorizing
+    private let backgroundServiceClient: any DesktopBackgroundServiceManaging
+    private let notificationDeliveryClient: any DesktopNotificationDelivering
     private var proactiveLoopTask: Task<Void, Never>?
     private var proactiveCycleRunning = false
     private var activeBusyOperations = 0
@@ -73,6 +74,11 @@ final class AppModel: ObservableObject {
     private var legacyServiceRefreshToken: UUID?
 
     init() {
+        self.notificationAuthorizationClient =
+            DesktopNotificationAuthorizationClient()
+        self.backgroundServiceClient = DesktopBackgroundServiceClient()
+        self.notificationDeliveryClient =
+            SystemDesktopNotificationDeliveryClient()
         do {
             self.client = try DesktopBridgeClient()
         } catch {
@@ -84,9 +90,18 @@ final class AppModel: ObservableObject {
 
     init(
         client: any DesktopBridgeCalling,
+        notificationAuthorizationClient: any DesktopNotificationAuthorizing =
+            DesktopNotificationAuthorizationClient(),
+        backgroundServiceClient: any DesktopBackgroundServiceManaging =
+            DesktopBackgroundServiceClient(),
+        notificationDeliveryClient: any DesktopNotificationDelivering =
+            SystemDesktopNotificationDeliveryClient(),
         startProactiveLoop: Bool = false
     ) {
         self.client = client
+        self.notificationAuthorizationClient = notificationAuthorizationClient
+        self.backgroundServiceClient = backgroundServiceClient
+        self.notificationDeliveryClient = notificationDeliveryClient
         if startProactiveLoop {
             beginProactiveLoop()
         }
@@ -1343,13 +1358,13 @@ final class AppModel: ObservableObject {
             let prepared: DesktopProactivePreparation = try await client.call(
                 "service.prepare_proactive"
             )
-            let deliveryContext = await DesktopNotificationDeliveryClient.context()
+            let deliveryContext = await notificationDeliveryClient.context()
             var knownIdentifiers = deliveryContext.knownIdentifiers
             var outcomes: [DesktopNotificationDeliveryOutcome] = []
             outcomes.reserveCapacity(prepared.candidates.count)
 
             for candidate in prepared.candidates {
-                let outcome = await DesktopNotificationDeliveryClient.deliver(
+                let outcome = await notificationDeliveryClient.deliver(
                     candidate,
                     context: DesktopNotificationDeliveryContext(
                         canDeliver: deliveryContext.canDeliver,

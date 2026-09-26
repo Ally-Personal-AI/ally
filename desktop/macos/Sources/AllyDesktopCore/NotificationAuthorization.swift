@@ -21,7 +21,12 @@ public enum DesktopNotificationAuthorizationError: Error, Sendable {
     case requestFailed
 }
 
-public struct DesktopNotificationAuthorizationClient: Sendable {
+public protocol DesktopNotificationAuthorizing: Sendable {
+    func currentState() async -> DesktopNotificationAuthorizationState
+    func requestAuthorization() async throws -> DesktopNotificationAuthorizationState
+}
+
+public struct DesktopNotificationAuthorizationClient: DesktopNotificationAuthorizing, Sendable {
     public init() {}
 
     public static func state(

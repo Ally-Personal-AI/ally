@@ -23,6 +23,32 @@ public struct DesktopNotificationDeliveryContext: Sendable, Equatable {
     }
 }
 
+public protocol DesktopNotificationDelivering: Sendable {
+    func context() async -> DesktopNotificationDeliveryContext
+    func deliver(
+        _ candidate: DesktopNotificationCandidate,
+        context: DesktopNotificationDeliveryContext
+    ) async -> DesktopNotificationDeliveryOutcome
+}
+
+public struct SystemDesktopNotificationDeliveryClient: DesktopNotificationDelivering, Sendable {
+    public init() {}
+
+    public func context() async -> DesktopNotificationDeliveryContext {
+        await DesktopNotificationDeliveryClient.context()
+    }
+
+    public func deliver(
+        _ candidate: DesktopNotificationCandidate,
+        context: DesktopNotificationDeliveryContext
+    ) async -> DesktopNotificationDeliveryOutcome {
+        await DesktopNotificationDeliveryClient.deliver(
+            candidate,
+            context: context
+        )
+    }
+}
+
 public enum DesktopNotificationDeliveryClient {
 
     public static func knownIdentifiers(

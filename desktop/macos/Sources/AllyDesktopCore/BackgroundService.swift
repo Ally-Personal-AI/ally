@@ -9,7 +9,14 @@ public enum DesktopBackgroundServiceState: String, Sendable, Equatable {
     case unknown
 }
 
-public struct DesktopBackgroundServiceClient {
+public protocol DesktopBackgroundServiceManaging: Sendable {
+    func currentState() -> DesktopBackgroundServiceState
+    func register() throws -> DesktopBackgroundServiceState
+    func unregister() throws -> DesktopBackgroundServiceState
+    func openSystemSettings()
+}
+
+public struct DesktopBackgroundServiceClient: DesktopBackgroundServiceManaging, Sendable {
     public init() {}
 
     public static func state(

@@ -44,6 +44,12 @@ The signed app uses the current bridge protocol (v15) for a narrow prepare/ack/c
 Background proactivity is separately opt-in through `SMAppService.mainApp`.
 Registration and notification authorization are independent user choices.
 
+The AppModel uses narrow injectable contracts around notification authorization,
+Login Items state, and notification delivery. Production still uses the real
+macOS APIs; synthetic adapters exist only for deterministic state-machine tests
+and do not replace the dedicated-machine acceptance required for permissions,
+visibility, login persistence, or restart behavior.
+
 The deprecated Python `NSUserNotificationCenter` adapter is not part of the
 signed desktop delivery path.
 
