@@ -86,10 +86,15 @@ The metadata contains only release-safe fields:
 - final release-readiness SHA-256 for production builds;
 - candidate label and validated-profile ID for production builds;
 - exact locked release-helper toolchain versions used to construct the frozen
-  bridge.
+  bridge;
+- path-free build-environment provenance: Python implementation/version, uv
+  version, Swift compiler version, macOS version, and host architecture.
 
 It contains no credentials, local paths, prompts, model responses, personal
-data, or private machine state.
+data, or private machine state. Build-environment provenance is deliberately
+limited to public tool/platform versions and architecture; it does not include
+usernames, executable paths, HOME/TMP locations, serial numbers, hardware UUIDs,
+or other machine identifiers.
 
 The helper build does not resolve release tooling dynamically. PyInstaller and
 its hook package are exact dependencies in the `release-helper` group, their
