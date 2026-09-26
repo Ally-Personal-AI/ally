@@ -7,6 +7,7 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 import pytest
 from pydantic import SecretStr
 
+import ally.portability.backup as backup_module
 from ally.conversations import NewConversationMessage
 from ally.egress import EgressAuditRecord, EgressFieldManifest
 from ally.events import NewEvent
@@ -16,7 +17,6 @@ from ally.portability import (
     restore_backup,
     validate_backup,
 )
-import ally.portability.backup as backup_module
 from ally.portability.backup import BackupManifest
 from ally.scheduler import NewSchedule
 from ally.secrets import InMemorySecretStore
