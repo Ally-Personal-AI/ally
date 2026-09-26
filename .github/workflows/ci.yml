@@ -86,7 +86,7 @@ jobs:
           }
           environment = metadata["build_environment"]
           assert environment["python_implementation"] == "CPython"
-          assert environment["uv_version"] == "uv 0.12.15"
+          assert environment["uv_version"] == "0.12.15"
           for key in (
               "python_version",
               "swift_version",
