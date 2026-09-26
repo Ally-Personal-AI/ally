@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import UUID
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
@@ -15,6 +16,7 @@ from ally.portability import (
     restore_backup,
     validate_backup,
 )
+import ally.portability.backup as backup_module
 from ally.portability.backup import BackupManifest
 from ally.scheduler import NewSchedule
 from ally.secrets import InMemorySecretStore
@@ -269,6 +271,27 @@ def test_backup_validation_rejects_oversized_manifest(tmp_path: Path) -> None:
 
     with pytest.raises(BackupValidationError, match="manifest exceeds"):
         validate_backup(invalid)
+
+
+def test_backup_validation_rejects_insufficient_temporary_space(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "source.sqlite3"
+    seed_database(source)
+    archive = tmp_path / "state.ally-backup"
+    create_backup(SQLiteDatabase(source), archive)
+
+    monkeypatch.setattr(
+        backup_module.shutil,
+        "disk_usage",
+        lambda _path: SimpleNamespace(
+            free=backup_module._MIN_FREE_SPACE_RESERVE_BYTES
+        ),
+    )
+
+    with pytest.raises(BackupValidationError, match="insufficient free space"):
+        validate_backup(archive)
 
 
 def test_backup_validation_rejects_manifest_member_size_mismatch(
