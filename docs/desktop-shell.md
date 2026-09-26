@@ -125,8 +125,11 @@ Desktop protocol v15 exposes two explicit portability operations:
   it.
 
 The bridge accepts no overwrite flag, directory, wildcard, restore destination,
-or arbitrary read/write command. Creation inherits Ally's existing atomic
-no-overwrite behavior. Both operations return only manifest metadata: archive
+or arbitrary read/write command. Creation inherits Ally's atomic no-overwrite behavior. Backup validation streams
+the database member with manifest/decompressed-size bounds, incremental SHA-256,
+and free-space checks rather than materializing the private database in memory.
+On POSIX, newly created backup and restored-database outputs are owner-only
+`0600`. Both bridge operations return only manifest metadata: archive
 format/schema, creation timestamp, Ally version, database SHA-256, byte size,
 and database schema history. Archive/database bytes never cross the stdio
 presentation bridge.
@@ -307,16 +310,20 @@ one-file `ally-desktop-bridge`, executes the frozen helper's `bridge.info` and
 
 After that exact release artifact is assembled, the native Swift test suite also
 opens the packaged frozen helper through the production `DesktopBridgeClient`
-inside an isolated synthetic HOME. Separate short-lived helper processes create
-and reload a conversation, persist/list explicit synthetic memory, ingest/list
-synthetic knowledge, and create/revalidate a portable backup. This verifies the
+inside an isolated synthetic HOME. Separate short-lived helper processes create/search/delete a conversation,
+persist/list explicit synthetic memory, set/list/resolve scoped instructions,
+ingest/revise/delete synthetic knowledge, and create/revalidate a portable
+backup. This verifies modern protocol-v15 lifecycle operations through the
 packaged Swift-to-frozen-helper-to-SQLite path without requiring model inference,
 network access, Keychain state, or personal data.
 
-The helper build currently pins PyInstaller 6.22.3 and
-`pyinstaller-hooks-contrib` 2026.7 in the release CI command. The resulting
-helper does not depend on the repository checkout, a developer virtual
-environment, `PATH`, Homebrew, or an externally installed Python runtime.
+The helper build uses exact PyInstaller 6.22.3 and
+`pyinstaller-hooks-contrib` 2026.7 from the checked-in `release-helper`
+dependency group in `uv.lock`; Security audits that locked graph and release
+metadata records the exact toolchain plus path-free Python/uv/Swift/macOS/
+architecture provenance. The resulting helper does not depend on the repository
+checkout, a developer virtual environment, `PATH`, Homebrew, or an externally
+installed Python runtime.
 
 For a real Developer ID release, the Developer ID Application identity must also
 be supplied to the PyInstaller helper-build step so the binary payload embedded
