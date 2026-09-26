@@ -20,8 +20,8 @@ from ally.diagnostics import (
     build_machine_acceptance_report,
 )
 from ally.validation_sessions import (
-    ValidationStageStatus,
     ValidationSessionStatus,
+    ValidationStageStatus,
 )
 
 
