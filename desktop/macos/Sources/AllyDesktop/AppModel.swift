@@ -72,6 +72,8 @@ final class AppModel: ObservableObject {
     private var attentionEventsRefreshToken: UUID?
     private var attentionHistoryRefreshToken: UUID?
     private var legacyServiceRefreshToken: UUID?
+    private var notificationAuthorizationToken: UUID?
+    private var backgroundServiceActionToken: UUID?
 
     init() {
         self.notificationAuthorizationClient =
@@ -1246,19 +1248,29 @@ final class AppModel: ObservableObject {
     }
 
     func refreshNotificationAuthorization() async {
-        notificationAuthorization = await notificationAuthorizationClient.currentState()
+        let token = UUID()
+        notificationAuthorizationToken = token
+        let state = await notificationAuthorizationClient.currentState()
+        guard notificationAuthorizationToken == token else { return }
+        notificationAuthorization = state
     }
 
     func requestNotificationAuthorization() async {
+        let token = UUID()
+        notificationAuthorizationToken = token
         beginBusy()
         defer { endBusy() }
         do {
-            notificationAuthorization = try await notificationAuthorizationClient.requestAuthorization()
+            let state = try await notificationAuthorizationClient
+                .requestAuthorization()
+            guard notificationAuthorizationToken == token else { return }
+            notificationAuthorization = state
             errorMessage = nil
-            if notificationAuthorization.canPresentNotifications {
+            if state.canPresentNotifications {
                 await runProactiveCycleIfEnabled()
             }
         } catch {
+            guard notificationAuthorizationToken == token else { return }
             errorMessage = "Notification authorization request failed."
         }
     }
@@ -1297,7 +1309,13 @@ final class AppModel: ObservableObject {
     }
 
     func enableBackgroundService() async {
+        let token = UUID()
+        backgroundServiceActionToken = token
+        beginBusy()
+        defer { endBusy() }
+
         await refreshLegacyManagedServiceStatus()
+        guard backgroundServiceActionToken == token else { return }
         guard let legacyManagedService else {
             errorMessage = "Legacy service state is unavailable. Background proactivity remains disabled."
             return
@@ -1315,12 +1333,14 @@ final class AppModel: ObservableObject {
                 await runProactiveCycleIfEnabled()
             }
         } catch {
+            guard backgroundServiceActionToken == token else { return }
             refreshBackgroundServiceState()
             errorMessage = "Background proactivity could not be enabled."
         }
     }
 
     func disableBackgroundService() {
+        backgroundServiceActionToken = UUID()
         do {
             backgroundServiceState = try backgroundServiceClient.unregister()
             errorMessage = nil
@@ -1338,6 +1358,13 @@ final class AppModel: ObservableObject {
         refreshBackgroundServiceState()
         guard backgroundServiceState == .enabled else { return }
         await refreshLegacyManagedServiceStatus()
+
+        // Login Items state can change while the bridge-backed legacy-service
+        // inspection is in flight. Re-read it immediately before preparing a
+        // durable proactive cycle so a later disable always wins.
+        refreshBackgroundServiceState()
+        guard backgroundServiceState == .enabled else { return }
+
         guard let legacyManagedService else {
             proactiveCycleError = "Legacy service state is unavailable; automatic proactivity is paused."
             return
