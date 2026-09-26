@@ -206,6 +206,12 @@ def _verify_release_readiness(
 def _build_environment() -> dict[str, str]:
     uv = _require_tool("uv")
     swift = _require_tool("swift")
+
+    uv_output = _capture([uv, "--version"])
+    uv_match = re.match(r"^uv (\d+\.\d+\.\d+)(?:\s|$)", uv_output)
+    if uv_match is None:
+        raise ReleaseBuildError("uv version could not be determined")
+
     swift_output = _capture([swift, "--version"])
     swift_lines = [line.strip() for line in swift_output.splitlines() if line.strip()]
     if not swift_lines:
@@ -219,7 +225,7 @@ def _build_environment() -> dict[str, str]:
     return {
         "python_implementation": platform.python_implementation(),
         "python_version": platform.python_version(),
-        "uv_version": _capture([uv, "--version"]),
+        "uv_version": uv_match.group(1),
         "swift_version": swift_lines[0],
         "macos_version": macos_version,
         "architecture": architecture,
