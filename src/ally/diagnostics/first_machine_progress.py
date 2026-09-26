@@ -319,7 +319,10 @@ def collect_first_machine_progress(
             machine_stage = _stage(
                 "machine_acceptance",
                 "inconsistent",
-                "Machine-acceptance evidence does not match the current source, machine, or active profile.",
+                (
+                    "Machine-acceptance evidence does not match the current "
+                    "source, machine, or active profile."
+                ),
             )
         else:
             machine_checks = machine.checks
@@ -334,13 +337,19 @@ def collect_first_machine_progress(
                 machine_stage = _stage(
                     "machine_acceptance",
                     "failed",
-                    "At least one explicit empirical machine-acceptance gate is recorded as failed.",
+                    (
+                        "At least one explicit empirical machine-acceptance "
+                        "gate is recorded as failed."
+                    ),
                 )
             else:
                 machine_stage = _stage(
                     "machine_acceptance",
                     "pending",
-                    "Machine-acceptance evidence is bound correctly but still contains not-run gates.",
+                    (
+                        "Machine-acceptance evidence is bound correctly but "
+                        "still contains not-run gates."
+                    ),
                 )
 
     next_step = _next_step(
