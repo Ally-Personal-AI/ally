@@ -23,8 +23,10 @@ from ally.diagnostics.release_readiness import load_release_readiness_report
 _REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 _DESKTOP_PACKAGE = _REPOSITORY_ROOT / "desktop/macos"
 _HELPER_BUILD_SCRIPT = _REPOSITORY_ROOT / "scripts/build_macos_desktop_helper.py"
-_PYINSTALLER_VERSION = "6.22.3"
-_PYINSTALLER_HOOKS_VERSION = "2026.7"
+_EXPECTED_RELEASE_HELPER_TOOLCHAIN = {
+    "pyinstaller": "6.22.3",
+    "pyinstaller-hooks-contrib": "2026.7",
+}
 
 ReleaseBuildMode = Literal["adhoc", "production"]
 
@@ -200,6 +202,40 @@ def _verify_release_readiness(
     )
 
 
+def _release_helper_toolchain() -> dict[str, str]:
+    uv = _require_tool("uv")
+    script = (
+        "import json; "
+        "from importlib.metadata import version; "
+        "print(json.dumps({"
+        "'pyinstaller': version('pyinstaller'), "
+        "'pyinstaller-hooks-contrib': version('pyinstaller-hooks-contrib')"
+        "}, sort_keys=True))"
+    )
+    raw = _capture(
+        [
+            uv,
+            "run",
+            "--locked",
+            "--group",
+            "release-helper",
+            "python",
+            "-c",
+            script,
+        ],
+        cwd=_REPOSITORY_ROOT,
+    )
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ReleaseBuildError("release-helper toolchain metadata is invalid") from exc
+    if value != _EXPECTED_RELEASE_HELPER_TOOLCHAIN:
+        raise ReleaseBuildError(
+            "locked release-helper toolchain does not match accepted versions"
+        )
+    return dict(_EXPECTED_RELEASE_HELPER_TOOLCHAIN)
+
+
 def _build_helper(
     *,
     destination: Path,
@@ -210,10 +246,9 @@ def _build_helper(
     command = [
         uv,
         "run",
-        "--with",
-        f"pyinstaller=={_PYINSTALLER_VERSION}",
-        "--with",
-        f"pyinstaller-hooks-contrib=={_PYINSTALLER_HOOKS_VERSION}",
+        "--locked",
+        "--group",
+        "release-helper",
         "python",
         str(_HELPER_BUILD_SCRIPT),
         "build",
@@ -363,6 +398,7 @@ def build_release(
     try:
         staging.mkdir()
         helper = temporary_root / "ally-desktop-bridge"
+        release_helper_toolchain = _release_helper_toolchain()
         _build_helper(destination=helper, mode=mode, identity=identity)
         desktop = _build_desktop()
 
@@ -421,6 +457,7 @@ def build_release(
             "release_readiness_sha256": readiness_sha256,
             "candidate_label": candidate_label,
             "validated_profile_id": validated_profile_id,
+            "release_helper_toolchain": release_helper_toolchain,
         }
         (staging / "release-artifact.json").write_text(
             json.dumps(metadata, indent=2, sort_keys=True) + "\n",

@@ -63,7 +63,7 @@ jobs:
       - name: Build ad-hoc release through production orchestrator
         run: |
           set -euo pipefail
-          uv run python scripts/macos_release_pipeline.py build \
+          uv run --locked python scripts/macos_release_pipeline.py build \
             --mode adhoc \
             --source-revision "$GITHUB_SHA" \
             --build-version "1" \
@@ -71,6 +71,20 @@ jobs:
             --clean
           python scripts/macos_app_bundle.py verify \
             "$RUNNER_TEMP/ally-release/Ally.app"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          metadata = json.loads(
+              (Path(os.environ["RUNNER_TEMP"]) / "ally-release" / "release-artifact.json")
+              .read_text(encoding="utf-8")
+          )
+          assert metadata["release_helper_toolchain"] == {
+              "pyinstaller": "6.22.3",
+              "pyinstaller-hooks-contrib": "2026.7",
+          }
+          PY
       - name: Test native macOS desktop package
         env:
           ALLY_PACKAGED_HELPER_TEST_PATH: ${{ runner.temp }}/ally-release/Ally.app/Contents/Helpers/ally-desktop-bridge

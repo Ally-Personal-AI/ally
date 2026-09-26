@@ -34,6 +34,10 @@ security = [
 
 [dependency-groups]
 build = ["hatchling>=1.27,<2"]
+release-helper = [
+  "pyinstaller==6.22.3",
+  "pyinstaller-hooks-contrib==2026.7",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ally"]
