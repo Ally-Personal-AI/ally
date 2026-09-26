@@ -23,7 +23,11 @@ of the model, runtime, or dedicated hardware.
    a source checkout can use the same arguments after `uv run`.
 
 Backup archives contain personal database state and are not encrypted. Keep them
-outside the repository. Configuration, Keychain secrets, model weights, and the
+outside the repository. On POSIX systems Ally creates new backup archives with
+owner-only `0600` permissions before any database bytes are written; restored
+database destinations use the same owner-only staging/publication rule. Ally does
+not change the permissions of an existing destination because existing paths are
+never overwritten. Configuration, Keychain secrets, model weights, and the
 disposable service lease database are not included.
 
 ## Upgrade behavior
