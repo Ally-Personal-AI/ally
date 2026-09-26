@@ -7,6 +7,65 @@ private enum SyntheticOSFailure: Error, Sendable {
     case failed
 }
 
+private actor OSAsyncGate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        if isOpen { return }
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+
+    func open() {
+        guard !isOpen else { return }
+        isOpen = true
+        let pending = waiters
+        waiters.removeAll()
+        for waiter in pending {
+            waiter.resume()
+        }
+    }
+}
+
+private actor GatedNotificationAuthorizationClient:
+    DesktopNotificationAuthorizing
+{
+    private let gate: OSAsyncGate
+    private let delayedCurrent: DesktopNotificationAuthorizationState
+    private let requestResult:
+        Result<DesktopNotificationAuthorizationState, SyntheticOSFailure>
+    private var currentCalls = 0
+
+    init(
+        gate: OSAsyncGate,
+        delayedCurrent: DesktopNotificationAuthorizationState,
+        requestResult:
+            Result<DesktopNotificationAuthorizationState, SyntheticOSFailure>
+    ) {
+        self.gate = gate
+        self.delayedCurrent = delayedCurrent
+        self.requestResult = requestResult
+    }
+
+    func currentState() async -> DesktopNotificationAuthorizationState {
+        currentCalls += 1
+        await gate.wait()
+        return delayedCurrent
+    }
+
+    func requestAuthorization() async throws
+        -> DesktopNotificationAuthorizationState
+    {
+        try requestResult.get()
+    }
+
+    func currentCallCount() -> Int {
+        currentCalls
+    }
+}
+
 private struct FakeNotificationAuthorizationClient:
     DesktopNotificationAuthorizing
 {
@@ -108,6 +167,42 @@ private struct OSRecordedBridgeCall: Sendable, Equatable {
     let params: [String: JSONValue]
 }
 
+private actor GatedLegacyBridgeClient: DesktopBridgeCalling {
+    private let gate: OSAsyncGate
+    private var recorded: [OSRecordedBridgeCall] = []
+
+    init(gate: OSAsyncGate) {
+        self.gate = gate
+    }
+
+    func call<Result: Decodable & Sendable>(
+        _ method: String,
+        params: [String: JSONValue],
+        as resultType: Result.Type
+    ) async throws -> Result {
+        recorded.append(
+            OSRecordedBridgeCall(method: method, params: params)
+        )
+        guard method == "service.legacy_status" else {
+            throw DesktopBridgeError.requestFailed(
+                code: "unexpected_synthetic_call",
+                message: "Unexpected synthetic bridge call."
+            )
+        }
+        await gate.wait()
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(
+            Result.self,
+            from: Data(osLegacyCleanJSON.utf8)
+        )
+    }
+
+    func calls() -> [OSRecordedBridgeCall] {
+        recorded
+    }
+}
+
 private actor OSFakeBridgeClient: DesktopBridgeCalling {
     private var replies: [String: [String]]
     private var recorded: [OSRecordedBridgeCall] = []
@@ -143,6 +238,32 @@ private actor OSFakeBridgeClient: DesktopBridgeCalling {
     func calls() -> [OSRecordedBridgeCall] {
         recorded
     }
+}
+
+private func waitForAuthorizationRead(
+    _ client: GatedNotificationAuthorizationClient
+) async {
+    for _ in 0..<2_000 {
+        if await client.currentCallCount() > 0 {
+            return
+        }
+        await Task.yield()
+    }
+    Issue.record("Timed out waiting for synthetic authorization read.")
+}
+
+private func waitForLegacyStatusCall(
+    _ bridge: GatedLegacyBridgeClient
+) async {
+    for _ in 0..<2_000 {
+        if await bridge.calls().contains(where: {
+            $0.method == "service.legacy_status"
+        }) {
+            return
+        }
+        await Task.yield()
+    }
+    Issue.record("Timed out waiting for synthetic legacy-service read.")
 }
 
 private let osLegacyCleanJSON =
@@ -384,3 +505,93 @@ private let osAttentionHistoryJSON = #"[]"#
     )
     #expect(model.lastProactiveCycleAt != nil)
 }
+ 
+@MainActor
+@Test func staleAuthorizationRefreshCannotOverwriteNewerRequest() async {
+    let gate = OSAsyncGate()
+    let authorization = GatedNotificationAuthorizationClient(
+        gate: gate,
+        delayedCurrent: .notDetermined,
+        requestResult: .success(.authorized)
+    )
+    let bridge = OSFakeBridgeClient(replies: [:])
+    let background = FakeBackgroundServiceClient(state: .notRegistered)
+    let model = AppModel(
+        client: bridge,
+        notificationAuthorizationClient: authorization,
+        backgroundServiceClient: background
+    )
+
+    let refreshTask = Task {
+        await model.refreshNotificationAuthorization()
+    }
+    await waitForAuthorizationRead(authorization)
+
+    await model.requestNotificationAuthorization()
+    #expect(model.notificationAuthorization == .authorized)
+
+    await gate.open()
+    await refreshTask.value
+
+    #expect(model.notificationAuthorization == .authorized)
+    #expect(model.errorMessage == nil)
+}
+
+@MainActor
+@Test func disableInvalidatesInFlightBackgroundEnable() async {
+    let gate = OSAsyncGate()
+    let bridge = GatedLegacyBridgeClient(gate: gate)
+    let background = FakeBackgroundServiceClient(state: .enabled)
+    let model = AppModel(
+        client: bridge,
+        backgroundServiceClient: background
+    )
+
+    let enableTask = Task {
+        await model.enableBackgroundService()
+    }
+    await waitForLegacyStatusCall(bridge)
+    #expect(model.isBusy)
+
+    model.disableBackgroundService()
+    #expect(model.backgroundServiceState == .notRegistered)
+
+    await gate.open()
+    await enableTask.value
+
+    let counts = background.counts()
+    #expect(counts.unregister == 1)
+    #expect(counts.register == 0)
+    #expect(model.backgroundServiceState == .notRegistered)
+    #expect(model.isBusy == false)
+}
+
+@MainActor
+@Test func proactivePreflightStopsAfterBackgroundDisable() async {
+    let gate = OSAsyncGate()
+    let bridge = GatedLegacyBridgeClient(gate: gate)
+    let background = FakeBackgroundServiceClient(state: .enabled)
+    let model = AppModel(
+        client: bridge,
+        backgroundServiceClient: background
+    )
+
+    let cycleTask = Task {
+        await model.runProactiveCycleIfEnabled()
+    }
+    await waitForLegacyStatusCall(bridge)
+
+    model.disableBackgroundService()
+    await gate.open()
+    await cycleTask.value
+
+    let calls = await bridge.calls()
+    #expect(
+        calls.filter { $0.method == "service.legacy_status" }.count == 1
+    )
+    #expect(
+        calls.contains { $0.method == "service.prepare_proactive" } == false
+    )
+    #expect(model.backgroundServiceState == .notRegistered)
+}
+

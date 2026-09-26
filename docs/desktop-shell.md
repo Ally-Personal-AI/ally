@@ -178,6 +178,14 @@ AppModel's fail-closed state transitions; they are not evidence of real
 notification visibility, authorization persistence, Login Items behavior, or
 restart survival.
 
+Those presentation transitions are also freshness-bound. A newer notification
+authorization action invalidates an older in-flight status read, background
+enable/disable operations share one mutation generation, and proactive preflight
+re-checks the observed Login Items state after awaiting legacy-service
+inspection. Disabling therefore prevents a not-yet-prepared cycle from starting.
+Once a durable proactive cycle has already been prepared, Ally still completes
+its acknowledgement/finalization path so service history is not abandoned.
+
 Before scheduling, the production delivery adapter checks current authorization,
 inspects the app's pending and delivered notification identifiers, and treats an
 already-known delivery key as a successful reconciliation instead of creating a
