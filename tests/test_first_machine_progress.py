@@ -17,10 +17,14 @@ from ally.diagnostics import (
     FirstMachineReadinessReport,
     HardwareProfile,
     MachineAcceptanceChecks,
+    MachineAcceptanceReport,
+    MachineAcceptanceStatus,
     build_machine_acceptance_report,
 )
 from ally.validation_sessions import (
+    ValidationNextStep,
     ValidationSessionStatus,
+    ValidationStageState,
     ValidationStageStatus,
 )
 
@@ -68,7 +72,7 @@ def _readiness(*, ready: bool = True) -> FirstMachineReadinessReport:
 
 def _stage(
     stage_id: str,
-    state: str,
+    state: ValidationStageState,
     *,
     digest: str | None = None,
 ) -> ValidationStageStatus:
@@ -84,9 +88,9 @@ def _stage(
 def _session_status(
     *,
     complete: bool,
-    next_step: str,
+    next_step: ValidationNextStep,
 ) -> ValidationSessionStatus:
-    passed = "passed" if complete else "pending"
+    passed: ValidationStageState = "passed" if complete else "pending"
     return ValidationSessionStatus(
         session_id=UUID("00000000-0000-0000-0000-000000000001"),
         candidate_label="candidate-a",
@@ -129,35 +133,40 @@ def _prepare_complete_session(
     profile_id = "e" * 64
     profile_sha = "f" * 64
 
-    monkeypatch.setattr(
-        progress,
-        "inspect_validation_session",
-        lambda *_args, **_kwargs: _session_status(
+    def fake_inspect(
+        _session_path: Path,
+        *,
+        readiness: FirstMachineReadinessReport | None = None,
+    ) -> ValidationSessionStatus:
+        _ = readiness
+        return _session_status(
             complete=True,
             next_step="complete",
-        ),
-    )
-    monkeypatch.setattr(
-        progress,
-        "load_validation_session",
-        lambda _path: SimpleNamespace(
+        )
+
+    def fake_load_session(_path: Path) -> SimpleNamespace:
+        return SimpleNamespace(
             artifacts=SimpleNamespace(profile="profile.json")
-        ),
-    )
-    monkeypatch.setattr(
-        progress,
-        "load_validated_runtime_profile",
-        lambda _path: SimpleNamespace(
+        )
+
+    def fake_load_profile(_path: Path) -> SimpleNamespace:
+        return SimpleNamespace(
             hardware=_hardware(),
             ally_version=__version__,
             profile_id=profile_id,
-        ),
-    )
+        )
+
+    def fake_sha(_path: Path) -> str:
+        return profile_sha
+
+    monkeypatch.setattr(progress, "inspect_validation_session", fake_inspect)
+    monkeypatch.setattr(progress, "load_validation_session", fake_load_session)
     monkeypatch.setattr(
         progress,
-        "_sha256",
-        lambda _path: profile_sha,
+        "load_validated_runtime_profile",
+        fake_load_profile,
     )
+    monkeypatch.setattr(progress, "_sha256", fake_sha)
     return session, profile_id, profile_sha
 
 
@@ -191,14 +200,18 @@ def test_incomplete_candidate_remains_candidate_validation(
 ) -> None:
     session = tmp_path / "session.json"
     session.write_text("{}\n", encoding="utf-8")
-    monkeypatch.setattr(
-        progress,
-        "inspect_validation_session",
-        lambda *_args, **_kwargs: _session_status(
+    def fake_inspect(
+        _session_path: Path,
+        *,
+        readiness: FirstMachineReadinessReport | None = None,
+    ) -> ValidationSessionStatus:
+        _ = readiness
+        return _session_status(
             complete=False,
             next_step="create_capability_evidence",
-        ),
-    )
+        )
+
+    monkeypatch.setattr(progress, "inspect_validation_session", fake_inspect)
 
     report = progress.collect_first_machine_progress(
         source_revision="a" * 40,
@@ -262,8 +275,8 @@ def test_qualified_candidate_requires_exact_active_profile(
 def test_machine_acceptance_uses_only_explicit_evidence(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-    notification_status: str,
-    expected_state: str,
+    notification_status: MachineAcceptanceStatus,
+    expected_state: progress.FirstMachineProgressState,
 ) -> None:
     session, profile_id, profile_sha = _prepare_complete_session(
         monkeypatch,
@@ -289,10 +302,13 @@ def test_machine_acceptance_uses_only_explicit_evidence(
         checks=checks,
         generated_at=datetime(2026, 9, 26, tzinfo=UTC),
     )
+    def fake_load_machine(_path: Path) -> MachineAcceptanceReport:
+        return machine
+
     monkeypatch.setattr(
         progress,
         "load_machine_acceptance_report",
-        lambda _path: machine,
+        fake_load_machine,
     )
 
     report = progress.collect_first_machine_progress(
@@ -330,10 +346,13 @@ def test_machine_acceptance_binding_mismatch_is_inconsistent(
         checks=MachineAcceptanceChecks(),
         generated_at=datetime(2026, 9, 26, tzinfo=UTC),
     )
+    def fake_load_machine(_path: Path) -> MachineAcceptanceReport:
+        return machine
+
     monkeypatch.setattr(
         progress,
         "load_machine_acceptance_report",
-        lambda _path: machine,
+        fake_load_machine,
     )
 
     report = progress.collect_first_machine_progress(
@@ -389,10 +408,15 @@ def test_progress_command_json_is_read_only_status_surface(
         candidate_label="candidate-a",
         candidate_next_step="create_capability_evidence",
     )
+    def fake_collect_progress(
+        **_kwargs: object,
+    ) -> progress.FirstMachineProgressReport:
+        return report
+
     monkeypatch.setattr(
         validate_commands,
         "collect_first_machine_progress",
-        lambda **_kwargs: report,
+        fake_collect_progress,
     )
 
     result = validate_commands.run_first_machine_progress(
