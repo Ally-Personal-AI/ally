@@ -45,6 +45,19 @@ import Testing
     )
     #expect(reloadedConversation.messages.isEmpty)
 
+    let conversationSearch: [ConversationSearchResult] = try await client.call(
+        "conversation.search",
+        params: [
+            "query": .string("packaged-helper conversation"),
+            "limit": .number(20),
+        ]
+    )
+    #expect(
+        conversationSearch.contains {
+            $0.conversation.id == conversation.id
+        }
+    )
+
     let remembered: MemorySummary = try await client.call(
         "memory.remember",
         params: [
@@ -66,6 +79,44 @@ import Testing
         )
     )
 
+    let instruction: UserInstructionsSummary = try await client.call(
+        "instructions.set",
+        params: [
+            "scope": .string("global"),
+            "content": .string("Synthetic packaged-helper instruction."),
+            "enabled": .bool(true),
+        ]
+    )
+    #expect(instruction.scope == "global")
+    #expect(instruction.content == "Synthetic packaged-helper instruction.")
+
+    let instructionProfiles: [UserInstructionsSummary] = try await client.call(
+        "instructions.list",
+        params: ["include_disabled": .bool(true)]
+    )
+    #expect(
+        instructionProfiles.contains {
+            $0.scope == "global"
+                && $0.content == "Synthetic packaged-helper instruction."
+                && $0.enabled
+        }
+    )
+
+    let resolvedInstructions: InstructionResolutionView = try await client.call(
+        "instructions.resolve"
+    )
+    #expect(
+        resolvedInstructions.contributions.contains {
+            $0.scope == "global"
+                && $0.content == "Synthetic packaged-helper instruction."
+        }
+    )
+    #expect(
+        resolvedInstructions.rendered?.contains(
+            "Synthetic packaged-helper instruction."
+        ) == true
+    )
+
     let ingested: KnowledgeIngestResult = try await client.call(
         "knowledge.ingest_text",
         params: [
@@ -81,6 +132,34 @@ import Testing
     )
     #expect(
         knowledge.contains(where: { $0.id == ingested.source.id })
+    )
+
+    let revised: KnowledgeIngestResult = try await client.call(
+        "knowledge.ingest_text",
+        params: [
+            "uri": .string(ingested.source.uri),
+            "title": .string(ingested.source.title),
+            "text": .string(
+                "Synthetic packaged-helper revised knowledge persists."
+            ),
+            "media_type": .string(ingested.source.mediaType),
+        ]
+    )
+    #expect(revised.source.id == ingested.source.id)
+    #expect(revised.revision.revision == 2)
+    #expect(revised.source.currentRevision == 2)
+
+    let revisedDetail: KnowledgeSourceView = try await client.call(
+        "knowledge.get",
+        params: ["source_id": .string(revised.source.id)]
+    )
+    #expect(revisedDetail.source.currentRevision == 2)
+    #expect(revisedDetail.revisions.contains { $0.revision == 1 })
+    #expect(revisedDetail.revisions.contains { $0.revision == 2 })
+    #expect(
+        revisedDetail.currentChunks.contains {
+            $0.content.contains("revised knowledge")
+        }
     )
 
     let refreshed: BootstrapSnapshot = try await client.call("bootstrap")
@@ -106,6 +185,33 @@ import Testing
         params: ["path": .string(backupURL.path)]
     )
     #expect(validatedBackup == createdBackup)
+
+    let deletedKnowledge: Bool = try await client.call(
+        "knowledge.delete",
+        params: ["source_id": .string(revised.source.id)]
+    )
+    #expect(deletedKnowledge)
+    let knowledgeAfterDeletion: [KnowledgeSourceSummary] = try await client.call(
+        "knowledge.list",
+        params: ["limit": .number(100)]
+    )
+    #expect(
+        knowledgeAfterDeletion.contains {
+            $0.id == revised.source.id
+        } == false
+    )
+
+    let deletedConversation: Bool = try await client.call(
+        "conversation.delete",
+        params: ["conversation_id": .string(conversation.id)]
+    )
+    #expect(deletedConversation)
+    let afterDeletion: BootstrapSnapshot = try await client.call("bootstrap")
+    #expect(
+        afterDeletion.conversations.items.contains {
+            $0.id == conversation.id
+        } == false
+    )
 
     let rootPrefix = root.path.hasSuffix("/") ? root.path : root.path + "/"
     let enumerator = FileManager.default.enumerator(
