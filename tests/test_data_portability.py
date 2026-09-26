@@ -1,11 +1,14 @@
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 from uuid import UUID
-from zipfile import ZIP_DEFLATED, ZipFile
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 import pytest
 from pydantic import SecretStr
 
+import ally.portability.backup as backup_module
 from ally.conversations import NewConversationMessage
 from ally.egress import EgressAuditRecord, EgressFieldManifest
 from ally.events import NewEvent
@@ -15,6 +18,7 @@ from ally.portability import (
     restore_backup,
     validate_backup,
 )
+from ally.portability.backup import BackupManifest
 from ally.scheduler import NewSchedule
 from ally.secrets import InMemorySecretStore
 from ally.skills import SkillExecutionResult
@@ -224,6 +228,131 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
     assert schedule is not None
     assert schedule.name == "Synthetic schedule"
     assert schedule.interval_seconds == 300
+
+
+def test_backup_validation_streams_database_member(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "source.sqlite3"
+    seed_database(source)
+    archive = tmp_path / "state.ally-backup"
+    manifest = create_backup(SQLiteDatabase(source), archive)
+
+    original_read = ZipFile.read
+
+    def guarded_read(
+        bundle: ZipFile,
+        name: str | ZipInfo,
+        pwd: bytes | None = None,
+    ) -> bytes:
+        filename = name.filename if isinstance(name, ZipInfo) else name
+        if filename == "ally.sqlite3":
+            raise AssertionError("database member must be streamed, not read wholesale")
+        return original_read(bundle, name, pwd)
+
+    monkeypatch.setattr(ZipFile, "read", guarded_read)
+
+    assert validate_backup(archive) == manifest
+
+
+def test_backup_validation_rejects_oversized_manifest(tmp_path: Path) -> None:
+    source = tmp_path / "source.sqlite3"
+    seed_database(source)
+    archive = tmp_path / "state.ally-backup"
+    create_backup(SQLiteDatabase(source), archive)
+
+    with ZipFile(archive, mode="r") as original:
+        database = original.read("ally.sqlite3")
+
+    invalid = tmp_path / "oversized-manifest.ally-backup"
+    with ZipFile(invalid, mode="w", compression=ZIP_DEFLATED) as bundle:
+        bundle.writestr("manifest.json", b" " * (64 * 1024 + 1))
+        bundle.writestr("ally.sqlite3", database)
+
+    with pytest.raises(BackupValidationError, match="manifest exceeds"):
+        validate_backup(invalid)
+
+
+def test_backup_validation_rejects_insufficient_temporary_space(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "source.sqlite3"
+    seed_database(source)
+    archive = tmp_path / "state.ally-backup"
+    create_backup(SQLiteDatabase(source), archive)
+
+    def no_space_disk_usage(_path: object) -> Any:
+        return SimpleNamespace(free=64 * 1024 * 1024)
+
+    monkeypatch.setattr(
+        backup_module.shutil,
+        "disk_usage",
+        no_space_disk_usage,
+    )
+
+    with pytest.raises(BackupValidationError, match="insufficient free space"):
+        validate_backup(archive)
+
+
+def test_backup_validation_rejects_manifest_member_size_mismatch(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.sqlite3"
+    seed_database(source)
+    archive = tmp_path / "state.ally-backup"
+    create_backup(SQLiteDatabase(source), archive)
+
+    with ZipFile(archive, mode="r") as original:
+        manifest = BackupManifest.model_validate_json(
+            original.read("manifest.json")
+        )
+        database = original.read("ally.sqlite3")
+
+    invalid_manifest = manifest.model_copy(
+        update={
+            "database": manifest.database.model_copy(
+                update={"size_bytes": manifest.database.size_bytes + 1}
+            )
+        }
+    )
+    invalid = tmp_path / "size-mismatch.ally-backup"
+    with ZipFile(invalid, mode="w", compression=ZIP_DEFLATED) as bundle:
+        bundle.writestr(
+            "manifest.json",
+            invalid_manifest.model_dump_json().encode("utf-8"),
+        )
+        bundle.writestr("ally.sqlite3", database)
+
+    with pytest.raises(BackupValidationError, match="size does not match"):
+        validate_backup(invalid)
+
+
+def test_restore_streams_snapshot_copy_without_read_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "source.sqlite3"
+    seed_database(source)
+    archive = tmp_path / "state.ally-backup"
+    create_backup(SQLiteDatabase(source), archive)
+    destination = tmp_path / "restored.sqlite3"
+
+    original_read_bytes = Path.read_bytes
+
+    def guarded_read_bytes(path_value: Path) -> bytes:
+        if path_value.name == "ally.sqlite3":
+            raise AssertionError("restore snapshot must not be read wholesale")
+        return original_read_bytes(path_value)
+
+    monkeypatch.setattr(Path, "read_bytes", guarded_read_bytes)
+
+    restore_backup(archive, destination)
+
+    assert destination.is_file()
+    with SQLiteDatabase(destination).connect() as connection:
+        assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)
 
 
 def test_backup_validation_rejects_tampered_database(tmp_path: Path) -> None:
