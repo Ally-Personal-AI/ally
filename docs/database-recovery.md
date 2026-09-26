@@ -8,6 +8,13 @@ Ally's conversation, memory, knowledge, task, and audit state lives in the core
 SQLite database. Migration and recovery must preserve that state independently
 of the model, runtime, or dedicated hardware.
 
+On POSIX systems, Ally creates or tightens every SQLite database inode to
+owner-only `0600` before SQLite opens it. The final database path is opened with
+no-follow semantics so a symbolic link cannot redirect that permission boundary.
+Ally does not recursively chmod a user-selected parent directory. SQLite
+journal/WAL sidecars are expected to inherit a private database mode and are
+covered by portability tests.
+
 ## Before upgrading Ally
 
 1. Finish or stop running Ally commands and service processes.

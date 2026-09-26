@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
+import stat
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from pathlib import Path
@@ -109,6 +111,84 @@ def historical_archive(database: Path, archive: Path) -> None:
     with ZipFile(archive, "w", compression=ZIP_DEFLATED) as bundle:
         bundle.writestr("manifest.json", json.dumps(manifest))
         bundle.writestr("ally.sqlite3", data)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX mode bits required")
+def test_new_database_is_owner_only_under_permissive_umask(tmp_path: Path) -> None:
+    path = tmp_path / "private.sqlite3"
+    previous_umask = os.umask(0)
+    try:
+        SQLiteDatabase(path).migrate()
+    finally:
+        os.umask(previous_umask)
+
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX mode bits required")
+def test_existing_database_permissions_are_tightened(tmp_path: Path) -> None:
+    path = tmp_path / "existing.sqlite3"
+    with closing(sqlite3.connect(path)) as connection, connection:
+        connection.execute("CREATE TABLE synthetic(value TEXT)")
+    path.chmod(0o666)
+
+    with SQLiteDatabase(path).connect():
+        pass
+
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX mode bits required")
+def test_sqlite_wal_sidecars_remain_owner_only(tmp_path: Path) -> None:
+    path = tmp_path / "wal.sqlite3"
+    previous_umask = os.umask(0)
+    try:
+        database = SQLiteDatabase(path)
+        with database.connect() as connection:
+            assert connection.execute("PRAGMA journal_mode = WAL").fetchone() == ("wal",)
+            connection.execute("CREATE TABLE synthetic(value TEXT)")
+            connection.execute("INSERT INTO synthetic VALUES ('private')")
+            connection.commit()
+            sidecars = (
+                path.with_name(path.name + "-wal"),
+                path.with_name(path.name + "-shm"),
+            )
+            assert any(sidecar.exists() for sidecar in sidecars)
+            for sidecar in sidecars:
+                if sidecar.exists():
+                    assert stat.S_IMODE(sidecar.stat().st_mode) & 0o077 == 0
+    finally:
+        os.umask(previous_umask)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX file type semantics required")
+def test_database_non_regular_file_is_refused(tmp_path: Path) -> None:
+    path = tmp_path / "ally.sqlite3"
+    os.mkfifo(path)
+
+    with (
+        pytest.raises(DatabaseMigrationError, match="private permissions"),
+        SQLiteDatabase(path).connect(),
+    ):
+        pass
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX symlink semantics required")
+def test_database_final_symlink_is_refused(tmp_path: Path) -> None:
+    target = tmp_path / "target.sqlite3"
+    target.write_bytes(b"must not be touched")
+    target.chmod(0o644)
+    path = tmp_path / "ally.sqlite3"
+    path.symlink_to(target)
+
+    with (
+        pytest.raises(DatabaseMigrationError, match="private permissions"),
+        SQLiteDatabase(path).connect(),
+    ):
+        pass
+
+    assert target.read_bytes() == b"must not be touched"
+    assert stat.S_IMODE(target.stat().st_mode) == 0o644
 
 
 def test_released_migrations_are_append_only() -> None:
