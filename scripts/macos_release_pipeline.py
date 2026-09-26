@@ -7,6 +7,7 @@ import contextlib
 import hashlib
 import io
 import json
+import platform
 import re
 import shutil
 import subprocess
@@ -200,6 +201,29 @@ def _verify_release_readiness(
         readiness.candidate_label,
         readiness.validated_profile_id,
     )
+
+
+def _build_environment() -> dict[str, str]:
+    uv = _require_tool("uv")
+    swift = _require_tool("swift")
+    swift_output = _capture([swift, "--version"])
+    swift_lines = [line.strip() for line in swift_output.splitlines() if line.strip()]
+    if not swift_lines:
+        raise ReleaseBuildError("Swift compiler version could not be determined")
+
+    macos_version = platform.mac_ver()[0]
+    architecture = platform.machine()
+    if not macos_version or not architecture:
+        raise ReleaseBuildError("macOS build environment could not be determined")
+
+    return {
+        "python_implementation": platform.python_implementation(),
+        "python_version": platform.python_version(),
+        "uv_version": _capture([uv, "--version"]),
+        "swift_version": swift_lines[0],
+        "macos_version": macos_version,
+        "architecture": architecture,
+    }
 
 
 def _release_helper_toolchain() -> dict[str, str]:
@@ -398,6 +422,7 @@ def build_release(
     try:
         staging.mkdir()
         helper = temporary_root / "ally-desktop-bridge"
+        build_environment = _build_environment()
         release_helper_toolchain = _release_helper_toolchain()
         _build_helper(destination=helper, mode=mode, identity=identity)
         desktop = _build_desktop()
@@ -458,6 +483,7 @@ def build_release(
             "candidate_label": candidate_label,
             "validated_profile_id": validated_profile_id,
             "release_helper_toolchain": release_helper_toolchain,
+            "build_environment": build_environment,
         }
         (staging / "release-artifact.json").write_text(
             json.dumps(metadata, indent=2, sort_keys=True) + "\n",
