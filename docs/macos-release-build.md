@@ -18,7 +18,8 @@ It:
 1. requires a clean checkout whose exact `HEAD` matches the supplied full Git
    source revision;
 2. builds the Swift release executable;
-3. builds the frozen desktop helper;
+3. builds the frozen desktop helper from the checked-in `release-helper`
+   dependency group under `uv.lock`;
 4. assembles `Ally.app`;
 5. ad-hoc signs the helper and outer bundle with no trusted timestamp;
 6. verifies the bundle contract;
@@ -45,8 +46,9 @@ Before any output directory is created it requires:
 
 It then:
 
-1. builds the PyInstaller helper with the Developer ID identity so embedded
-   native payloads are signed correctly;
+1. verifies the locked release-helper toolchain and builds the PyInstaller
+   helper with the Developer ID identity so embedded native payloads are signed
+   correctly;
 2. builds and assembles the application;
 3. signs the helper and outer app with hardened runtime and trusted timestamp;
 4. submits the app for notarization through the named Keychain profile;
@@ -82,15 +84,24 @@ The metadata contains only release-safe fields:
 - notarization state;
 - archive filename, SHA-256, and size;
 - final release-readiness SHA-256 for production builds;
-- candidate label and validated-profile ID for production builds.
+- candidate label and validated-profile ID for production builds;
+- exact locked release-helper toolchain versions used to construct the frozen
+  bridge.
 
 It contains no credentials, local paths, prompts, model responses, personal
 data, or private machine state.
 
+The helper build does not resolve release tooling dynamically. PyInstaller and
+its hook package are exact dependencies in the `release-helper` group, their
+transitive graph is recorded in `uv.lock`, and the orchestrator invokes that
+group with `--locked`. Security CI audits the locked runtime plus release-helper
+dependency export. A stale lock therefore blocks both hosted and production
+release construction rather than silently resolving a different builder.
+
 ## Ad-hoc CI command
 
 ```bash
-uv run python scripts/macos_release_pipeline.py build \
+uv run --locked python scripts/macos_release_pipeline.py build \
   --mode adhoc \
   --source-revision "$(git rev-parse HEAD)" \
   --build-version 1 \
@@ -105,7 +116,7 @@ After the first-machine runbook and final release-readiness verification:
 ```bash
 SOURCE_REVISION="$(git rev-parse HEAD)"
 
-uv run python scripts/macos_release_pipeline.py build \
+uv run --locked python scripts/macos_release_pipeline.py build \
   --mode production \
   --source-revision "$SOURCE_REVISION" \
   --build-version <monotonic-build-number> \
