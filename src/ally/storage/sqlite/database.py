@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import stat
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -34,6 +35,10 @@ def _prepare_private_database_file(path: Path) -> None:
             "Database file could not be prepared with private permissions."
         ) from exc
     try:
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            raise DatabaseMigrationError(
+                "Database file could not be prepared with private permissions."
+            )
         os.fchmod(descriptor, 0o600)
     except OSError as exc:
         raise DatabaseMigrationError(
