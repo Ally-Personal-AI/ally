@@ -128,6 +128,7 @@ from ally.commands.tools import run_list_tools, run_tool, run_tool_audit
 from ally.commands.validate import (
     run_compare_candidate_evidence,
     run_compare_validation_reports,
+    run_first_machine_progress,
     run_first_machine_readiness,
     run_hardware_report,
     run_local_model_validation_command,
@@ -1275,6 +1276,32 @@ def build_parser() -> argparse.ArgumentParser:
         dest="json_output",
     )
 
+    validate_first_machine_status = validate_commands.add_parser(
+        "first-machine-status",
+        help=(
+            "Read-only progress view across readiness, candidate evidence, "
+            "active profile, and empirical machine acceptance."
+        ),
+    )
+    validate_first_machine_status.add_argument(
+        "--source-revision",
+        required=True,
+        help="Exact 40-character lowercase Git source revision.",
+    )
+    validate_first_machine_status.add_argument(
+        "--validation-session",
+        help="Optional validation session manifest for one candidate.",
+    )
+    validate_first_machine_status.add_argument(
+        "--machine-acceptance",
+        help="Optional immutable machine-acceptance evidence artifact.",
+    )
+    validate_first_machine_status.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+    )
+
     validate_hardware = validate_commands.add_parser(
         "hardware",
         help="Print the non-sensitive local hardware profile.",
@@ -2071,6 +2098,19 @@ def _run_command(argv: Sequence[str] | None) -> int:
     if args.command == "validate":
         if args.validate_command == "readiness":
             return run_first_machine_readiness(
+                json_output=cast(bool, args.json_output),
+            )
+        if args.validate_command == "first-machine-status":
+            return run_first_machine_progress(
+                source_revision=cast(str, args.source_revision),
+                validation_session=cast(
+                    str | None,
+                    args.validation_session,
+                ),
+                machine_acceptance=cast(
+                    str | None,
+                    args.machine_acceptance,
+                ),
                 json_output=cast(bool, args.json_output),
             )
         if args.validate_command == "hardware":
