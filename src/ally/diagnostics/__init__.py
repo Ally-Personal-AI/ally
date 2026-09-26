@@ -6,14 +6,6 @@ from ally.diagnostics.candidates import (
     build_candidate_evidence,
     compare_candidate_evidence,
 )
-from ally.diagnostics.first_machine_progress import (
-    FirstMachineProgressError,
-    FirstMachineProgressNextStep,
-    FirstMachineProgressReport,
-    FirstMachineProgressStage,
-    FirstMachineProgressState,
-    collect_first_machine_progress,
-)
 from ally.diagnostics.hardware import HardwareProfile, collect_hardware_profile
 from ally.diagnostics.machine_acceptance import (
     MachineAcceptanceChecks,
@@ -80,11 +72,6 @@ __all__ = [
     "CandidateEvidenceComparison",
     "EvaluationSuiteCounts",
     "EvaluationSuiteProfile",
-    "FirstMachineProgressError",
-    "FirstMachineProgressNextStep",
-    "FirstMachineProgressReport",
-    "FirstMachineProgressStage",
-    "FirstMachineProgressState",
     "FirstMachineReadinessCheck",
     "FirstMachineReadinessReport",
     "FunctionalWorkflowEvidenceError",
@@ -116,7 +103,6 @@ __all__ = [
     "build_machine_acceptance_report",
     "build_runtime_privacy_report",
     "build_service_health",
-    "collect_first_machine_progress",
     "collect_first_machine_readiness",
     "collect_hardware_profile",
     "compare_candidate_evidence",
