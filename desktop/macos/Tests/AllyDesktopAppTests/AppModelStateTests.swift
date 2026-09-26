@@ -108,15 +108,19 @@ private actor FakeBridgeClient: DesktopBridgeCalling {
 
 }
 
+private let syntheticWaitTimeout: Duration = .seconds(5)
+
 private func waitForCallCount(
     _ expected: Int,
     bridge: FakeBridgeClient
 ) async {
-    for _ in 0..<2_000 {
+    let clock = ContinuousClock()
+    let deadline = clock.now.advanced(by: syntheticWaitTimeout)
+    while clock.now < deadline {
         if await bridge.callCount() >= expected {
             return
         }
-        await Task.yield()
+        try? await Task.sleep(for: .milliseconds(1))
     }
     Issue.record("Timed out waiting for synthetic bridge calls.")
 }
@@ -126,14 +130,16 @@ private func waitForMethodCallCount(
     method: String,
     bridge: FakeBridgeClient
 ) async {
-    for _ in 0..<2_000 {
+    let clock = ContinuousClock()
+    let deadline = clock.now.advanced(by: syntheticWaitTimeout)
+    while clock.now < deadline {
         let count = await bridge.calls()
             .filter { $0.method == method }
             .count
         if count >= expected {
             return
         }
-        await Task.yield()
+        try? await Task.sleep(for: .milliseconds(1))
     }
     Issue.record("Timed out waiting for synthetic \(method) calls.")
 }
