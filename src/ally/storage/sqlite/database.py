@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -11,6 +12,31 @@ from typing import cast
 
 from ally.storage.errors import DatabaseMigrationError
 from ally.storage.sqlite.schema import MIGRATIONS
+
+
+def _prepare_private_database_file(path: Path) -> None:
+    """Create/tighten one Ally database inode before SQLite writes private state."""
+
+    if os.name != "posix":
+        return
+
+    flags = os.O_RDWR | os.O_CREAT
+    flags |= getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags, 0o600)
+    except OSError as exc:
+        raise DatabaseMigrationError(
+            "Database file could not be prepared with private permissions."
+        ) from exc
+    try:
+        os.fchmod(descriptor, 0o600)
+    except OSError as exc:
+        raise DatabaseMigrationError(
+            "Database file could not be prepared with private permissions."
+        ) from exc
+    finally:
+        os.close(descriptor)
 
 
 def read_schema_versions(connection: sqlite3.Connection) -> tuple[int, ...]:
@@ -40,6 +66,7 @@ class SQLiteDatabase:
     @contextmanager
     def connect(self) -> Generator[sqlite3.Connection, None, None]:
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        _prepare_private_database_file(self.path)
         # CPython accepts this sentinel; the current sqlite3 stub types it as bool only.
         connection = sqlite3.connect(
             self.path,
