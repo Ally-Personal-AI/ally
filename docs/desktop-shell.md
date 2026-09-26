@@ -170,9 +170,18 @@ Candidates contain only:
 - event creation timestamp.
 
 The Swift app owns `UNUserNotificationCenter` authorization and delivery.
-Before scheduling, it checks current authorization, inspects the app's pending
-and delivered notification identifiers, and treats an already-known delivery
-key as a successful reconciliation instead of creating a duplicate request.
+The presentation model depends on narrow notification-authorization,
+background-service, and notification-delivery contracts whose production
+implementations still call `UNUserNotificationCenter` and `SMAppService`.
+Hosted macOS tests inject deterministic synthetic adapters only to verify
+AppModel's fail-closed state transitions; they are not evidence of real
+notification visibility, authorization persistence, Login Items behavior, or
+restart survival.
+
+Before scheduling, the production delivery adapter checks current authorization,
+inspects the app's pending and delivered notification identifiers, and treats an
+already-known delivery key as a successful reconciliation instead of creating a
+duplicate request.
 Apple's local-notification API uses request identifiers for exactly this
 kind of request tracking, while Ally's SQLite delivery record remains the
 authoritative durable state.
