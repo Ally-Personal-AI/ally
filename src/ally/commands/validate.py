@@ -44,9 +44,64 @@ from ally.diagnostics import (
     write_runtime_privacy_report,
     write_validation_report,
 )
+from ally.diagnostics.first_machine_progress import (
+    FirstMachineProgressError,
+    FirstMachineProgressReport,
+    collect_first_machine_progress,
+)
 from ally.evals.resources import evaluation_case_file
 from ally.models.errors import ModelProviderError
 from ally.models.providers import OpenAICompatibleProvider
+
+
+def _render_first_machine_progress(report: FirstMachineProgressReport) -> None:
+    for stage in (
+        report.readiness,
+        report.candidate,
+        report.active_profile,
+        report.machine_acceptance,
+    ):
+        print(f"[{stage.state.upper()}] {stage.id}: {stage.detail}")
+    if report.candidate_label is not None:
+        print(f"Candidate: {report.candidate_label}")
+    if report.candidate_next_step is not None:
+        print(f"Candidate next step: {report.candidate_next_step}")
+    if report.active_profile_id is not None:
+        print(f"Active profile: {report.active_profile_id}")
+    if report.machine_checks is not None:
+        for name, status in report.machine_checks.model_dump(mode="python").items():
+            print(f"Machine {name}: {status}")
+    print(f"Next step: {report.next_step}")
+
+
+def run_first_machine_progress(
+    *,
+    source_revision: str,
+    validation_session: str | None,
+    machine_acceptance: str | None,
+    json_output: bool,
+) -> int:
+    """Inspect the first-machine handoff without mutating state or evidence."""
+
+    try:
+        report = collect_first_machine_progress(
+            source_revision=source_revision,
+            validation_session_path=(
+                None if validation_session is None else Path(validation_session)
+            ),
+            machine_acceptance_path=(
+                None if machine_acceptance is None else Path(machine_acceptance)
+            ),
+        )
+    except FirstMachineProgressError as exc:
+        print(f"First-machine progress error: {exc}")
+        return 2
+
+    if json_output:
+        print(json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True))
+    else:
+        _render_first_machine_progress(report)
+    return 0
 
 
 def run_hardware_report(*, json_output: bool) -> int:
