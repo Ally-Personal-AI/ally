@@ -408,6 +408,7 @@ final class AppModel: ObservableObject {
         }
         let token = UUID()
         memorySearchToken = token
+        memorySearchResults = []
         beginBusy()
         defer { endBusy() }
         do {
@@ -477,6 +478,7 @@ final class AppModel: ObservableObject {
         }
         let token = UUID()
         memoryProposalToken = token
+        memoryProposal = nil
         beginBusy()
         defer { endBusy() }
         do {
@@ -645,6 +647,7 @@ final class AppModel: ObservableObject {
         }
         let token = UUID()
         knowledgeSearchToken = token
+        knowledgeSearchResults = []
         beginBusy()
         defer { endBusy() }
         do {
@@ -939,6 +942,7 @@ final class AppModel: ObservableObject {
         }
         let token = UUID()
         instructionResolutionToken = token
+        instructionResolution = nil
         beginBusy()
         defer { endBusy() }
         do {
@@ -965,6 +969,8 @@ final class AppModel: ObservableObject {
         }
         let token = UUID()
         researchRequestToken = token
+        researchInspection = nil
+        researchStatus = nil
         researchResults = []
         researchSynthesis = nil
         researchSynthesisStatus = nil
@@ -1305,6 +1311,7 @@ final class AppModel: ObservableObject {
         }
         let token = UUID()
         taskProposalToken = token
+        taskProposal = nil
         beginBusy()
         defer { endBusy() }
         do {
