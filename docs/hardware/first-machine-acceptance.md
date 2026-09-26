@@ -55,6 +55,51 @@ evidence all qualify and verify against the same source capability artifact.
 Ally 0.1 release/desktop acceptance additionally requires the OS integration and
 recovery gates below.
 
+### Read-only progress inspector
+
+At any point in the handoff, Ally can derive the next safe gate from the
+evidence that already exists:
+
+```bash
+SOURCE_REVISION="$(git rev-parse HEAD)"
+
+uv run ally validate first-machine-status \
+  --source-revision "$SOURCE_REVISION"
+
+uv run ally validate first-machine-status \
+  --source-revision "$SOURCE_REVISION" \
+  --validation-session validation/candidate-a/session.json
+
+uv run ally validate first-machine-status \
+  --source-revision "$SOURCE_REVISION" \
+  --validation-session validation/candidate-a/session.json \
+  --machine-acceptance validation/machine-acceptance.json
+```
+
+Add `--json` for stable machine-readable output.
+
+This command is deliberately read-only. It may verify readiness, candidate
+evidence, the active validated-profile binding, and an existing
+machine-acceptance artifact. It does **not** start a runtime, install/select a
+profile, request OS permissions, create evidence, or perform acceptance work.
+
+Most importantly, live OS state is never converted into empirical acceptance by
+this inspector. Keychain, recovery, background-service, notification,
+signed-release, update-preparation, app-replacement, and integrated-daily-use
+gates count as passed only when an explicitly created immutable
+machine-acceptance artifact records them as passed and verifies against the
+exact source revision, hardware, and active profile.
+
+The derived next step is one of:
+
+- `resolve_readiness`
+- `initialize_validation_session`
+- `continue_candidate_validation`
+- `select_validated_profile`
+- `record_machine_acceptance`
+- `complete_machine_acceptance`
+- `create_release_readiness`
+
 ---
 
 ## 1. Baseline and read-only readiness
