@@ -263,10 +263,16 @@ def _read_archive(
                 raise BackupValidationError("backup manifest exceeds the size limit")
 
             try:
-                manifest = BackupManifest.model_validate_json(
-                    archive.read(manifest_info)
-                )
-            except (KeyError, ValidationError) as exc:
+                with archive.open(manifest_info, mode="r") as manifest_member:
+                    manifest_bytes = manifest_member.read(_MAX_MANIFEST_BYTES + 1)
+            except (BadZipFile, OSError, RuntimeError) as exc:
+                raise BackupValidationError("invalid backup manifest") from exc
+            if len(manifest_bytes) > _MAX_MANIFEST_BYTES:
+                raise BackupValidationError("backup manifest exceeds the size limit")
+
+            try:
+                manifest = BackupManifest.model_validate_json(manifest_bytes)
+            except ValidationError as exc:
                 raise BackupValidationError("invalid backup manifest") from exc
 
             _stream_database_member(
