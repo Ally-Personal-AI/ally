@@ -79,7 +79,7 @@ final class AppModel: ObservableObject {
 
     private func beginBusy() {
         activeBusyOperations += 1
-        beginBusy()
+        isBusy = activeBusyOperations > 0
     }
 
     private func endBusy() {
