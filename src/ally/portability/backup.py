@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import sqlite3
 import tempfile
 from datetime import UTC, datetime
@@ -22,6 +23,9 @@ from ally.storage.sqlite.database import SQLiteDatabase, read_schema_versions
 _MANIFEST_NAME = "manifest.json"
 _DATABASE_NAME = "ally.sqlite3"
 _ARCHIVE_MEMBERS = {_MANIFEST_NAME, _DATABASE_NAME}
+_MAX_MANIFEST_BYTES = 64 * 1024
+_STREAM_CHUNK_BYTES = 1024 * 1024
+_MIN_FREE_SPACE_RESERVE_BYTES = 64 * 1024 * 1024
 
 
 class BackupValidationError(ValueError):
@@ -112,6 +116,61 @@ def _publish_new_file(staged: Path, destination: Path, kind: str) -> None:
         ) from exc
 
 
+def _require_free_space(directory: Path, required_bytes: int, operation: str) -> None:
+    """Fail before extraction/copy when the destination cannot safely hold the file."""
+
+    try:
+        free_bytes = shutil.disk_usage(directory).free
+    except OSError as exc:
+        raise BackupValidationError(
+            f"free space could not be determined for {operation}"
+        ) from exc
+    usable_bytes = max(0, free_bytes - _MIN_FREE_SPACE_RESERVE_BYTES)
+    if required_bytes > usable_bytes:
+        raise BackupValidationError(f"insufficient free space for {operation}")
+
+
+def _stream_database_member(
+    archive: ZipFile,
+    *,
+    expected_size: int,
+    expected_sha256: str,
+    destination: Path,
+) -> None:
+    """Stream one exact database member without materializing it in memory."""
+
+    try:
+        info = archive.getinfo(_DATABASE_NAME)
+    except KeyError as exc:
+        raise BackupValidationError("backup database member is missing") from exc
+
+    if info.is_dir() or info.file_size != expected_size:
+        raise BackupValidationError("database size does not match manifest")
+
+    _require_free_space(destination.parent, expected_size, "backup validation")
+
+    digest = hashlib.sha256()
+    written = 0
+    try:
+        with archive.open(info, mode="r") as source, destination.open("xb") as target:
+            while written < expected_size:
+                chunk = source.read(min(_STREAM_CHUNK_BYTES, expected_size - written))
+                if not chunk:
+                    break
+                target.write(chunk)
+                digest.update(chunk)
+                written += len(chunk)
+
+            extra = source.read(1)
+    except (BadZipFile, OSError, RuntimeError) as exc:
+        raise BackupValidationError("invalid backup database member") from exc
+
+    if written != expected_size or extra:
+        raise BackupValidationError("database size does not match manifest")
+    if digest.hexdigest() != expected_sha256:
+        raise BackupValidationError("database SHA-256 does not match manifest")
+
+
 def _snapshot_database(database: SQLiteDatabase, destination: Path) -> None:
     database.migrate()
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -187,6 +246,7 @@ def _read_archive(
     archive_path: Path,
     temporary_dir: Path,
 ) -> tuple[BackupManifest, Path]:
+    snapshot = temporary_dir / _DATABASE_NAME
     try:
         with ZipFile(archive_path, mode="r") as archive:
             names = archive.namelist()
@@ -196,23 +256,29 @@ def _read_archive(
                 )
 
             try:
+                manifest_info = archive.getinfo(_MANIFEST_NAME)
+            except KeyError as exc:
+                raise BackupValidationError("invalid backup manifest") from exc
+            if manifest_info.is_dir() or manifest_info.file_size > _MAX_MANIFEST_BYTES:
+                raise BackupValidationError("backup manifest exceeds the size limit")
+
+            try:
                 manifest = BackupManifest.model_validate_json(
-                    archive.read(_MANIFEST_NAME)
+                    archive.read(manifest_info)
                 )
             except (KeyError, ValidationError) as exc:
                 raise BackupValidationError("invalid backup manifest") from exc
 
-            database_bytes = archive.read(_DATABASE_NAME)
-    except (BadZipFile, OSError) as exc:
+            _stream_database_member(
+                archive,
+                expected_size=manifest.database.size_bytes,
+                expected_sha256=manifest.database.sha256,
+                destination=snapshot,
+            )
+    except BackupValidationError:
+        raise
+    except (BadZipFile, OSError, RuntimeError) as exc:
         raise BackupValidationError("invalid backup archive") from exc
-
-    snapshot = temporary_dir / _DATABASE_NAME
-    snapshot.write_bytes(database_bytes)
-
-    if snapshot.stat().st_size != manifest.database.size_bytes:
-        raise BackupValidationError("database size does not match manifest")
-    if _sha256(snapshot) != manifest.database.sha256:
-        raise BackupValidationError("database SHA-256 does not match manifest")
 
     _check_sqlite_integrity(snapshot)
     actual_versions = _schema_versions(snapshot)
@@ -254,7 +320,12 @@ def restore_backup(
         )
 
         try:
-            staged.write_bytes(snapshot.read_bytes())
+            _require_free_space(
+                resolved_destination.parent,
+                snapshot.stat().st_size,
+                "backup restore",
+            )
+            shutil.copyfile(snapshot, staged)
             database = SQLiteDatabase(staged)
             try:
                 database.migrate()
