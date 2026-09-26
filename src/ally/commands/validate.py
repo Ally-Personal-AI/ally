@@ -47,6 +47,11 @@ from ally.diagnostics import (
     write_runtime_privacy_report,
     write_validation_report,
 )
+from ally.diagnostics.first_machine_progress import (
+    FirstMachineProgressError,
+    FirstMachineProgressReport,
+    collect_first_machine_progress,
+)
 from ally.evals.resources import evaluation_case_file
 from ally.models.errors import ModelProviderError
 from ally.models.providers import OpenAICompatibleProvider
