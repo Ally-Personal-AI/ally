@@ -56,6 +56,13 @@ final class AppModel: ObservableObject {
     private var selectedKnowledgeSourceID: String?
     private var selectedTaskID: String?
     private var selectedAttentionID: String?
+    private var conversationSearchToken: UUID?
+    private var memorySearchToken: UUID?
+    private var memoryProposalToken: UUID?
+    private var knowledgeSearchToken: UUID?
+    private var instructionResolutionToken: UUID?
+    private var researchRequestToken: UUID?
+    private var taskProposalToken: UUID?
 
     init() {
         do {
@@ -302,27 +309,34 @@ final class AppModel: ObservableObject {
         guard let client else { return }
         let compact = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !compact.isEmpty else {
+            conversationSearchToken = nil
             conversationSearchResults = []
             return
         }
+        let token = UUID()
+        conversationSearchToken = token
         conversationSearchResults = []
         beginBusy()
         defer { endBusy() }
         do {
-            conversationSearchResults = try await client.call(
+            let loaded: [ConversationSearchResult] = try await client.call(
                 "conversation.search",
                 params: [
                     "query": .string(compact),
                     "limit": .number(50),
                 ]
             )
+            guard conversationSearchToken == token else { return }
+            conversationSearchResults = loaded
             errorMessage = nil
         } catch {
+            guard conversationSearchToken == token else { return }
             errorMessage = error.localizedDescription
         }
     }
 
     func clearConversationSearch() {
+        conversationSearchToken = nil
         conversationSearchResults = []
     }
 
@@ -342,6 +356,7 @@ final class AppModel: ObservableObject {
                 conversation = nil
                 composer = ""
             }
+            conversationSearchToken = nil
             conversationSearchResults = []
             snapshot = try await client.call("bootstrap")
             errorMessage = nil
@@ -387,21 +402,27 @@ final class AppModel: ObservableObject {
         guard let client else { return }
         let compact = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !compact.isEmpty else {
+            memorySearchToken = nil
             memorySearchResults = []
             return
         }
+        let token = UUID()
+        memorySearchToken = token
         beginBusy()
         defer { endBusy() }
         do {
-            memorySearchResults = try await client.call(
+            let loaded: [MemorySummary] = try await client.call(
                 "memory.search",
                 params: [
                     "query": .string(compact),
                     "limit": .number(100),
                 ]
             )
+            guard memorySearchToken == token else { return }
+            memorySearchResults = loaded
             errorMessage = nil
         } catch {
+            guard memorySearchToken == token else { return }
             errorMessage = error.localizedDescription
         }
     }
@@ -433,6 +454,7 @@ final class AppModel: ObservableObject {
                 "memory.list",
                 params: ["limit": .number(100)]
             )
+            memorySearchToken = nil
             memorySearchResults = []
             errorMessage = nil
             return true
@@ -449,13 +471,16 @@ final class AppModel: ObservableObject {
         guard let client else { return }
         let compact = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !compact.isEmpty else {
+            memoryProposalToken = nil
             memoryProposal = nil
             return
         }
+        let token = UUID()
+        memoryProposalToken = token
         beginBusy()
         defer { endBusy() }
         do {
-            memoryProposal = try await client.call(
+            let proposal: MemoryProposalBundleSummary = try await client.call(
                 "memory.propose",
                 params: [
                     "text": .string(compact),
@@ -463,8 +488,11 @@ final class AppModel: ObservableObject {
                     "privacy": .string(privacy),
                 ]
             )
+            guard memoryProposalToken == token else { return }
+            memoryProposal = proposal
             errorMessage = nil
         } catch {
+            guard memoryProposalToken == token else { return }
             memoryProposal = nil
             errorMessage = error.localizedDescription
         }
@@ -474,6 +502,7 @@ final class AppModel: ObservableObject {
         guard let client, let proposal = memoryProposal, !indices.isEmpty else {
             return false
         }
+        memoryProposalToken = nil
         beginBusy()
         defer { endBusy() }
         do {
@@ -489,6 +518,7 @@ final class AppModel: ObservableObject {
                 "memory.list",
                 params: ["limit": .number(100)]
             )
+            memorySearchToken = nil
             memorySearchResults = []
             memoryProposal = nil
             errorMessage = nil
@@ -500,6 +530,7 @@ final class AppModel: ObservableObject {
     }
 
     func clearMemoryProposal() {
+        memoryProposalToken = nil
         memoryProposal = nil
     }
 
@@ -537,6 +568,7 @@ final class AppModel: ObservableObject {
                     memoryDetail = original
                 }
             }
+            memorySearchToken = nil
             memorySearchResults = []
             errorMessage = nil
         } catch {
@@ -564,6 +596,7 @@ final class AppModel: ObservableObject {
                 "memory.list",
                 params: ["limit": .number(100)]
             )
+            memorySearchToken = nil
             memorySearchResults = []
             errorMessage = nil
         } catch {
@@ -606,21 +639,27 @@ final class AppModel: ObservableObject {
         guard let client else { return }
         let compact = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !compact.isEmpty else {
+            knowledgeSearchToken = nil
             knowledgeSearchResults = []
             return
         }
+        let token = UUID()
+        knowledgeSearchToken = token
         beginBusy()
         defer { endBusy() }
         do {
-            knowledgeSearchResults = try await client.call(
+            let loaded: [KnowledgeSearchResult] = try await client.call(
                 "knowledge.search",
                 params: [
                     "query": .string(compact),
                     "limit": .number(50),
                 ]
             )
+            guard knowledgeSearchToken == token else { return }
+            knowledgeSearchResults = loaded
             errorMessage = nil
         } catch {
+            guard knowledgeSearchToken == token else { return }
             errorMessage = error.localizedDescription
         }
     }
@@ -640,6 +679,7 @@ final class AppModel: ObservableObject {
                 selectedKnowledgeSourceID = nil
                 knowledgeDetail = nil
             }
+            knowledgeSearchToken = nil
             knowledgeSearchResults = []
             knowledge = try await client.call(
                 "knowledge.list",
@@ -692,6 +732,7 @@ final class AppModel: ObservableObject {
                     knowledgeDetail = detail
                 }
             }
+            knowledgeSearchToken = nil
             knowledgeSearchResults = []
             errorMessage = nil
             return true
@@ -753,6 +794,7 @@ final class AppModel: ObservableObject {
             )
             knowledge = try await refreshedKnowledge
             knowledgeDetail = try await detail
+            knowledgeSearchToken = nil
             knowledgeSearchResults = []
             errorMessage = nil
         } catch {
@@ -762,6 +804,8 @@ final class AppModel: ObservableObject {
 
     func refreshInstructions() async {
         guard let client else { return }
+        instructionResolutionToken = nil
+        instructionResolution = nil
         beginBusy()
         defer { endBusy() }
         do {
@@ -794,6 +838,8 @@ final class AppModel: ObservableObject {
                 scopeKey.trimmingCharacters(in: .whitespacesAndNewlines)
             )
         }
+        instructionResolutionToken = nil
+        instructionResolution = nil
         beginBusy()
         defer { endBusy() }
         do {
@@ -824,6 +870,8 @@ final class AppModel: ObservableObject {
         if profile.scope != "global" {
             params["scope_key"] = .string(profile.scopeKey)
         }
+        instructionResolutionToken = nil
+        instructionResolution = nil
         beginBusy()
         defer { endBusy() }
         do {
@@ -850,6 +898,8 @@ final class AppModel: ObservableObject {
         if profile.scope != "global" {
             params["scope_key"] = .string(profile.scopeKey)
         }
+        instructionResolutionToken = nil
+        instructionResolution = nil
         beginBusy()
         defer { endBusy() }
         do {
@@ -887,15 +937,20 @@ final class AppModel: ObservableObject {
                 params[name] = .string(compact)
             }
         }
+        let token = UUID()
+        instructionResolutionToken = token
         beginBusy()
         defer { endBusy() }
         do {
-            instructionResolution = try await client.call(
+            let resolved: InstructionResolutionView = try await client.call(
                 "instructions.resolve",
                 params: params
             )
+            guard instructionResolutionToken == token else { return }
+            instructionResolution = resolved
             errorMessage = nil
         } catch {
+            guard instructionResolutionToken == token else { return }
             instructionResolution = nil
             errorMessage = error.localizedDescription
         }
@@ -905,14 +960,11 @@ final class AppModel: ObservableObject {
         guard let client else { return }
         let compact = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !compact.isEmpty else {
-            researchInspection = nil
-            researchResults = []
-            researchSynthesis = nil
-            researchSynthesisStatus = nil
-            researchStatus = nil
-            researchMoreResultsAvailable = false
+            clearResearch()
             return
         }
+        let token = UUID()
+        researchRequestToken = token
         researchResults = []
         researchSynthesis = nil
         researchSynthesisStatus = nil
@@ -920,16 +972,19 @@ final class AppModel: ObservableObject {
         beginBusy()
         defer { endBusy() }
         do {
-            researchInspection = try await client.call(
+            let inspection: EgressInspection = try await client.call(
                 "research.inspect",
                 params: [
                     "query": .string(compact),
                     "count": .number(Double(count)),
                 ]
             )
-            researchStatus = researchInspection?.decision
+            guard researchRequestToken == token else { return }
+            researchInspection = inspection
+            researchStatus = inspection.decision
             errorMessage = nil
         } catch {
+            guard researchRequestToken == token else { return }
             researchInspection = nil
             researchStatus = nil
             errorMessage = error.localizedDescription
@@ -940,6 +995,8 @@ final class AppModel: ObservableObject {
         guard let client else { return }
         let compact = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !compact.isEmpty else { return }
+        let token = UUID()
+        researchRequestToken = token
         beginBusy()
         defer { endBusy() }
         do {
@@ -951,6 +1008,7 @@ final class AppModel: ObservableObject {
                     "approved": .bool(true),
                 ]
             )
+            guard researchRequestToken == token else { return }
             researchStatus = execution.search.status
             researchMoreResultsAvailable = execution.search.moreResultsAvailable
             researchSynthesis = execution.synthesis
@@ -967,6 +1025,7 @@ final class AppModel: ObservableObject {
                 }
             }
         } catch {
+            guard researchRequestToken == token else { return }
             researchResults = []
             researchSynthesis = nil
             researchSynthesisStatus = nil
@@ -977,6 +1036,7 @@ final class AppModel: ObservableObject {
     }
 
     func clearResearch() {
+        researchRequestToken = nil
         researchInspection = nil
         researchResults = []
         researchSynthesis = nil
@@ -1239,18 +1299,24 @@ final class AppModel: ObservableObject {
         guard let client else { return }
         let compact = goal.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !compact.isEmpty else {
+            taskProposalToken = nil
             taskProposal = nil
             return
         }
+        let token = UUID()
+        taskProposalToken = token
         beginBusy()
         defer { endBusy() }
         do {
-            taskProposal = try await client.call(
+            let proposal: TaskPlanProposal = try await client.call(
                 "task.propose",
                 params: ["goal": .string(compact)]
             )
+            guard taskProposalToken == token else { return }
+            taskProposal = proposal
             errorMessage = nil
         } catch {
+            guard taskProposalToken == token else { return }
             taskProposal = nil
             errorMessage = error.localizedDescription
         }
@@ -1258,6 +1324,7 @@ final class AppModel: ObservableObject {
 
     func createProposedTask() async -> String? {
         guard let client, let proposal = taskProposal else { return nil }
+        taskProposalToken = nil
         beginBusy()
         defer { endBusy() }
         do {
@@ -1277,6 +1344,7 @@ final class AppModel: ObservableObject {
     }
 
     func clearTaskProposal() {
+        taskProposalToken = nil
         taskProposal = nil
     }
 
