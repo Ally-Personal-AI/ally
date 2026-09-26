@@ -204,6 +204,26 @@ private let newerMemoryProposalJSON = #"{"schema_version":1,"generated_at":"2026
 
 private let newerTaskProposalJSON = #"{"goal":"Inspect newer synthetic state","steps":[{"tool_name":"system.info","arguments":{}}]}"#
 
+private let bridgeInfoJSON = #"{"protocol_version":15,"ally_version":"0.1.0.dev0","transport":"stdio","capabilities":[]}"#
+
+private let staleBootstrapJSON = #"{"runtime":{"state":"unavailable","target":null,"error_code":"active_profile_unavailable"},"conversations":{"state":"available","items":[{"id":"00000000-0000-0000-0000-000000000001","title":"Stale synthetic conversation","created_at":"2026-09-25T00:00:00Z","updated_at":"2026-09-25T00:01:00Z"}],"error_code":null},"tasks":{"state":"available","items":[],"error_code":null},"pending_attention":{"state":"available","items":[],"error_code":null},"attention_history":{"state":"available","items":[],"error_code":null},"service_history":{"state":"available","items":[],"error_code":null},"service_health":{"state":"available","report":{"status":"healthy","checks":[]},"error_code":null}}"#
+
+private let emptyRuntimeCatalogJSON = #"{"items":[],"active_profile_id":null}"#
+
+private let selectedRuntimeCatalogJSON = #"{"items":[],"active_profile_id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}"#
+
+private let oldInstructionProfileListJSON = #"[{"scope":"global","scope_key":"","content":"Older synthetic instructions.","enabled":true,"created_at":"2026-09-25T00:00:00Z","updated_at":"2026-09-25T00:00:00Z"}]"#
+
+private let oldAttentionEventListJSON = #"[{"id":"00000000-0000-0000-0000-000000000040","type":"synthetic.old","source":"test","importance":"normal","attention":"notify","payload":{"summary":"Older synthetic attention."},"dedupe_key":"old","created_at":"2026-09-25T00:00:00Z","handled_at":null}]"#
+
+private let handledAttentionEventListJSON = #"[{"id":"00000000-0000-0000-0000-000000000040","type":"synthetic.old","source":"test","importance":"normal","attention":"notify","payload":{"summary":"Older synthetic attention."},"dedupe_key":"old","created_at":"2026-09-25T00:00:00Z","handled_at":"2026-09-25T00:02:00Z"}]"#
+
+private let handledAttentionViewJSON = #"{"event":{"id":"00000000-0000-0000-0000-000000000040","type":"synthetic.old","source":"test","importance":"normal","attention":"notify","payload":{"summary":"Older synthetic attention."},"dedupe_key":"old","created_at":"2026-09-25T00:00:00Z","handled_at":"2026-09-25T00:02:00Z"},"deliveries":[]}"#
+
+private let legacyConfiguredJSON = #"{"supported":true,"configured":true,"definition_state":"recognized_legacy","loaded":true,"running":false,"label":"ai.ally.proactive-service","can_retire":true}"#
+
+private let legacyRetiredJSON = #"{"supported":true,"configured":false,"definition_state":"absent","loaded":false,"running":false,"label":"ai.ally.proactive-service","can_retire":false}"#
+
 private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
@@ -1095,4 +1115,258 @@ private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
     await gate.open()
     await task.value
     #expect(model.taskProposal == nil)
+}
+
+
+@MainActor
+@Test func oldWholeAppSnapshotCannotOverwriteNewerMutationRefresh() async {
+    let oldSnapshotGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "bridge.info": [.json(bridgeInfoJSON)],
+            "bootstrap": [
+                .gatedJSON(staleBootstrapJSON, oldSnapshotGate),
+                .json(emptyBootstrapJSON),
+            ],
+            "memory.list": [.json("[]")],
+            "knowledge.list": [.json("[]")],
+            "instructions.list": [.json("[]")],
+            "runtime.profiles": [.json(emptyRuntimeCatalogJSON)],
+            "service.legacy_status": [.json(legacyRetiredJSON)],
+            "conversation.delete": [.json("true")],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let refreshTask = Task { await model.refresh() }
+    await waitForMethodCallCount(1, method: "bootstrap", bridge: bridge)
+
+    let deleted = await model.deleteConversation(
+        "00000000-0000-0000-0000-000000000001"
+    )
+    #expect(deleted)
+    #expect(model.snapshot?.conversations.items.isEmpty == true)
+
+    await oldSnapshotGate.open()
+    await refreshTask.value
+    #expect(model.snapshot?.conversations.items.isEmpty == true)
+}
+
+@MainActor
+@Test func oldWholeAppMemoryListCannotOverwriteNewerMutationList() async {
+    let oldMemoryGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "bridge.info": [.json(bridgeInfoJSON)],
+            "bootstrap": [.json(emptyBootstrapJSON)],
+            "memory.list": [
+                .gatedJSON("[\(firstMemoryJSON)]", oldMemoryGate),
+                .json("[\(secondMemoryJSON)]"),
+            ],
+            "knowledge.list": [.json("[]")],
+            "instructions.list": [.json("[]")],
+            "runtime.profiles": [.json(emptyRuntimeCatalogJSON)],
+            "service.legacy_status": [.json(legacyRetiredJSON)],
+            "memory.remember": [.json(secondMemoryJSON)],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let refreshTask = Task { await model.refresh() }
+    await waitForMethodCallCount(1, method: "memory.list", bridge: bridge)
+
+    let remembered = await model.rememberMemory(
+        content: "Newer synthetic memory.",
+        kind: "semantic",
+        confidence: 1.0,
+        importance: 0.5,
+        privacy: "private"
+    )
+    #expect(remembered)
+    #expect(
+        model.memories.first?.id
+            == "00000000-0000-0000-0000-000000000011"
+    )
+
+    await oldMemoryGate.open()
+    await refreshTask.value
+    #expect(
+        model.memories.first?.id
+            == "00000000-0000-0000-0000-000000000011"
+    )
+}
+
+@MainActor
+@Test func oldKnowledgeListCannotOverwriteNewerIngestRefresh() async {
+    let oldKnowledgeGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "bridge.info": [.json(bridgeInfoJSON)],
+            "bootstrap": [.json(emptyBootstrapJSON)],
+            "memory.list": [.json("[]")],
+            "knowledge.list": [
+                .gatedJSON("[\(knowledgeSourceV1JSON)]", oldKnowledgeGate),
+                .json("[\(knowledgeSourceV2JSON)]"),
+            ],
+            "instructions.list": [.json("[]")],
+            "runtime.profiles": [.json(emptyRuntimeCatalogJSON)],
+            "service.legacy_status": [.json(legacyRetiredJSON)],
+            "knowledge.ingest_text": [.json(knowledgeIngestV2JSON)],
+            "knowledge.get": [.json(knowledgeDetailV2JSON)],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let refreshTask = Task { await model.refresh() }
+    await waitForMethodCallCount(1, method: "knowledge.list", bridge: bridge)
+
+    await model.ingestKnowledge(
+        title: "Synthetic notes.txt",
+        text: "Newer synthetic knowledge."
+    )
+    #expect(model.knowledge.first?.currentRevision == 2)
+
+    await oldKnowledgeGate.open()
+    await refreshTask.value
+    #expect(model.knowledge.first?.currentRevision == 2)
+}
+
+@MainActor
+@Test func oldInstructionListCannotOverwriteNewerMutationRefresh() async {
+    let oldInstructionGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "instructions.list": [
+                .gatedJSON(oldInstructionProfileListJSON, oldInstructionGate),
+                .json(instructionProfileListJSON),
+            ],
+            "instructions.set": [.json(instructionProfileJSON)],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let refreshTask = Task { await model.refreshInstructions() }
+    await waitForMethodCallCount(1, method: "instructions.list", bridge: bridge)
+
+    await model.setInstructions(
+        scope: "global",
+        scopeKey: nil,
+        content: "Prefer updated synthetic instructions.",
+        enabled: true
+    )
+    #expect(
+        model.instructionProfiles.first?.content
+            == "Prefer updated synthetic instructions."
+    )
+
+    await oldInstructionGate.open()
+    await refreshTask.value
+    #expect(
+        model.instructionProfiles.first?.content
+            == "Prefer updated synthetic instructions."
+    )
+}
+
+@MainActor
+@Test func oldRuntimeCatalogCannotOverwriteNewerSelection() async {
+    let oldRuntimeGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "bridge.info": [.json(bridgeInfoJSON)],
+            "bootstrap": [
+                .json(emptyBootstrapJSON),
+                .json(emptyBootstrapJSON),
+            ],
+            "memory.list": [.json("[]")],
+            "knowledge.list": [.json("[]")],
+            "instructions.list": [.json("[]")],
+            "runtime.profiles": [
+                .gatedJSON(emptyRuntimeCatalogJSON, oldRuntimeGate),
+            ],
+            "runtime.select_profile": [
+                .json(selectedRuntimeCatalogJSON),
+            ],
+            "service.legacy_status": [.json(legacyRetiredJSON)],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let refreshTask = Task { await model.refresh() }
+    await waitForMethodCallCount(1, method: "runtime.profiles", bridge: bridge)
+
+    await model.selectRuntimeProfile(
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    )
+    #expect(
+        model.runtimeProfiles?.activeProfileId
+            == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    )
+
+    await oldRuntimeGate.open()
+    await refreshTask.value
+    #expect(
+        model.runtimeProfiles?.activeProfileId
+            == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    )
+}
+
+@MainActor
+@Test func oldAttentionRefreshCannotOverwriteNewerHandledList() async {
+    let oldEventsGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "attention.events": [
+                .gatedJSON(oldAttentionEventListJSON, oldEventsGate),
+                .json(handledAttentionEventListJSON),
+            ],
+            "attention.delivery_history": [.json("[]")],
+            "attention.mark_handled": [.json(handledAttentionViewJSON)],
+            "bootstrap": [.json(emptyBootstrapJSON)],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let refreshTask = Task { await model.refreshAttention() }
+    await waitForMethodCallCount(1, method: "attention.events", bridge: bridge)
+
+    await model.markAttentionHandled(
+        "00000000-0000-0000-0000-000000000040"
+    )
+    #expect(model.attentionEvents.first?.handledAt != nil)
+
+    await oldEventsGate.open()
+    await refreshTask.value
+    #expect(model.attentionEvents.first?.handledAt != nil)
+}
+
+@MainActor
+@Test func oldLegacyStatusCannotOverwriteNewerRetirement() async {
+    let oldStatusGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "service.legacy_status": [
+                .gatedJSON(legacyConfiguredJSON, oldStatusGate),
+            ],
+            "service.retire_legacy": [
+                .json(legacyRetiredJSON),
+            ],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let statusTask = Task {
+        await model.refreshLegacyManagedServiceStatus()
+    }
+    await waitForMethodCallCount(
+        1,
+        method: "service.legacy_status",
+        bridge: bridge
+    )
+
+    await model.retireLegacyManagedService()
+    #expect(model.legacyManagedService?.configured == false)
+
+    await oldStatusGate.open()
+    await statusTask.value
+    #expect(model.legacyManagedService?.configured == false)
 }
