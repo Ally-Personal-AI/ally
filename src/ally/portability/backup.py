@@ -103,6 +103,19 @@ def _new_destination(path: Path, kind: str) -> Path:
     return resolved
 
 
+def _create_private_staging_file(path: Path) -> None:
+    """Create an empty private staging inode before writing Ally state."""
+
+    path.touch(mode=0o600, exist_ok=False)
+    if os.name != "posix":
+        return
+    try:
+        path.chmod(0o600)
+    except OSError:
+        path.unlink(missing_ok=True)
+        raise
+
+
 def _publish_new_file(staged: Path, destination: Path, kind: str) -> None:
     """Atomically create a destination name without replacing another writer's file."""
 
@@ -228,6 +241,7 @@ def create_backup(
             f".{resolved.name}.{uuid4().hex}.tmp"
         )
         try:
+            _create_private_staging_file(temporary_archive)
             with ZipFile(
                 temporary_archive,
                 mode="w",
@@ -331,6 +345,7 @@ def restore_backup(
                 snapshot.stat().st_size,
                 "backup restore",
             )
+            _create_private_staging_file(staged)
             shutil.copyfile(snapshot, staged)
             database = SQLiteDatabase(staged)
             try:

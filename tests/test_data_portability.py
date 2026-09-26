@@ -1,3 +1,5 @@
+import os
+import stat
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -228,6 +230,26 @@ def test_backup_round_trip_preserves_ally_state(tmp_path: Path) -> None:
     assert schedule is not None
     assert schedule.name == "Synthetic schedule"
     assert schedule.interval_seconds == 300
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX mode bits required")
+def test_portability_outputs_are_owner_only_under_permissive_umask(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.sqlite3"
+    seed_database(source)
+    archive = tmp_path / "private.ally-backup"
+    restored = tmp_path / "restored.sqlite3"
+
+    previous_umask = os.umask(0)
+    try:
+        create_backup(SQLiteDatabase(source), archive)
+        restore_backup(archive, restored)
+    finally:
+        os.umask(previous_umask)
+
+    assert stat.S_IMODE(archive.stat().st_mode) == 0o600
+    assert stat.S_IMODE(restored.stat().st_mode) == 0o600
 
 
 def test_backup_validation_streams_database_member(
