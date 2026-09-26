@@ -240,14 +240,18 @@ private actor OSFakeBridgeClient: DesktopBridgeCalling {
     }
 }
 
+private let syntheticOSWaitTimeout: Duration = .seconds(5)
+
 private func waitForAuthorizationRead(
     _ client: GatedNotificationAuthorizationClient
 ) async {
-    for _ in 0..<2_000 {
+    let clock = ContinuousClock()
+    let deadline = clock.now.advanced(by: syntheticOSWaitTimeout)
+    while clock.now < deadline {
         if await client.currentCallCount() > 0 {
             return
         }
-        await Task.yield()
+        try? await Task.sleep(for: .milliseconds(1))
     }
     Issue.record("Timed out waiting for synthetic authorization read.")
 }
@@ -255,13 +259,15 @@ private func waitForAuthorizationRead(
 private func waitForLegacyStatusCall(
     _ bridge: GatedLegacyBridgeClient
 ) async {
-    for _ in 0..<2_000 {
+    let clock = ContinuousClock()
+    let deadline = clock.now.advanced(by: syntheticOSWaitTimeout)
+    while clock.now < deadline {
         if await bridge.calls().contains(where: {
             $0.method == "service.legacy_status"
         }) {
             return
         }
-        await Task.yield()
+        try? await Task.sleep(for: .milliseconds(1))
     }
     Issue.record("Timed out waiting for synthetic legacy-service read.")
 }
