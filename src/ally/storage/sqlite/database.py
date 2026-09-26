@@ -20,9 +20,13 @@ def _prepare_private_database_file(path: Path) -> None:
     if os.name != "posix":
         return
 
-    flags = os.O_RDWR | os.O_CREAT
+    no_follow = getattr(os, "O_NOFOLLOW", None)
+    if no_follow is None:
+        raise DatabaseMigrationError(
+            "Database file could not be prepared with private permissions."
+        )
+    flags = os.O_RDWR | os.O_CREAT | no_follow
     flags |= getattr(os, "O_CLOEXEC", 0)
-    flags |= getattr(os, "O_NOFOLLOW", 0)
     try:
         descriptor = os.open(path, flags, 0o600)
     except OSError as exc:
