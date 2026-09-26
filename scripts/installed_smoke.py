@@ -419,6 +419,23 @@ def run_workflows(root: Path) -> None:
             "installed runtime profile listing",
         )
 
+        source_revision = "a" * 40
+        if sys.platform == "darwin":
+            pre_acceptance_progress = json.loads(cli(
+                "validate", "first-machine-status",
+                "--source-revision", source_revision,
+                "--validation-session", str(root / "session.json"),
+                "--json",
+            ))
+            require(
+                pre_acceptance_progress["readiness"]["state"] == "passed"
+                and pre_acceptance_progress["candidate"]["state"] == "passed"
+                and pre_acceptance_progress["active_profile"]["state"] == "passed"
+                and pre_acceptance_progress["machine_acceptance"]["state"] == "pending"
+                and pre_acceptance_progress["next_step"] == "record_machine_acceptance",
+                "clean-installed first-machine progress before machine acceptance",
+            )
+
         active_memory: dict[str, object] = {
             "memories": [{
                 "kind": "preference",
@@ -458,7 +475,6 @@ def run_workflows(root: Path) -> None:
             "daily memory proposal resolves active validated profile",
         )
 
-        source_revision = "a" * 40
         machine_acceptance_path = root / "machine-acceptance.json"
         machine_acceptance = json.loads(cli(
             "machine-acceptance", "create",
@@ -489,6 +505,23 @@ def run_workflows(root: Path) -> None:
             and verified_acceptance["qualified_for_release_acceptance"] is True,
             "machine acceptance evidence verification",
         )
+
+        if sys.platform == "darwin":
+            accepted_progress = json.loads(cli(
+                "validate", "first-machine-status",
+                "--source-revision", source_revision,
+                "--validation-session", str(root / "session.json"),
+                "--machine-acceptance", str(machine_acceptance_path),
+                "--json",
+            ))
+            require(
+                accepted_progress["readiness"]["state"] == "passed"
+                and accepted_progress["candidate"]["state"] == "passed"
+                and accepted_progress["active_profile"]["state"] == "passed"
+                and accepted_progress["machine_acceptance"]["state"] == "passed"
+                and accepted_progress["next_step"] == "create_release_readiness",
+                "clean-installed first-machine progress after machine acceptance",
+            )
 
         release_readiness_path = root / "release-readiness.json"
         release_readiness = json.loads(cli(
@@ -624,7 +657,10 @@ def run_workflows(root: Path) -> None:
         "Installed workflows passed: evals/behavior, isolated validation, "
         "desktop bridge, chat/resume, memory, knowledge, research inspection, tasks,"
     )
-    print("service health, managed-service inspection, skill worker, and backup/restore.")
+    print(
+        "first-machine progress, service health, managed-service inspection, "
+        "skill worker, and backup/restore."
+    )
 
 
 def main() -> int:
