@@ -36,15 +36,16 @@ jobs:
         run: uv python install 3.12
       - name: Install locked security tools
         run: uv sync --locked --extra security
-      - name: Export locked runtime dependencies
+      - name: Export locked runtime and release-helper dependencies
         run: >-
           uv export --locked --no-dev --no-emit-project
-          --output-file /tmp/ally-runtime-requirements.txt
-      - name: Audit locked runtime dependencies
+          --group release-helper
+          --output-file /tmp/ally-audited-requirements.txt
+      - name: Audit locked runtime and release-helper dependencies
         run: >-
           uv run pip-audit --strict --require-hashes --disable-pip
           --progress-spinner off
-          --requirement /tmp/ally-runtime-requirements.txt
+          --requirement /tmp/ally-audited-requirements.txt
       - name: Audit GitHub workflow definitions offline
         run: >-
           uv run zizmor --offline --strict-collection --format=github
