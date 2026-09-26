@@ -63,6 +63,14 @@ final class AppModel: ObservableObject {
     private var instructionResolutionToken: UUID?
     private var researchRequestToken: UUID?
     private var taskProposalToken: UUID?
+    private var snapshotRefreshToken: UUID?
+    private var memoryListRefreshToken: UUID?
+    private var knowledgeListRefreshToken: UUID?
+    private var instructionListRefreshToken: UUID?
+    private var runtimeProfilesRefreshToken: UUID?
+    private var attentionEventsRefreshToken: UUID?
+    private var attentionHistoryRefreshToken: UUID?
+    private var legacyServiceRefreshToken: UUID?
 
     init() {
         do {
@@ -94,6 +102,147 @@ final class AppModel: ObservableObject {
         isBusy = activeBusyOperations > 0
     }
 
+    private func loadSnapshot(
+        using client: any DesktopBridgeCalling
+    ) async throws {
+        let token = UUID()
+        snapshotRefreshToken = token
+        do {
+            let loaded: BootstrapSnapshot = try await client.call("bootstrap")
+            guard snapshotRefreshToken == token else { return }
+            snapshot = loaded
+        } catch {
+            guard snapshotRefreshToken == token else { return }
+            throw error
+        }
+    }
+
+    private func loadMemories(
+        using client: any DesktopBridgeCalling
+    ) async throws {
+        let token = UUID()
+        memoryListRefreshToken = token
+        do {
+            let loaded: [MemorySummary] = try await client.call(
+                "memory.list",
+                params: ["limit": .number(100)]
+            )
+            guard memoryListRefreshToken == token else { return }
+            memories = loaded
+        } catch {
+            guard memoryListRefreshToken == token else { return }
+            throw error
+        }
+    }
+
+    private func loadKnowledge(
+        using client: any DesktopBridgeCalling
+    ) async throws {
+        let token = UUID()
+        knowledgeListRefreshToken = token
+        do {
+            let loaded: [KnowledgeSourceSummary] = try await client.call(
+                "knowledge.list",
+                params: ["limit": .number(100)]
+            )
+            guard knowledgeListRefreshToken == token else { return }
+            knowledge = loaded
+        } catch {
+            guard knowledgeListRefreshToken == token else { return }
+            throw error
+        }
+    }
+
+    private func loadInstructionProfiles(
+        using client: any DesktopBridgeCalling
+    ) async throws {
+        let token = UUID()
+        instructionListRefreshToken = token
+        do {
+            let loaded: [UserInstructionsSummary] = try await client.call(
+                "instructions.list",
+                params: ["include_disabled": .bool(true)]
+            )
+            guard instructionListRefreshToken == token else { return }
+            instructionProfiles = loaded
+        } catch {
+            guard instructionListRefreshToken == token else { return }
+            throw error
+        }
+    }
+
+    private func loadRuntimeProfiles(
+        using client: any DesktopBridgeCalling
+    ) async {
+        let token = UUID()
+        runtimeProfilesRefreshToken = token
+        do {
+            let loaded: RuntimeProfileCatalogView = try await client.call(
+                "runtime.profiles"
+            )
+            guard runtimeProfilesRefreshToken == token else { return }
+            runtimeProfiles = loaded
+            errorMessage = nil
+        } catch {
+            guard runtimeProfilesRefreshToken == token else { return }
+            runtimeProfiles = nil
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func loadAttentionEvents(
+        using client: any DesktopBridgeCalling
+    ) async throws {
+        let token = UUID()
+        attentionEventsRefreshToken = token
+        do {
+            let loaded: [EventSummary] = try await client.call(
+                "attention.events",
+                params: ["limit": .number(100)]
+            )
+            guard attentionEventsRefreshToken == token else { return }
+            attentionEvents = loaded
+        } catch {
+            guard attentionEventsRefreshToken == token else { return }
+            throw error
+        }
+    }
+
+    private func loadAttentionHistory(
+        using client: any DesktopBridgeCalling
+    ) async throws {
+        let token = UUID()
+        attentionHistoryRefreshToken = token
+        do {
+            let loaded: [AttentionDeliverySummary] = try await client.call(
+                "attention.delivery_history",
+                params: ["limit": .number(100)]
+            )
+            guard attentionHistoryRefreshToken == token else { return }
+            attentionDeliveryHistory = loaded
+        } catch {
+            guard attentionHistoryRefreshToken == token else { return }
+            throw error
+        }
+    }
+
+    private func loadLegacyManagedService(
+        using client: any DesktopBridgeCalling
+    ) async {
+        let token = UUID()
+        legacyServiceRefreshToken = token
+        do {
+            let loaded: LegacyManagedServiceView = try await client.call(
+                "service.legacy_status"
+            )
+            guard legacyServiceRefreshToken == token else { return }
+            legacyManagedService = loaded
+        } catch {
+            guard legacyServiceRefreshToken == token else { return }
+            legacyManagedService = nil
+        }
+    }
+
     private func beginProactiveLoop() {
         proactiveLoopTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -119,35 +268,20 @@ final class AppModel: ObservableObject {
             guard info.protocolVersion == DesktopBridgeClient.supportedProtocolVersion else {
                 throw DesktopBridgeError.invalidResponse
             }
-            async let snapshot: BootstrapSnapshot = client.call("bootstrap")
-            async let memories: [MemorySummary] = client.call(
-                "memory.list",
-                params: ["limit": .number(100)]
+            async let snapshotLoad: Void = loadSnapshot(using: client)
+            async let memoryLoad: Void = loadMemories(using: client)
+            async let knowledgeLoad: Void = loadKnowledge(using: client)
+            async let instructionLoad: Void = loadInstructionProfiles(
+                using: client
             )
-            async let knowledge: [KnowledgeSourceSummary] = client.call(
-                "knowledge.list",
-                params: ["limit": .number(100)]
+            _ = try await (
+                snapshotLoad,
+                memoryLoad,
+                knowledgeLoad,
+                instructionLoad
             )
-            async let instructions: [UserInstructionsSummary] = client.call(
-                "instructions.list",
-                params: ["include_disabled": .bool(true)]
-            )
-            self.snapshot = try await snapshot
-            self.memories = try await memories
-            self.knowledge = try await knowledge
-            self.instructionProfiles = try await instructions
-            do {
-                self.runtimeProfiles = try await client.call("runtime.profiles")
-                self.errorMessage = nil
-            } catch {
-                self.runtimeProfiles = nil
-                self.errorMessage = error.localizedDescription
-            }
-            do {
-                self.legacyManagedService = try await client.call("service.legacy_status")
-            } catch {
-                self.legacyManagedService = nil
-            }
+            await loadRuntimeProfiles(using: client)
+            await loadLegacyManagedService(using: client)
         } catch {
             self.errorMessage = error.localizedDescription
         }
@@ -208,6 +342,8 @@ final class AppModel: ObservableObject {
 
     func selectRuntimeProfile(_ profileID: String) async {
         guard let client else { return }
+        let token = UUID()
+        runtimeProfilesRefreshToken = token
         beginBusy()
         defer { endBusy() }
         do {
@@ -215,26 +351,32 @@ final class AppModel: ObservableObject {
                 "runtime.select_profile",
                 params: ["profile_id": .string(profileID)]
             )
+            guard runtimeProfilesRefreshToken == token else { return }
             runtimeProfiles = updated
-            snapshot = try await client.call("bootstrap")
+            try await loadSnapshot(using: client)
             errorMessage = nil
         } catch {
+            guard runtimeProfilesRefreshToken == token else { return }
             errorMessage = error.localizedDescription
         }
     }
 
     func deselectRuntimeProfile() async {
         guard let client else { return }
+        let token = UUID()
+        runtimeProfilesRefreshToken = token
         beginBusy()
         defer { endBusy() }
         do {
             let updated: RuntimeProfileCatalogView = try await client.call(
                 "runtime.deselect_profile"
             )
+            guard runtimeProfilesRefreshToken == token else { return }
             runtimeProfiles = updated
-            snapshot = try await client.call("bootstrap")
+            try await loadSnapshot(using: client)
             errorMessage = nil
         } catch {
+            guard runtimeProfilesRefreshToken == token else { return }
             errorMessage = error.localizedDescription
         }
     }
@@ -298,7 +440,7 @@ final class AppModel: ObservableObject {
                     conversation = loaded
                 }
             }
-            snapshot = try await client.call("bootstrap")
+            try await loadSnapshot(using: client)
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -358,7 +500,7 @@ final class AppModel: ObservableObject {
             }
             conversationSearchToken = nil
             conversationSearchResults = []
-            snapshot = try await client.call("bootstrap")
+            try await loadSnapshot(using: client)
             errorMessage = nil
             return true
         } catch {
@@ -451,10 +593,7 @@ final class AppModel: ObservableObject {
                     "privacy": .string(privacy),
                 ]
             )
-            memories = try await client.call(
-                "memory.list",
-                params: ["limit": .number(100)]
-            )
+            try await loadMemories(using: client)
             memorySearchToken = nil
             memorySearchResults = []
             errorMessage = nil
@@ -516,10 +655,7 @@ final class AppModel: ObservableObject {
                     "indices": .array(values),
                 ]
             )
-            memories = try await client.call(
-                "memory.list",
-                params: ["limit": .number(100)]
-            )
+            try await loadMemories(using: client)
             memorySearchToken = nil
             memorySearchResults = []
             memoryProposal = nil
@@ -551,10 +687,7 @@ final class AppModel: ObservableObject {
                     "content": .string(compact),
                 ]
             )
-            memories = try await client.call(
-                "memory.list",
-                params: ["limit": .number(100)]
-            )
+            try await loadMemories(using: client)
             if
                 memorySelectionToken == selectionToken,
                 selectedMemoryID == memoryID
@@ -594,10 +727,7 @@ final class AppModel: ObservableObject {
             {
                 memoryDetail = updated
             }
-            memories = try await client.call(
-                "memory.list",
-                params: ["limit": .number(100)]
-            )
+            try await loadMemories(using: client)
             memorySearchToken = nil
             memorySearchResults = []
             errorMessage = nil
@@ -684,10 +814,7 @@ final class AppModel: ObservableObject {
             }
             knowledgeSearchToken = nil
             knowledgeSearchResults = []
-            knowledge = try await client.call(
-                "knowledge.list",
-                params: ["limit": .number(100)]
-            )
+            try await loadKnowledge(using: client)
             errorMessage = nil
             return true
         } catch {
@@ -716,10 +843,7 @@ final class AppModel: ObservableObject {
                 "knowledge.ingest_text",
                 params: payload.bridgeParams
             )
-            knowledge = try await client.call(
-                "knowledge.list",
-                params: ["limit": .number(100)]
-            )
+            try await loadKnowledge(using: client)
             if
                 knowledgeSelectionToken == selectionToken,
                 selectedKnowledgeSourceID == result.source.id
@@ -787,15 +911,12 @@ final class AppModel: ObservableObject {
                     "media_type": .string("text/plain"),
                 ]
             )
-            async let refreshedKnowledge: [KnowledgeSourceSummary] = client.call(
-                "knowledge.list",
-                params: ["limit": .number(100)]
-            )
+            async let knowledgeLoad: Void = loadKnowledge(using: client)
             async let detail: KnowledgeSourceView = client.call(
                 "knowledge.get",
                 params: ["source_id": .string(result.source.id)]
             )
-            knowledge = try await refreshedKnowledge
+            try await knowledgeLoad
             knowledgeDetail = try await detail
             knowledgeSearchToken = nil
             knowledgeSearchResults = []
@@ -812,10 +933,7 @@ final class AppModel: ObservableObject {
         beginBusy()
         defer { endBusy() }
         do {
-            instructionProfiles = try await client.call(
-                "instructions.list",
-                params: ["include_disabled": .bool(true)]
-            )
+            try await loadInstructionProfiles(using: client)
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -850,10 +968,7 @@ final class AppModel: ObservableObject {
                 "instructions.set",
                 params: params
             )
-            instructionProfiles = try await client.call(
-                "instructions.list",
-                params: ["include_disabled": .bool(true)]
-            )
+            try await loadInstructionProfiles(using: client)
             instructionResolution = nil
             errorMessage = nil
         } catch {
@@ -882,10 +997,7 @@ final class AppModel: ObservableObject {
                 "instructions.set_enabled",
                 params: params
             )
-            instructionProfiles = try await client.call(
-                "instructions.list",
-                params: ["include_disabled": .bool(true)]
-            )
+            try await loadInstructionProfiles(using: client)
             instructionResolution = nil
             errorMessage = nil
         } catch {
@@ -910,10 +1022,7 @@ final class AppModel: ObservableObject {
                 "instructions.clear",
                 params: params
             )
-            instructionProfiles = try await client.call(
-                "instructions.list",
-                params: ["include_disabled": .bool(true)]
-            )
+            try await loadInstructionProfiles(using: client)
             instructionResolution = nil
             errorMessage = nil
         } catch {
@@ -1056,16 +1165,9 @@ final class AppModel: ObservableObject {
         beginBusy()
         defer { endBusy() }
         do {
-            async let events: [EventSummary] = client.call(
-                "attention.events",
-                params: ["limit": .number(100)]
-            )
-            async let history: [AttentionDeliverySummary] = client.call(
-                "attention.delivery_history",
-                params: ["limit": .number(100)]
-            )
-            attentionEvents = try await events
-            attentionDeliveryHistory = try await history
+            async let eventsLoad: Void = loadAttentionEvents(using: client)
+            async let historyLoad: Void = loadAttentionHistory(using: client)
+            _ = try await (eventsLoad, historyLoad)
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -1119,13 +1221,9 @@ final class AppModel: ObservableObject {
             {
                 attentionDetail = updated
             }
-            async let events: [EventSummary] = client.call(
-                "attention.events",
-                params: ["limit": .number(100)]
-            )
-            async let snapshot: BootstrapSnapshot = client.call("bootstrap")
-            attentionEvents = try await events
-            self.snapshot = try await snapshot
+            async let eventsLoad: Void = loadAttentionEvents(using: client)
+            async let snapshotLoad: Void = loadSnapshot(using: client)
+            _ = try await (eventsLoad, snapshotLoad)
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -1152,25 +1250,29 @@ final class AppModel: ObservableObject {
 
     func refreshLegacyManagedServiceStatus() async {
         guard let client else {
+            legacyServiceRefreshToken = nil
             legacyManagedService = nil
             return
         }
-        do {
-            legacyManagedService = try await client.call("service.legacy_status")
-        } catch {
-            legacyManagedService = nil
-        }
+        await loadLegacyManagedService(using: client)
     }
 
     func retireLegacyManagedService() async {
         guard let client else { return }
+        let token = UUID()
+        legacyServiceRefreshToken = token
         beginBusy()
         defer { endBusy() }
         do {
-            legacyManagedService = try await client.call("service.retire_legacy")
+            let retired: LegacyManagedServiceView = try await client.call(
+                "service.retire_legacy"
+            )
+            guard legacyServiceRefreshToken == token else { return }
+            legacyManagedService = retired
             errorMessage = nil
         } catch {
-            await refreshLegacyManagedServiceStatus()
+            guard legacyServiceRefreshToken == token else { return }
+            await loadLegacyManagedService(using: client)
             errorMessage = "The legacy Ally background service could not be retired safely."
         }
     }
@@ -1283,18 +1385,14 @@ final class AppModel: ObservableObject {
                 : nil
 
             if completedRun.scheduledEvents > 0 || !outcomes.isEmpty {
-                async let snapshot: BootstrapSnapshot = client.call("bootstrap")
-                async let events: [EventSummary] = client.call(
-                    "attention.events",
-                    params: ["limit": .number(100)]
+                async let snapshotLoad: Void = loadSnapshot(using: client)
+                async let eventsLoad: Void = loadAttentionEvents(using: client)
+                async let historyLoad: Void = loadAttentionHistory(using: client)
+                _ = try await (
+                    snapshotLoad,
+                    eventsLoad,
+                    historyLoad
                 )
-                async let history: [AttentionDeliverySummary] = client.call(
-                    "attention.delivery_history",
-                    params: ["limit": .number(100)]
-                )
-                self.snapshot = try await snapshot
-                attentionEvents = try await events
-                attentionDeliveryHistory = try await history
             }
         } catch {
             proactiveCycleError = "The proactive cycle failed."
@@ -1340,7 +1438,7 @@ final class AppModel: ObservableObject {
                 params: ["plan": proposal.bridgeValue]
             )
             taskDetail = created
-            snapshot = try await client.call("bootstrap")
+            try await loadSnapshot(using: client)
             taskProposal = nil
             errorMessage = nil
             return created.task.id
@@ -1402,7 +1500,7 @@ final class AppModel: ObservableObject {
             {
                 taskDetail = updated
             }
-            snapshot = try await client.call("bootstrap")
+            try await loadSnapshot(using: client)
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -1428,7 +1526,7 @@ final class AppModel: ObservableObject {
             {
                 taskDetail = updated
             }
-            snapshot = try await client.call("bootstrap")
+            try await loadSnapshot(using: client)
             errorMessage = nil
         } catch {
             let message = error.localizedDescription
@@ -1461,7 +1559,7 @@ final class AppModel: ObservableObject {
             {
                 taskDetail = updated
             }
-            snapshot = try await client.call("bootstrap")
+            try await loadSnapshot(using: client)
             errorMessage = nil
         } catch {
             let message = error.localizedDescription
@@ -1501,7 +1599,7 @@ final class AppModel: ObservableObject {
             {
                 conversation = loaded
             }
-            snapshot = try await client.call("bootstrap")
+            try await loadSnapshot(using: client)
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
