@@ -132,7 +132,8 @@ def test_existing_database_permissions_are_tightened(tmp_path: Path) -> None:
         connection.execute("CREATE TABLE synthetic(value TEXT)")
     path.chmod(0o666)
 
-    SQLiteDatabase(path).connect().__enter__().close()
+    with SQLiteDatabase(path).connect():
+        pass
 
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
