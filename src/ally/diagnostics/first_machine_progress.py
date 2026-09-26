@@ -315,7 +315,7 @@ def collect_first_machine_progress(
                 active_profile_id=binding[0],
                 active_profile_sha256=binding[1],
             )
-        except (MachineAcceptanceEvidenceError, OSError, ValueError) as exc:
+        except (MachineAcceptanceEvidenceError, OSError, ValueError):
             machine_stage = _stage(
                 "machine_acceptance",
                 "inconsistent",
