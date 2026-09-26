@@ -5,8 +5,8 @@ implementation of an earlier one.
 
 | Phase | Status | Current implementation |
 | --- | --- | --- |
-| Foundation | Implemented | local-first architecture, tested dependency boundaries, contributor map, locked dependencies, Linux quality CI + macOS portability smoke, coverage regression gate, automated dependency maintenance, security/data boundaries, ADRs |
-| Data portability | Implemented V1.1 + native backup/validation | versioned integrity-checked SQLite backup/restore archives plus explicit native backup export and read-only archive validation; restore remains an offline recovery operation |
+| Foundation | Implemented | local-first architecture, tested dependency boundaries, contributor map, locked runtime + release-helper dependency graphs, Linux quality CI + macOS portability smoke, coverage regression gate, automated dependency maintenance, security/data boundaries, ADRs |
+| Data portability | Implemented V1.2 + native backup/validation | versioned integrity-checked SQLite backup/restore archives with streamed bounded validation, free-space checks, atomic no-overwrite publication, owner-only POSIX outputs, plus explicit native backup export/read-only validation; restore remains an offline recovery operation |
 | Configuration / secrets | Adapter implemented; machine acceptance pending | strict non-secret config, direct macOS Security-framework adapter, reference-only CLI, fail-closed tests |
 | Local conversation | Implemented V1.2 + lifecycle controls | provider-neutral private chat, bounded deterministic BM25 history search, and explicit exact-ID native deletion of conversations/messages; no remote escape hatch |
 | Application facade | Implemented V1 + desktop proactive/research services | typed UI-neutral runtime/chat/conversation/memory/knowledge services plus privacy-gated public web research, task approval/execution, pending attention/history, read-only service health/history, bounded bootstrap, and an exact-ID prepare/ack/complete handshake for signed-app notification delivery; the facade still never calls OS notification APIs or accepts caller-supplied notification payloads |
@@ -56,10 +56,11 @@ continue to advance independently.
 
 ## Pre-hardware hardening
 
-The repository pins the complete Python dependency graph in `uv.lock`. CI
-installs only that locked graph on Linux and macOS, enforces a project-wide
-coverage regression floor, and groups weekly Python and GitHub Actions updates
-for review.
+The repository pins the complete Python dependency graph in `uv.lock`, including
+the exact PyInstaller release-helper toolchain. CI installs only reviewed locked
+groups on Linux and macOS, audits the runtime + release-helper graph with hashes,
+enforces a project-wide coverage regression floor, and groups weekly Python and
+GitHub Actions updates for review.
 
 Distribution gates on both platforms build an sdist and wheel, check packaged
 modules and frozen evaluations, and exercise installed workflows in a fresh
@@ -67,8 +68,11 @@ environment outside the checkout. Synthetic loopback inference, persisted state,
 skill subprocesses, and backup/restore can be verified before hardware arrives.
 
 Recovery tests cover every existing schema prefix, atomic rollback, simultaneous
-startup, invalid history, foreign-key corruption, and backup/restore destination
-collisions. These checks protect persistent state before first-machine usage.
+startup, invalid history, foreign-key corruption, backup/restore destination
+collisions, bounded streamed archive extraction, and low-disk failure. On POSIX,
+live Ally SQLite files plus newly created backup/restored outputs are tightened
+to owner-only `0600`; final database symlinks/non-regular files fail closed.
+These checks protect persistent state before first-machine usage.
 
 The historical macOS LaunchAgent definition and lifecycle remain testable
 without the dedicated machine for compatibility and migration. New signed-app
@@ -103,10 +107,16 @@ capability/privacy/workflow/validated-profile chain from the candidate validatio
 session. It remains evidence-only.
 
 The local macOS release orchestrator consumes that verified boundary in
-production mode, requires clean exact-source provenance, composes helper build,
-bundle assembly, Developer ID signing, notarization, archive verification, and
-path-free artifact metadata, and still has no tag/upload/publish or installed-app
-replacement authority.
+production mode, requires clean exact-source provenance, builds its frozen helper
+from a checked-in locked dependency group, composes bundle assembly, Developer ID
+signing, notarization and archive verification, and records path-free build
+environment/toolchain provenance. It still has no tag/upload/publish or
+installed-app replacement authority.
+
+The first-machine handoff is also exercised from a clean-installed macOS wheel:
+the read-only inspector proves the qualified+active candidate -> machine
+acceptance -> release-readiness transitions without treating hosted CI as real
+empirical machine acceptance.
 
 ## Hardware handoff
 
