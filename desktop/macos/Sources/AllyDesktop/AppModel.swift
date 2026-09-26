@@ -46,6 +46,16 @@ final class AppModel: ObservableObject {
     private let backgroundServiceClient = DesktopBackgroundServiceClient()
     private var proactiveLoopTask: Task<Void, Never>?
     private var proactiveCycleRunning = false
+    private var activeBusyOperations = 0
+    private var conversationSelectionToken: UUID?
+    private var memorySelectionToken: UUID?
+    private var knowledgeSelectionToken: UUID?
+    private var taskSelectionToken: UUID?
+    private var attentionSelectionToken: UUID?
+    private var selectedMemoryID: String?
+    private var selectedKnowledgeSourceID: String?
+    private var selectedTaskID: String?
+    private var selectedAttentionID: String?
 
     init() {
         do {
@@ -67,6 +77,16 @@ final class AppModel: ObservableObject {
         }
     }
 
+    private func beginBusy() {
+        activeBusyOperations += 1
+        isBusy = activeBusyOperations > 0
+    }
+
+    private func endBusy() {
+        activeBusyOperations = max(0, activeBusyOperations - 1)
+        isBusy = activeBusyOperations > 0
+    }
+
     private func beginProactiveLoop() {
         proactiveLoopTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -85,8 +105,8 @@ final class AppModel: ObservableObject {
 
     func refresh() async {
         guard let client else { return }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             let info: BridgeInfo = try await client.call("bridge.info")
             guard info.protocolVersion == DesktopBridgeClient.supportedProtocolVersion else {
@@ -134,8 +154,8 @@ final class AppModel: ObservableObject {
             errorMessage = "Portable backups require an absolute .ally-backup file path."
             return
         }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             portableBackupManifest = try await client.call(
                 "data.backup",
@@ -156,8 +176,8 @@ final class AppModel: ObservableObject {
             errorMessage = "Portable backups require an absolute .ally-backup file path."
             return
         }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             portableBackupManifest = try await client.call(
                 "data.validate_backup",
@@ -181,8 +201,8 @@ final class AppModel: ObservableObject {
 
     func selectRuntimeProfile(_ profileID: String) async {
         guard let client else { return }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             let updated: RuntimeProfileCatalogView = try await client.call(
                 "runtime.select_profile",
@@ -198,8 +218,8 @@ final class AppModel: ObservableObject {
 
     func deselectRuntimeProfile() async {
         guard let client else { return }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             let updated: RuntimeProfileCatalogView = try await client.call(
                 "runtime.deselect_profile"
@@ -214,33 +234,64 @@ final class AppModel: ObservableObject {
 
     func selectConversation(_ id: String) async {
         guard let client else { return }
+        let token = UUID()
+        conversationSelectionToken = token
         selectedConversationID = id
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
-            conversation = try await client.call(
+            let loaded: ConversationView = try await client.call(
                 "conversation.get",
                 params: ["conversation_id": .string(id)]
             )
+            guard
+                conversationSelectionToken == token,
+                selectedConversationID == id
+            else {
+                return
+            }
+            conversation = loaded
             errorMessage = nil
         } catch {
+            guard
+                conversationSelectionToken == token,
+                selectedConversationID == id
+            else {
+                return
+            }
             errorMessage = error.localizedDescription
         }
     }
 
     func createConversation() async {
         guard let client else { return }
-        isBusy = true
-        defer { isBusy = false }
+        let selectionTokenAtStart = conversationSelectionToken
+        let selectedIDAtStart = selectedConversationID
+        beginBusy()
+        defer { endBusy() }
         do {
-            let created: ConversationSummary = try await client.call("conversation.create")
-            selectedConversationID = created.id
-            conversation = try await client.call(
-                "conversation.get",
-                params: ["conversation_id": .string(created.id)]
+            let created: ConversationSummary = try await client.call(
+                "conversation.create"
             )
-            let refreshed: BootstrapSnapshot = try await client.call("bootstrap")
-            snapshot = refreshed
+            let shouldSelectCreated =
+                conversationSelectionToken == selectionTokenAtStart
+                && selectedConversationID == selectedIDAtStart
+            if shouldSelectCreated {
+                let token = UUID()
+                conversationSelectionToken = token
+                selectedConversationID = created.id
+                let loaded: ConversationView = try await client.call(
+                    "conversation.get",
+                    params: ["conversation_id": .string(created.id)]
+                )
+                if
+                    conversationSelectionToken == token,
+                    selectedConversationID == created.id
+                {
+                    conversation = loaded
+                }
+            }
+            snapshot = try await client.call("bootstrap")
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -255,8 +306,8 @@ final class AppModel: ObservableObject {
             return
         }
         conversationSearchResults = []
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             conversationSearchResults = try await client.call(
                 "conversation.search",
@@ -277,17 +328,20 @@ final class AppModel: ObservableObject {
 
     func deleteConversation(_ id: String) async -> Bool {
         guard let client else { return false }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             let deleted: Bool = try await client.call(
                 "conversation.delete",
                 params: ["conversation_id": .string(id)]
             )
             guard deleted else { return false }
-            selectedConversationID = nil
-            conversation = nil
-            composer = ""
+            if selectedConversationID == id {
+                conversationSelectionToken = nil
+                selectedConversationID = nil
+                conversation = nil
+                composer = ""
+            }
             conversationSearchResults = []
             snapshot = try await client.call("bootstrap")
             errorMessage = nil
@@ -300,15 +354,31 @@ final class AppModel: ObservableObject {
 
     func selectMemory(_ id: String) async {
         guard let client else { return }
-        isBusy = true
-        defer { isBusy = false }
+        let token = UUID()
+        memorySelectionToken = token
+        selectedMemoryID = id
+        beginBusy()
+        defer { endBusy() }
         do {
-            memoryDetail = try await client.call(
+            let loaded: MemorySummary = try await client.call(
                 "memory.get",
                 params: ["memory_id": .string(id)]
             )
+            guard
+                memorySelectionToken == token,
+                selectedMemoryID == id
+            else {
+                return
+            }
+            memoryDetail = loaded
             errorMessage = nil
         } catch {
+            guard
+                memorySelectionToken == token,
+                selectedMemoryID == id
+            else {
+                return
+            }
             errorMessage = error.localizedDescription
         }
     }
@@ -320,8 +390,8 @@ final class AppModel: ObservableObject {
             memorySearchResults = []
             return
         }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             memorySearchResults = try await client.call(
                 "memory.search",
@@ -346,8 +416,8 @@ final class AppModel: ObservableObject {
         guard let client else { return false }
         let compact = content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !compact.isEmpty else { return false }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             let _: MemorySummary = try await client.call(
                 "memory.remember",
@@ -382,8 +452,8 @@ final class AppModel: ObservableObject {
             memoryProposal = nil
             return
         }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             memoryProposal = try await client.call(
                 "memory.propose",
@@ -404,8 +474,8 @@ final class AppModel: ObservableObject {
         guard let client, let proposal = memoryProposal, !indices.isEmpty else {
             return false
         }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             let values = indices.sorted().map { JSONValue.number(Double($0)) }
             let _: [MemorySummary] = try await client.call(
@@ -437,8 +507,9 @@ final class AppModel: ObservableObject {
         guard let client else { return }
         let compact = content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !compact.isEmpty else { return }
-        isBusy = true
-        defer { isBusy = false }
+        let selectionToken = memorySelectionToken
+        beginBusy()
+        defer { endBusy() }
         do {
             let _: MemorySummary = try await client.call(
                 "memory.supersede",
@@ -447,16 +518,25 @@ final class AppModel: ObservableObject {
                     "content": .string(compact),
                 ]
             )
-            async let refreshedMemories: [MemorySummary] = client.call(
+            memories = try await client.call(
                 "memory.list",
                 params: ["limit": .number(100)]
             )
-            async let original: MemorySummary = client.call(
-                "memory.get",
-                params: ["memory_id": .string(memoryID)]
-            )
-            memories = try await refreshedMemories
-            memoryDetail = try await original
+            if
+                memorySelectionToken == selectionToken,
+                selectedMemoryID == memoryID
+            {
+                let original: MemorySummary = try await client.call(
+                    "memory.get",
+                    params: ["memory_id": .string(memoryID)]
+                )
+                if
+                    memorySelectionToken == selectionToken,
+                    selectedMemoryID == memoryID
+                {
+                    memoryDetail = original
+                }
+            }
             memorySearchResults = []
             errorMessage = nil
         } catch {
@@ -466,14 +546,20 @@ final class AppModel: ObservableObject {
 
     func retractMemory(_ memoryID: String) async {
         guard let client else { return }
-        isBusy = true
-        defer { isBusy = false }
+        let selectionToken = memorySelectionToken
+        beginBusy()
+        defer { endBusy() }
         do {
             let updated: MemorySummary = try await client.call(
                 "memory.retract",
                 params: ["memory_id": .string(memoryID)]
             )
-            memoryDetail = updated
+            if
+                memorySelectionToken == selectionToken,
+                selectedMemoryID == memoryID
+            {
+                memoryDetail = updated
+            }
             memories = try await client.call(
                 "memory.list",
                 params: ["limit": .number(100)]
@@ -487,15 +573,31 @@ final class AppModel: ObservableObject {
 
     func selectKnowledgeSource(_ id: String) async {
         guard let client else { return }
-        isBusy = true
-        defer { isBusy = false }
+        let token = UUID()
+        knowledgeSelectionToken = token
+        selectedKnowledgeSourceID = id
+        beginBusy()
+        defer { endBusy() }
         do {
-            knowledgeDetail = try await client.call(
+            let loaded: KnowledgeSourceView = try await client.call(
                 "knowledge.get",
                 params: ["source_id": .string(id)]
             )
+            guard
+                knowledgeSelectionToken == token,
+                selectedKnowledgeSourceID == id
+            else {
+                return
+            }
+            knowledgeDetail = loaded
             errorMessage = nil
         } catch {
+            guard
+                knowledgeSelectionToken == token,
+                selectedKnowledgeSourceID == id
+            else {
+                return
+            }
             errorMessage = error.localizedDescription
         }
     }
@@ -507,8 +609,8 @@ final class AppModel: ObservableObject {
             knowledgeSearchResults = []
             return
         }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             knowledgeSearchResults = try await client.call(
                 "knowledge.search",
@@ -525,15 +627,19 @@ final class AppModel: ObservableObject {
 
     func deleteKnowledgeSource(_ id: String) async -> Bool {
         guard let client else { return false }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             let deleted: Bool = try await client.call(
                 "knowledge.delete",
                 params: ["source_id": .string(id)]
             )
             guard deleted else { return false }
-            knowledgeDetail = nil
+            if selectedKnowledgeSourceID == id {
+                knowledgeSelectionToken = nil
+                selectedKnowledgeSourceID = nil
+                knowledgeDetail = nil
+            }
             knowledgeSearchResults = []
             knowledge = try await client.call(
                 "knowledge.list",
@@ -558,24 +664,34 @@ final class AppModel: ObservableObject {
             source: source,
             text: compact
         )
+        let selectionToken = knowledgeSelectionToken
 
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             let result: KnowledgeIngestResult = try await client.call(
                 "knowledge.ingest_text",
                 params: payload.bridgeParams
             )
-            async let refreshedKnowledge: [KnowledgeSourceSummary] = client.call(
+            knowledge = try await client.call(
                 "knowledge.list",
                 params: ["limit": .number(100)]
             )
-            async let detail: KnowledgeSourceView = client.call(
-                "knowledge.get",
-                params: ["source_id": .string(result.source.id)]
-            )
-            knowledge = try await refreshedKnowledge
-            knowledgeDetail = try await detail
+            if
+                knowledgeSelectionToken == selectionToken,
+                selectedKnowledgeSourceID == result.source.id
+            {
+                let detail: KnowledgeSourceView = try await client.call(
+                    "knowledge.get",
+                    params: ["source_id": .string(result.source.id)]
+                )
+                if
+                    knowledgeSelectionToken == selectionToken,
+                    selectedKnowledgeSourceID == result.source.id
+                {
+                    knowledgeDetail = detail
+                }
+            }
             knowledgeSearchResults = []
             errorMessage = nil
             return true
@@ -614,8 +730,8 @@ final class AppModel: ObservableObject {
         sourceKind: String
     ) async {
         guard let client else { return }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             let uri = "ally-desktop://\(sourceKind)/\(UUID().uuidString.lowercased())"
             let result: KnowledgeIngestResult = try await client.call(
@@ -646,8 +762,8 @@ final class AppModel: ObservableObject {
 
     func refreshInstructions() async {
         guard let client else { return }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             instructionProfiles = try await client.call(
                 "instructions.list",
@@ -678,8 +794,8 @@ final class AppModel: ObservableObject {
                 scopeKey.trimmingCharacters(in: .whitespacesAndNewlines)
             )
         }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             let _: UserInstructionsSummary = try await client.call(
                 "instructions.set",
@@ -708,8 +824,8 @@ final class AppModel: ObservableObject {
         if profile.scope != "global" {
             params["scope_key"] = .string(profile.scopeKey)
         }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             let _: UserInstructionsSummary = try await client.call(
                 "instructions.set_enabled",
@@ -734,8 +850,8 @@ final class AppModel: ObservableObject {
         if profile.scope != "global" {
             params["scope_key"] = .string(profile.scopeKey)
         }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             let _: Bool = try await client.call(
                 "instructions.clear",
@@ -771,8 +887,8 @@ final class AppModel: ObservableObject {
                 params[name] = .string(compact)
             }
         }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             instructionResolution = try await client.call(
                 "instructions.resolve",
@@ -801,8 +917,8 @@ final class AppModel: ObservableObject {
         researchSynthesis = nil
         researchSynthesisStatus = nil
         researchMoreResultsAvailable = false
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             researchInspection = try await client.call(
                 "research.inspect",
@@ -824,8 +940,8 @@ final class AppModel: ObservableObject {
         guard let client else { return }
         let compact = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !compact.isEmpty else { return }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             let execution: WebResearchAnswerExecution = try await client.call(
                 "research.answer",
@@ -871,8 +987,8 @@ final class AppModel: ObservableObject {
 
     func refreshAttention() async {
         guard let client else { return }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             async let events: [EventSummary] = client.call(
                 "attention.events",
@@ -892,29 +1008,51 @@ final class AppModel: ObservableObject {
 
     func selectAttention(_ id: String) async {
         guard let client else { return }
-        isBusy = true
-        defer { isBusy = false }
+        let token = UUID()
+        attentionSelectionToken = token
+        selectedAttentionID = id
+        beginBusy()
+        defer { endBusy() }
         do {
-            attentionDetail = try await client.call(
+            let loaded: AttentionEventView = try await client.call(
                 "attention.get",
                 params: ["event_id": .string(id)]
             )
+            guard
+                attentionSelectionToken == token,
+                selectedAttentionID == id
+            else {
+                return
+            }
+            attentionDetail = loaded
             errorMessage = nil
         } catch {
+            guard
+                attentionSelectionToken == token,
+                selectedAttentionID == id
+            else {
+                return
+            }
             errorMessage = error.localizedDescription
         }
     }
 
     func markAttentionHandled(_ id: String) async {
         guard let client else { return }
-        isBusy = true
-        defer { isBusy = false }
+        let selectionToken = attentionSelectionToken
+        beginBusy()
+        defer { endBusy() }
         do {
             let updated: AttentionEventView = try await client.call(
                 "attention.mark_handled",
                 params: ["event_id": .string(id)]
             )
-            attentionDetail = updated
+            if
+                attentionSelectionToken == selectionToken,
+                selectedAttentionID == id
+            {
+                attentionDetail = updated
+            }
             async let events: [EventSummary] = client.call(
                 "attention.events",
                 params: ["limit": .number(100)]
@@ -933,8 +1071,8 @@ final class AppModel: ObservableObject {
     }
 
     func requestNotificationAuthorization() async {
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             notificationAuthorization = try await notificationAuthorizationClient.requestAuthorization()
             errorMessage = nil
@@ -960,8 +1098,8 @@ final class AppModel: ObservableObject {
 
     func retireLegacyManagedService() async {
         guard let client else { return }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             legacyManagedService = try await client.call("service.retire_legacy")
             errorMessage = nil
@@ -1104,8 +1242,8 @@ final class AppModel: ObservableObject {
             taskProposal = nil
             return
         }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             taskProposal = try await client.call(
                 "task.propose",
@@ -1120,8 +1258,8 @@ final class AppModel: ObservableObject {
 
     func createProposedTask() async -> String? {
         guard let client, let proposal = taskProposal else { return nil }
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             let created: TaskView = try await client.call(
                 "task.create",
@@ -1144,29 +1282,51 @@ final class AppModel: ObservableObject {
 
     func selectTask(_ id: String) async {
         guard let client else { return }
-        isBusy = true
-        defer { isBusy = false }
+        let token = UUID()
+        taskSelectionToken = token
+        selectedTaskID = id
+        beginBusy()
+        defer { endBusy() }
         do {
-            taskDetail = try await client.call(
+            let loaded: TaskView = try await client.call(
                 "task.get",
                 params: ["task_id": .string(id)]
             )
+            guard
+                taskSelectionToken == token,
+                selectedTaskID == id
+            else {
+                return
+            }
+            taskDetail = loaded
             errorMessage = nil
         } catch {
+            guard
+                taskSelectionToken == token,
+                selectedTaskID == id
+            else {
+                return
+            }
             errorMessage = error.localizedDescription
         }
     }
 
     func runTask(_ id: String) async {
         guard let client else { return }
-        isBusy = true
-        defer { isBusy = false }
+        let selectionToken = taskSelectionToken
+        beginBusy()
+        defer { endBusy() }
         do {
             let updated: TaskView = try await client.call(
                 "task.run",
                 params: ["task_id": .string(id)]
             )
-            taskDetail = updated
+            if
+                taskSelectionToken == selectionToken,
+                selectedTaskID == id
+            {
+                taskDetail = updated
+            }
             snapshot = try await client.call("bootstrap")
             errorMessage = nil
         } catch {
@@ -1176,8 +1336,9 @@ final class AppModel: ObservableObject {
 
     func approveTaskStep(taskID: String, stepID: String) async {
         guard let client else { return }
-        isBusy = true
-        defer { isBusy = false }
+        let selectionToken = taskSelectionToken
+        beginBusy()
+        defer { endBusy() }
         do {
             let updated: TaskView = try await client.call(
                 "task.approve_step",
@@ -1186,20 +1347,31 @@ final class AppModel: ObservableObject {
                     "step_id": .string(stepID),
                 ]
             )
-            taskDetail = updated
+            if
+                taskSelectionToken == selectionToken,
+                selectedTaskID == taskID
+            {
+                taskDetail = updated
+            }
             snapshot = try await client.call("bootstrap")
             errorMessage = nil
         } catch {
             let message = error.localizedDescription
-            await selectTask(taskID)
+            if
+                taskSelectionToken == selectionToken,
+                selectedTaskID == taskID
+            {
+                await selectTask(taskID)
+            }
             errorMessage = message
         }
     }
 
     func retryTaskStep(taskID: String, stepID: String) async {
         guard let client else { return }
-        isBusy = true
-        defer { isBusy = false }
+        let selectionToken = taskSelectionToken
+        beginBusy()
+        defer { endBusy() }
         do {
             let updated: TaskView = try await client.call(
                 "task.retry_step",
@@ -1208,12 +1380,22 @@ final class AppModel: ObservableObject {
                     "step_id": .string(stepID),
                 ]
             )
-            taskDetail = updated
+            if
+                taskSelectionToken == selectionToken,
+                selectedTaskID == taskID
+            {
+                taskDetail = updated
+            }
             snapshot = try await client.call("bootstrap")
             errorMessage = nil
         } catch {
             let message = error.localizedDescription
-            await selectTask(taskID)
+            if
+                taskSelectionToken == selectionToken,
+                selectedTaskID == taskID
+            {
+                await selectTask(taskID)
+            }
             errorMessage = message
         }
     }
@@ -1222,9 +1404,10 @@ final class AppModel: ObservableObject {
         guard let client, let id = selectedConversationID else { return }
         let text = composer.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+        let selectionToken = conversationSelectionToken
         composer = ""
-        isBusy = true
-        defer { isBusy = false }
+        beginBusy()
+        defer { endBusy() }
         do {
             let _: ChatTurnResult = try await client.call(
                 "conversation.send",
@@ -1233,10 +1416,16 @@ final class AppModel: ObservableObject {
                     "message": .string(text),
                 ]
             )
-            conversation = try await client.call(
+            let loaded: ConversationView = try await client.call(
                 "conversation.get",
                 params: ["conversation_id": .string(id)]
             )
+            if
+                conversationSelectionToken == selectionToken,
+                selectedConversationID == id
+            {
+                conversation = loaded
+            }
             snapshot = try await client.call("bootstrap")
             errorMessage = nil
         } catch {
