@@ -1,8 +1,7 @@
-import json
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
-from zipfile import ZIP_DEFLATED, ZipFile
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 import pytest
 from pydantic import SecretStr
@@ -16,6 +15,7 @@ from ally.portability import (
     restore_backup,
     validate_backup,
 )
+from ally.portability.backup import BackupManifest
 from ally.scheduler import NewSchedule
 from ally.secrets import InMemorySecretStore
 from ally.skills import SkillExecutionResult
@@ -240,14 +240,13 @@ def test_backup_validation_streams_database_member(
 
     def guarded_read(
         bundle: ZipFile,
-        name: str | object,
-        *args: object,
-        **kwargs: object,
+        name: str | ZipInfo,
+        pwd: bytes | None = None,
     ) -> bytes:
-        filename = getattr(name, "filename", name)
+        filename = name.filename if isinstance(name, ZipInfo) else name
         if filename == "ally.sqlite3":
             raise AssertionError("database member must be streamed, not read wholesale")
-        return original_read(bundle, name, *args, **kwargs)  # type: ignore[arg-type]
+        return original_read(bundle, name, pwd)
 
     monkeypatch.setattr(ZipFile, "read", guarded_read)
 
@@ -281,15 +280,23 @@ def test_backup_validation_rejects_manifest_member_size_mismatch(
     create_backup(SQLiteDatabase(source), archive)
 
     with ZipFile(archive, mode="r") as original:
-        manifest = json.loads(original.read("manifest.json"))
+        manifest = BackupManifest.model_validate_json(
+            original.read("manifest.json")
+        )
         database = original.read("ally.sqlite3")
 
-    manifest["database"]["size_bytes"] += 1
+    invalid_manifest = manifest.model_copy(
+        update={
+            "database": manifest.database.model_copy(
+                update={"size_bytes": manifest.database.size_bytes + 1}
+            )
+        }
+    )
     invalid = tmp_path / "size-mismatch.ally-backup"
     with ZipFile(invalid, mode="w", compression=ZIP_DEFLATED) as bundle:
         bundle.writestr(
             "manifest.json",
-            json.dumps(manifest, sort_keys=True).encode("utf-8"),
+            invalid_manifest.model_dump_json().encode("utf-8"),
         )
         bundle.writestr("ally.sqlite3", database)
 
@@ -319,7 +326,8 @@ def test_restore_streams_snapshot_copy_without_read_bytes(
     restore_backup(archive, destination)
 
     assert destination.is_file()
-    assert SQLiteDatabase(destination).schema_version() >= 1
+    with SQLiteDatabase(destination).connect() as connection:
+        assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)
 
 
 def test_backup_validation_rejects_tampered_database(tmp_path: Path) -> None:
