@@ -161,6 +161,16 @@ def test_sqlite_wal_sidecars_remain_owner_only(tmp_path: Path) -> None:
         os.umask(previous_umask)
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX file type semantics required")
+def test_database_non_regular_file_is_refused(tmp_path: Path) -> None:
+    path = tmp_path / "ally.sqlite3"
+    os.mkfifo(path)
+
+    with pytest.raises(DatabaseMigrationError, match="private permissions"):
+        with SQLiteDatabase(path).connect():
+            pass
+
+
 @pytest.mark.skipif(os.name != "posix", reason="POSIX symlink semantics required")
 def test_database_final_symlink_is_refused(tmp_path: Path) -> None:
     target = tmp_path / "target.sqlite3"
