@@ -166,9 +166,11 @@ def test_database_non_regular_file_is_refused(tmp_path: Path) -> None:
     path = tmp_path / "ally.sqlite3"
     os.mkfifo(path)
 
-    with pytest.raises(DatabaseMigrationError, match="private permissions"):
-        with SQLiteDatabase(path).connect():
-            pass
+    with (
+        pytest.raises(DatabaseMigrationError, match="private permissions"),
+        SQLiteDatabase(path).connect(),
+    ):
+        pass
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX symlink semantics required")
@@ -179,9 +181,11 @@ def test_database_final_symlink_is_refused(tmp_path: Path) -> None:
     path = tmp_path / "ally.sqlite3"
     path.symlink_to(target)
 
-    with pytest.raises(DatabaseMigrationError, match="private permissions"):
-        with SQLiteDatabase(path).connect():
-            pass
+    with (
+        pytest.raises(DatabaseMigrationError, match="private permissions"),
+        SQLiteDatabase(path).connect(),
+    ):
+        pass
 
     assert target.read_bytes() == b"must not be touched"
     assert stat.S_IMODE(target.stat().st_mode) == 0o644
