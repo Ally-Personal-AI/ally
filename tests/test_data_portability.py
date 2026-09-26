@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from uuid import UUID
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
@@ -282,12 +283,13 @@ def test_backup_validation_rejects_insufficient_temporary_space(
     archive = tmp_path / "state.ally-backup"
     create_backup(SQLiteDatabase(source), archive)
 
+    def no_space_disk_usage(_path: object) -> Any:
+        return SimpleNamespace(free=64 * 1024 * 1024)
+
     monkeypatch.setattr(
         backup_module.shutil,
         "disk_usage",
-        lambda _path: SimpleNamespace(
-            free=backup_module._MIN_FREE_SPACE_RESERVE_BYTES
-        ),
+        no_space_disk_usage,
     )
 
     with pytest.raises(BackupValidationError, match="insufficient free space"):
