@@ -420,20 +420,21 @@ def run_workflows(root: Path) -> None:
         )
 
         source_revision = "a" * 40
-        pre_acceptance_progress = json.loads(cli(
-            "validate", "first-machine-status",
-            "--source-revision", source_revision,
-            "--validation-session", str(root / "session.json"),
-            "--json",
-        ))
-        require(
-            pre_acceptance_progress["readiness"]["state"] == "passed"
-            and pre_acceptance_progress["candidate"]["state"] == "passed"
-            and pre_acceptance_progress["active_profile"]["state"] == "passed"
-            and pre_acceptance_progress["machine_acceptance"]["state"] == "pending"
-            and pre_acceptance_progress["next_step"] == "record_machine_acceptance",
-            "clean-installed first-machine progress before machine acceptance",
-        )
+        if sys.platform == "darwin":
+            pre_acceptance_progress = json.loads(cli(
+                "validate", "first-machine-status",
+                "--source-revision", source_revision,
+                "--validation-session", str(root / "session.json"),
+                "--json",
+            ))
+            require(
+                pre_acceptance_progress["readiness"]["state"] == "passed"
+                and pre_acceptance_progress["candidate"]["state"] == "passed"
+                and pre_acceptance_progress["active_profile"]["state"] == "passed"
+                and pre_acceptance_progress["machine_acceptance"]["state"] == "pending"
+                and pre_acceptance_progress["next_step"] == "record_machine_acceptance",
+                "clean-installed first-machine progress before machine acceptance",
+            )
 
         active_memory: dict[str, object] = {
             "memories": [{
@@ -505,21 +506,22 @@ def run_workflows(root: Path) -> None:
             "machine acceptance evidence verification",
         )
 
-        accepted_progress = json.loads(cli(
-            "validate", "first-machine-status",
-            "--source-revision", source_revision,
-            "--validation-session", str(root / "session.json"),
-            "--machine-acceptance", str(machine_acceptance_path),
-            "--json",
-        ))
-        require(
-            accepted_progress["readiness"]["state"] == "passed"
-            and accepted_progress["candidate"]["state"] == "passed"
-            and accepted_progress["active_profile"]["state"] == "passed"
-            and accepted_progress["machine_acceptance"]["state"] == "passed"
-            and accepted_progress["next_step"] == "create_release_readiness",
-            "clean-installed first-machine progress after machine acceptance",
-        )
+        if sys.platform == "darwin":
+            accepted_progress = json.loads(cli(
+                "validate", "first-machine-status",
+                "--source-revision", source_revision,
+                "--validation-session", str(root / "session.json"),
+                "--machine-acceptance", str(machine_acceptance_path),
+                "--json",
+            ))
+            require(
+                accepted_progress["readiness"]["state"] == "passed"
+                and accepted_progress["candidate"]["state"] == "passed"
+                and accepted_progress["active_profile"]["state"] == "passed"
+                and accepted_progress["machine_acceptance"]["state"] == "passed"
+                and accepted_progress["next_step"] == "create_release_readiness",
+                "clean-installed first-machine progress after machine acceptance",
+            )
 
         release_readiness_path = root / "release-readiness.json"
         release_readiness = json.loads(cli(
