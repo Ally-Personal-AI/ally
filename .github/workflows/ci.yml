@@ -84,6 +84,16 @@ jobs:
               "pyinstaller": "6.22.3",
               "pyinstaller-hooks-contrib": "2026.7",
           }
+          environment = metadata["build_environment"]
+          assert environment["python_implementation"] == "CPython"
+          assert environment["uv_version"] == "uv 0.12.15"
+          for key in (
+              "python_version",
+              "swift_version",
+              "macos_version",
+              "architecture",
+          ):
+              assert isinstance(environment[key], str) and environment[key]
           PY
       - name: Test native macOS desktop package
         env:
