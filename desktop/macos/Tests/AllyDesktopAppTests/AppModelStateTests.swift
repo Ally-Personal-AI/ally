@@ -32,6 +32,7 @@ private actor AsyncGate {
 private enum FakeReply: Sendable {
     case json(String)
     case gatedJSON(String, AsyncGate)
+    case gatedFailure(DesktopBridgeError, AsyncGate)
     case failure(DesktopBridgeError)
 }
 
@@ -67,6 +68,9 @@ private actor FakeBridgeClient: DesktopBridgeCalling {
 
         switch reply {
         case .failure(let error):
+            throw error
+        case .gatedFailure(let error, let gate):
+            await gate.wait()
             throw error
         case .gatedJSON(let payload, let gate):
             await gate.wait()
@@ -115,6 +119,23 @@ private func waitForCallCount(
         await Task.yield()
     }
     Issue.record("Timed out waiting for synthetic bridge calls.")
+}
+
+private func waitForMethodCallCount(
+    _ expected: Int,
+    method: String,
+    bridge: FakeBridgeClient
+) async {
+    for _ in 0..<2_000 {
+        let count = await bridge.calls()
+            .filter { $0.method == method }
+            .count
+        if count >= expected {
+            return
+        }
+        await Task.yield()
+    }
+    Issue.record("Timed out waiting for synthetic \(method) calls.")
 }
 
 private let emptyBootstrapJSON = #"{"runtime":{"state":"unavailable","target":null,"error_code":"active_profile_unavailable"},"conversations":{"state":"available","items":[],"error_code":null},"tasks":{"state":"available","items":[],"error_code":null},"pending_attention":{"state":"available","items":[],"error_code":null},"attention_history":{"state":"available","items":[],"error_code":null},"service_history":{"state":"available","items":[],"error_code":null},"service_health":{"state":"available","report":{"status":"healthy","checks":[]},"error_code":null}}"#
@@ -241,11 +262,15 @@ private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
         replies: [
             "knowledge.ingest_text": [.json(knowledgeIngestV2JSON)],
             "knowledge.list": [.json("[\(knowledgeSourceV2JSON)]")],
-            "knowledge.get": [.json(knowledgeDetailV2JSON)],
+            "knowledge.get": [
+                .json(knowledgeDetailV1JSON),
+                .json(knowledgeDetailV2JSON),
+            ],
         ]
     )
     let model = AppModel(client: bridge)
     let source = try decode(KnowledgeSourceSummary.self, knowledgeSourceV1JSON)
+    await model.selectKnowledgeSource(source.id)
     model.knowledgeSearchResults = try decode(
         [KnowledgeSearchResult].self,
         knowledgeSearchJSON
@@ -280,14 +305,14 @@ private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
 @Test func knowledgeDeletionClearsDetailAndSearchThenRefreshesList() async throws {
     let bridge = FakeBridgeClient(
         replies: [
+            "knowledge.get": [.json(knowledgeDetailV2JSON)],
             "knowledge.delete": [.json("true")],
             "knowledge.list": [.json("[]")],
         ]
     )
     let model = AppModel(client: bridge)
-    model.knowledgeDetail = try decode(
-        KnowledgeSourceView.self,
-        knowledgeDetailV2JSON
+    await model.selectKnowledgeSource(
+        "00000000-0000-0000-0000-000000000020"
     )
     model.knowledgeSearchResults = try decode(
         [KnowledgeSearchResult].self,
@@ -437,4 +462,280 @@ private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
     #expect(model.researchStatus == nil)
     #expect(model.researchMoreResultsAvailable == false)
     #expect(model.errorMessage == "Synthetic research failure.")
+}
+
+
+@MainActor
+@Test func overlappingConversationLoadsKeepBusyAndNewestSelection() async {
+    let olderGate = AsyncGate()
+    let newerGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "conversation.get": [
+                .gatedJSON(conversationViewJSON, olderGate),
+                .gatedJSON(newerConversationViewJSON, newerGate),
+            ],
+        ]
+    )
+    let model = AppModel(client: bridge)
+    let olderID = "00000000-0000-0000-0000-000000000001"
+    let newerID = "00000000-0000-0000-0000-000000000003"
+
+    let olderTask = Task { await model.selectConversation(olderID) }
+    await waitForCallCount(1, bridge: bridge)
+    let newerTask = Task { await model.selectConversation(newerID) }
+    await waitForCallCount(2, bridge: bridge)
+
+    #expect(model.isBusy)
+    await newerGate.open()
+    await newerTask.value
+    #expect(model.selectedConversationID == newerID)
+    #expect(model.conversation?.conversation.id == newerID)
+    #expect(model.isBusy)
+
+    await olderGate.open()
+    await olderTask.value
+    #expect(model.selectedConversationID == newerID)
+    #expect(model.conversation?.conversation.id == newerID)
+    #expect(model.isBusy == false)
+}
+
+@MainActor
+@Test func staleConversationFailureCannotOverwriteNewerSuccess() async {
+    let olderGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "conversation.get": [
+                .gatedFailure(
+                    .requestFailed(
+                        code: "synthetic_old_failure",
+                        message: "Older request failed."
+                    ),
+                    olderGate
+                ),
+                .json(newerConversationViewJSON),
+            ],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let olderTask = Task {
+        await model.selectConversation(
+            "00000000-0000-0000-0000-000000000001"
+        )
+    }
+    await waitForCallCount(1, bridge: bridge)
+    await model.selectConversation(
+        "00000000-0000-0000-0000-000000000003"
+    )
+    #expect(model.errorMessage == nil)
+
+    await olderGate.open()
+    await olderTask.value
+    #expect(
+        model.conversation?.conversation.id
+            == "00000000-0000-0000-0000-000000000003"
+    )
+    #expect(model.errorMessage == nil)
+}
+
+@MainActor
+@Test func staleMemoryDetailCannotOverwriteNewerSelection() async {
+    let olderGate = AsyncGate()
+    let newerGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "memory.get": [
+                .gatedJSON(firstMemoryJSON, olderGate),
+                .gatedJSON(secondMemoryJSON, newerGate),
+            ],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let olderTask = Task {
+        await model.selectMemory(
+            "00000000-0000-0000-0000-000000000010"
+        )
+    }
+    await waitForCallCount(1, bridge: bridge)
+    let newerTask = Task {
+        await model.selectMemory(
+            "00000000-0000-0000-0000-000000000011"
+        )
+    }
+    await waitForCallCount(2, bridge: bridge)
+
+    await newerGate.open()
+    await newerTask.value
+    await olderGate.open()
+    await olderTask.value
+
+    #expect(
+        model.memoryDetail?.id
+            == "00000000-0000-0000-0000-000000000011"
+    )
+}
+
+@MainActor
+@Test func staleKnowledgeDetailCannotOverwriteNewerSelection() async {
+    let olderGate = AsyncGate()
+    let newerGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "knowledge.get": [
+                .gatedJSON(knowledgeDetailV1JSON, olderGate),
+                .gatedJSON(secondKnowledgeDetailJSON, newerGate),
+            ],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let olderTask = Task {
+        await model.selectKnowledgeSource(
+            "00000000-0000-0000-0000-000000000020"
+        )
+    }
+    await waitForCallCount(1, bridge: bridge)
+    let newerTask = Task {
+        await model.selectKnowledgeSource(
+            "00000000-0000-0000-0000-000000000024"
+        )
+    }
+    await waitForCallCount(2, bridge: bridge)
+
+    await newerGate.open()
+    await newerTask.value
+    await olderGate.open()
+    await olderTask.value
+
+    #expect(
+        model.knowledgeDetail?.source.id
+            == "00000000-0000-0000-0000-000000000024"
+    )
+}
+
+@MainActor
+@Test func staleTaskDetailCannotOverwriteNewerSelection() async {
+    let olderGate = AsyncGate()
+    let newerGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "task.get": [
+                .gatedJSON(taskViewJSON, olderGate),
+                .gatedJSON(secondTaskViewJSON, newerGate),
+            ],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let olderTask = Task {
+        await model.selectTask(
+            "00000000-0000-0000-0000-000000000030"
+        )
+    }
+    await waitForCallCount(1, bridge: bridge)
+    let newerTask = Task {
+        await model.selectTask(
+            "00000000-0000-0000-0000-000000000032"
+        )
+    }
+    await waitForCallCount(2, bridge: bridge)
+
+    await newerGate.open()
+    await newerTask.value
+    await olderGate.open()
+    await olderTask.value
+
+    #expect(
+        model.taskDetail?.task.id
+            == "00000000-0000-0000-0000-000000000032"
+    )
+}
+
+@MainActor
+@Test func staleAttentionDetailCannotOverwriteNewerSelection() async {
+    let olderGate = AsyncGate()
+    let newerGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "attention.get": [
+                .gatedJSON(firstAttentionJSON, olderGate),
+                .gatedJSON(secondAttentionJSON, newerGate),
+            ],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let olderTask = Task {
+        await model.selectAttention(
+            "00000000-0000-0000-0000-000000000040"
+        )
+    }
+    await waitForCallCount(1, bridge: bridge)
+    let newerTask = Task {
+        await model.selectAttention(
+            "00000000-0000-0000-0000-000000000041"
+        )
+    }
+    await waitForCallCount(2, bridge: bridge)
+
+    await newerGate.open()
+    await newerTask.value
+    await olderGate.open()
+    await olderTask.value
+
+    #expect(
+        model.attentionDetail?.event.id
+            == "00000000-0000-0000-0000-000000000041"
+    )
+}
+
+@MainActor
+@Test func knowledgeMutationRefreshCannotOverwriteNewerNavigation() async throws {
+    let refreshGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "knowledge.get": [
+                .json(knowledgeDetailV1JSON),
+                .gatedJSON(knowledgeDetailV2JSON, refreshGate),
+                .json(secondKnowledgeDetailJSON),
+            ],
+            "knowledge.ingest_text": [.json(knowledgeIngestV2JSON)],
+            "knowledge.list": [.json("[\(knowledgeSourceV2JSON)]")],
+        ]
+    )
+    let model = AppModel(client: bridge)
+    let source = try decode(
+        KnowledgeSourceSummary.self,
+        knowledgeSourceV1JSON
+    )
+    await model.selectKnowledgeSource(source.id)
+
+    let updateTask = Task {
+        await model.updateKnowledgeSource(
+            source,
+            text: "Replacement synthetic knowledge."
+        )
+    }
+    await waitForMethodCallCount(
+        2,
+        method: "knowledge.get",
+        bridge: bridge
+    )
+
+    await model.selectKnowledgeSource(
+        "00000000-0000-0000-0000-000000000024"
+    )
+    #expect(
+        model.knowledgeDetail?.source.id
+            == "00000000-0000-0000-0000-000000000024"
+    )
+
+    await refreshGate.open()
+    _ = await updateTask.value
+    #expect(
+        model.knowledgeDetail?.source.id
+            == "00000000-0000-0000-0000-000000000024"
+    )
 }
