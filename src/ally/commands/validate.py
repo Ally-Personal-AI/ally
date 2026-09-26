@@ -11,8 +11,6 @@ from pydantic import ValidationError
 from ally.diagnostics import (
     ArtifactFingerprint,
     CandidateEvidence,
-    FirstMachineProgressError,
-    FirstMachineProgressReport,
     FirstMachineReadinessReport,
     FunctionalWorkflowEvidenceError,
     FunctionalWorkflowEvidenceReport,
@@ -30,7 +28,6 @@ from ally.diagnostics import (
     build_candidate_evidence,
     build_functional_workflow_report,
     build_runtime_privacy_report,
-    collect_first_machine_progress,
     collect_first_machine_readiness,
     collect_hardware_profile,
     compare_candidate_evidence,
