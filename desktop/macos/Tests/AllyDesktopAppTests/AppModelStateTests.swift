@@ -180,6 +180,30 @@ private let researchResultsJSON = #"[{"title":"Synthetic result","url":"https://
 
 private let researchSynthesisJSON = #"{"answer":"Synthetic answer. [1]","cited_result_indices":[1],"insufficient_evidence":false}"#
 
+private let newerConversationSearchJSON = #"[{"conversation":{"id":"00000000-0000-0000-0000-000000000003","title":"Newer synthetic conversation","created_at":"2026-09-25T00:02:00Z","updated_at":"2026-09-25T00:03:00Z"},"score":2.0,"match_kind":"message","message_id":"00000000-0000-0000-0000-000000000004","message_position":0,"message_role":"user","snippet":"Newer synthetic result."}]"#
+
+private let firstMemorySearchJSON = #"[{"id":"00000000-0000-0000-0000-000000000010","kind":"semantic","content":"Older synthetic memory.","source":{"type":"user","id":null,"uri":null},"confidence":1.0,"importance":0.5,"privacy":"private","created_at":"2026-09-25T00:00:00Z","updated_at":"2026-09-25T00:00:00Z","observed_at":"2026-09-25T00:00:00Z","valid_from":null,"valid_until":null,"supersedes":null,"superseded_at":null,"superseded_by":null,"retracted_at":null}]"#
+
+private let secondMemorySearchJSON = #"[{"id":"00000000-0000-0000-0000-000000000011","kind":"semantic","content":"Newer synthetic memory.","source":{"type":"user","id":null,"uri":null},"confidence":1.0,"importance":0.5,"privacy":"private","created_at":"2026-09-25T00:01:00Z","updated_at":"2026-09-25T00:01:00Z","observed_at":"2026-09-25T00:01:00Z","valid_from":null,"valid_until":null,"supersedes":null,"superseded_at":null,"superseded_by":null,"retracted_at":null}]"#
+
+private let newerKnowledgeSearchJSON = #"[{"source":{"id":"00000000-0000-0000-0000-000000000024","uri":"ally-desktop://note/newer","title":"Newer synthetic note","media_type":"text/plain","current_revision":1,"created_at":"2026-09-25T00:03:00Z","updated_at":"2026-09-25T00:03:00Z"},"chunk":{"id":"00000000-0000-0000-0000-000000000025","source_id":"00000000-0000-0000-0000-000000000024","revision_id":"00000000-0000-0000-0000-000000000026","revision":1,"ordinal":0,"content":"Newer synthetic search content.","start_char":0,"end_char":31,"sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","created_at":"2026-09-25T00:03:00Z"},"score":2.0}]"#
+
+private let instructionResolutionJSON = #"{"profiles":[{"scope":"global","scope_key":"","content":"Be concise.","enabled":true,"created_at":"2026-09-25T00:00:00Z","updated_at":"2026-09-25T00:00:00Z"}],"contributions":[{"scope":"global","scope_key":"","content":"Be concise."}],"rendered":"[global]\nBe concise."}"#
+
+private let instructionProfileJSON = #"{"scope":"global","scope_key":"","content":"Prefer updated synthetic instructions.","enabled":true,"created_at":"2026-09-25T00:00:00Z","updated_at":"2026-09-25T00:02:00Z"}"#
+
+private let instructionProfileListJSON = #"[{"scope":"global","scope_key":"","content":"Prefer updated synthetic instructions.","enabled":true,"created_at":"2026-09-25T00:00:00Z","updated_at":"2026-09-25T00:02:00Z"}]"#
+
+private let researchInspectionJSON = #"{"request_id":"00000000-0000-0000-0000-000000000050","service":"synthetic.search","operation":"web.search","decision":"require_approval","fields":[{"name":"count","classification":"public"},{"name":"query","classification":"explicit_outbound"}],"error_class":null}"#
+
+private let researchAnswerJSON = #"{"search":{"request_id":"00000000-0000-0000-0000-000000000060","service":"synthetic.search","operation":"web.search","decision":"allow","status":"succeeded","results":[{"title":"Newer synthetic source","url":"https://example.test/newer-source","description":"Newer synthetic snippet."}],"more_results_available":false,"error_class":null},"synthesis_status":"succeeded","synthesis":{"answer":"Newer synthetic answer. [1]","cited_result_indices":[1],"insufficient_evidence":false},"synthesis_error_class":null}"#
+
+private let olderMemoryProposalJSON = #"{"schema_version":1,"generated_at":"2026-09-25T20:00:00Z","provider":"synthetic-local","model":"synthetic-model","source":{"type":"user","id":null,"uri":null},"privacy":"private","source_text_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","memories":[{"kind":"preference","content":"Older synthetic proposal.","confidence":0.9,"importance":0.8}]}"#
+
+private let newerMemoryProposalJSON = #"{"schema_version":1,"generated_at":"2026-09-25T20:01:00Z","provider":"synthetic-local","model":"synthetic-model","source":{"type":"user","id":null,"uri":null},"privacy":"private","source_text_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","memories":[{"kind":"preference","content":"Newer synthetic proposal.","confidence":0.95,"importance":0.85}]}"#
+
+private let newerTaskProposalJSON = #"{"goal":"Inspect newer synthetic state","steps":[{"tool_name":"system.info","arguments":{}}]}"#
+
 private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
@@ -738,4 +762,337 @@ private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
         model.knowledgeDetail?.source.id
             == "00000000-0000-0000-0000-000000000024"
     )
+}
+
+
+@MainActor
+@Test func staleConversationSearchCannotOverwriteNewerQuery() async {
+    let oldGate = AsyncGate()
+    let newGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "conversation.search": [
+                .gatedJSON(conversationSearchJSON, oldGate),
+                .gatedJSON(newerConversationSearchJSON, newGate),
+            ],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let oldTask = Task { await model.searchConversations("old query") }
+    await waitForCallCount(1, bridge: bridge)
+    let newTask = Task { await model.searchConversations("new query") }
+    await waitForCallCount(2, bridge: bridge)
+
+    await newGate.open()
+    await newTask.value
+    #expect(
+        model.conversationSearchResults.first?.conversation.id
+            == "00000000-0000-0000-0000-000000000003"
+    )
+
+    await oldGate.open()
+    await oldTask.value
+    #expect(
+        model.conversationSearchResults.first?.conversation.id
+            == "00000000-0000-0000-0000-000000000003"
+    )
+}
+
+@MainActor
+@Test func clearingConversationSearchInvalidatesInFlightResult() async {
+    let gate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "conversation.search": [
+                .gatedJSON(conversationSearchJSON, gate),
+            ],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let task = Task { await model.searchConversations("synthetic query") }
+    await waitForCallCount(1, bridge: bridge)
+    model.clearConversationSearch()
+    #expect(model.conversationSearchResults.isEmpty)
+
+    await gate.open()
+    await task.value
+    #expect(model.conversationSearchResults.isEmpty)
+}
+
+@MainActor
+@Test func staleMemorySearchCannotOverwriteNewerQuery() async {
+    let oldGate = AsyncGate()
+    let newGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "memory.search": [
+                .gatedJSON(firstMemorySearchJSON, oldGate),
+                .gatedJSON(secondMemorySearchJSON, newGate),
+            ],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let oldTask = Task { await model.searchMemories("old memory") }
+    await waitForCallCount(1, bridge: bridge)
+    let newTask = Task { await model.searchMemories("new memory") }
+    await waitForCallCount(2, bridge: bridge)
+
+    await newGate.open()
+    await newTask.value
+    #expect(
+        model.memorySearchResults.first?.id
+            == "00000000-0000-0000-0000-000000000011"
+    )
+
+    await oldGate.open()
+    await oldTask.value
+    #expect(
+        model.memorySearchResults.first?.id
+            == "00000000-0000-0000-0000-000000000011"
+    )
+}
+
+@MainActor
+@Test func staleKnowledgeSearchCannotOverwriteNewerQuery() async {
+    let oldGate = AsyncGate()
+    let newGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "knowledge.search": [
+                .gatedJSON(knowledgeSearchJSON, oldGate),
+                .gatedJSON(newerKnowledgeSearchJSON, newGate),
+            ],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let oldTask = Task { await model.searchKnowledge("old knowledge") }
+    await waitForCallCount(1, bridge: bridge)
+    let newTask = Task { await model.searchKnowledge("new knowledge") }
+    await waitForCallCount(2, bridge: bridge)
+
+    await newGate.open()
+    await newTask.value
+    #expect(
+        model.knowledgeSearchResults.first?.source.id
+            == "00000000-0000-0000-0000-000000000024"
+    )
+
+    await oldGate.open()
+    await oldTask.value
+    #expect(
+        model.knowledgeSearchResults.first?.source.id
+            == "00000000-0000-0000-0000-000000000024"
+    )
+}
+
+@MainActor
+@Test func instructionMutationInvalidatesInFlightResolution() async {
+    let gate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "instructions.resolve": [
+                .gatedJSON(instructionResolutionJSON, gate),
+            ],
+            "instructions.set": [
+                .json(instructionProfileJSON),
+            ],
+            "instructions.list": [
+                .json(instructionProfileListJSON),
+            ],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let resolutionTask = Task {
+        await model.resolveInstructions(
+            projectKey: "",
+            conversationKey: "",
+            taskKey: "",
+            sessionInstructions: "Synthetic session preview."
+        )
+    }
+    await waitForCallCount(1, bridge: bridge)
+
+    await model.setInstructions(
+        scope: "global",
+        scopeKey: nil,
+        content: "Prefer updated synthetic instructions.",
+        enabled: true
+    )
+    #expect(model.instructionResolution == nil)
+
+    await gate.open()
+    await resolutionTask.value
+    #expect(model.instructionResolution == nil)
+    #expect(model.instructionProfiles.first?.content == "Prefer updated synthetic instructions.")
+}
+
+@MainActor
+@Test func approvedResearchSupersedesOlderInspection() async {
+    let inspectionGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "research.inspect": [
+                .gatedJSON(researchInspectionJSON, inspectionGate),
+            ],
+            "research.answer": [
+                .json(researchAnswerJSON),
+            ],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let inspectionTask = Task {
+        await model.inspectResearch("older synthetic query")
+    }
+    await waitForCallCount(1, bridge: bridge)
+
+    await model.runApprovedResearch("newer synthetic query")
+    #expect(model.researchStatus == "succeeded")
+    #expect(model.researchResults.first?.title == "Newer synthetic source")
+    #expect(model.researchSynthesis?.answer == "Newer synthetic answer. [1]")
+
+    await inspectionGate.open()
+    await inspectionTask.value
+    #expect(model.researchStatus == "succeeded")
+    #expect(model.researchInspection == nil)
+    #expect(model.researchResults.first?.title == "Newer synthetic source")
+    #expect(model.researchSynthesis?.answer == "Newer synthetic answer. [1]")
+}
+
+@MainActor
+@Test func clearingResearchInvalidatesInFlightInspection() async {
+    let gate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "research.inspect": [
+                .gatedJSON(researchInspectionJSON, gate),
+            ],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let task = Task { await model.inspectResearch("synthetic query") }
+    await waitForCallCount(1, bridge: bridge)
+    model.clearResearch()
+
+    await gate.open()
+    await task.value
+    #expect(model.researchInspection == nil)
+    #expect(model.researchResults.isEmpty)
+    #expect(model.researchStatus == nil)
+}
+
+@MainActor
+@Test func staleMemoryProposalCannotOverwriteNewerProposal() async {
+    let oldGate = AsyncGate()
+    let newGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "memory.propose": [
+                .gatedJSON(olderMemoryProposalJSON, oldGate),
+                .gatedJSON(newerMemoryProposalJSON, newGate),
+            ],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let oldTask = Task {
+        await model.proposeMemories(from: "Older synthetic source.")
+    }
+    await waitForCallCount(1, bridge: bridge)
+    let newTask = Task {
+        await model.proposeMemories(from: "Newer synthetic source.")
+    }
+    await waitForCallCount(2, bridge: bridge)
+
+    await newGate.open()
+    await newTask.value
+    #expect(
+        model.memoryProposal?.memories.first?.content
+            == "Newer synthetic proposal."
+    )
+
+    await oldGate.open()
+    await oldTask.value
+    #expect(
+        model.memoryProposal?.memories.first?.content
+            == "Newer synthetic proposal."
+    )
+}
+
+@MainActor
+@Test func clearingMemoryProposalInvalidatesInFlightGeneration() async {
+    let gate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "memory.propose": [
+                .gatedJSON(olderMemoryProposalJSON, gate),
+            ],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let task = Task {
+        await model.proposeMemories(from: "Synthetic proposal source.")
+    }
+    await waitForCallCount(1, bridge: bridge)
+    model.clearMemoryProposal()
+
+    await gate.open()
+    await task.value
+    #expect(model.memoryProposal == nil)
+}
+
+@MainActor
+@Test func staleTaskProposalCannotOverwriteNewerProposal() async {
+    let oldGate = AsyncGate()
+    let newGate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "task.propose": [
+                .gatedJSON(taskProposalJSON, oldGate),
+                .gatedJSON(newerTaskProposalJSON, newGate),
+            ],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let oldTask = Task { await model.proposeTask("Older synthetic goal") }
+    await waitForCallCount(1, bridge: bridge)
+    let newTask = Task { await model.proposeTask("Newer synthetic goal") }
+    await waitForCallCount(2, bridge: bridge)
+
+    await newGate.open()
+    await newTask.value
+    #expect(model.taskProposal?.goal == "Inspect newer synthetic state")
+
+    await oldGate.open()
+    await oldTask.value
+    #expect(model.taskProposal?.goal == "Inspect newer synthetic state")
+}
+
+@MainActor
+@Test func clearingTaskProposalInvalidatesInFlightGeneration() async {
+    let gate = AsyncGate()
+    let bridge = FakeBridgeClient(
+        replies: [
+            "task.propose": [
+                .gatedJSON(taskProposalJSON, gate),
+            ],
+        ]
+    )
+    let model = AppModel(client: bridge)
+
+    let task = Task { await model.proposeTask("Synthetic goal") }
+    await waitForCallCount(1, bridge: bridge)
+    model.clearTaskProposal()
+
+    await gate.open()
+    await task.value
+    #expect(model.taskProposal == nil)
 }
