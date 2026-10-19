@@ -36,7 +36,7 @@ security = [
 build = ["hatchling>=1.27,<2"]
 release-helper = [
   "pyinstaller==6.22.3",
-  "pyinstaller-hooks-contrib==2026.7",
+  "pyinstaller-hooks-contrib==2026.8",
 ]
 
 [tool.hatch.build.targets.wheel]
